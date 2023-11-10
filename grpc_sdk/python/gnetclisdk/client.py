@@ -62,7 +62,7 @@ def make_auth(auth_token: str) -> ClientAuthentication:
 class Gnetcli:
     def __init__(
         self,
-        auth_token: str,  # like 'Basic ...'
+        auth_token: Optional[str] = None,  # like 'Basic ...'
         server: Optional[str] = None,
         target_name_override: Optional[str] = None,
         cert_file: Optional[str] = None,
@@ -85,9 +85,11 @@ class Gnetcli:
         self._target_name_override = target_name_override
         cert = get_cert(cert_file=cert_file)
         channel_credentials = grpc.ssl_channel_credentials(root_certificates=cert)
-        authentication: ClientAuthentication
-        authentication = make_auth(auth_token)
-        interceptors = get_auth_client_interceptors(authentication)
+        interceptors = []
+        if auth_token:
+            authentication: ClientAuthentication
+            authentication = make_auth(auth_token)
+            interceptors = get_auth_client_interceptors(authentication)
         grpc_channel_fn = partial(grpc.aio.secure_channel, credentials=channel_credentials, interceptors=interceptors)
         if insecure_grpc:
             grpc_channel_fn = partial(grpc.aio.insecure_channel, interceptors=interceptors)
