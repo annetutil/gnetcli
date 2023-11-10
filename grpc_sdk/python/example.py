@@ -8,10 +8,10 @@ from gnetclisdk.client import Credentials, Gnetcli
 
 
 async def amain(
-    token: str,
     host: str,
     cmd: str,
     device: str,
+    token: Optional[str] = None,
     insecure: bool = False,
     device_login: Optional[str] = "",
     device_password: Optional[str] = "",
@@ -31,7 +31,7 @@ def basic_auth(username: str, password: str) -> str:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Exec arbitrary command")
-    parser.add_argument("--user", "-u", help="Specify the user name and password to use for basic auth", required=True)
+    parser.add_argument("--user", "-u", help="Specify the user name and password to use for basic auth")
     parser.add_argument("--cmd", help="Command", required=True, default="dis ver")
     parser.add_argument("--device-login", help="Device login")
     parser.add_argument("--device-password", help="Device password")
@@ -48,10 +48,13 @@ if __name__ == "__main__":
         format="%(asctime)s - %(filename)s:%(lineno)d - %(funcName)s() - %(levelname)s - %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    btoken = basic_auth(*args.user.split(":"))
+    token = None
+    if args.user:
+        btoken = basic_auth(*args.user.split(":"))
+        token = "Basic %s" % btoken
     asyncio.run(
         amain(
-            token="Basic %s" % btoken,
+            token=token,
             host=args.host,
             cmd=args.cmd,
             device=args.device,

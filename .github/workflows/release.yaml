@@ -24,4 +24,4 @@ jobs:
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
           project_path: ./cmd/server/
-          binary_name: grpc_server
+          binary_name: gnetcli_server
