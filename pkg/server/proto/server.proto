@@ -1,0 +1,136 @@
+syntax = "proto3";
+option go_package = "github.com/annetutil/gnetcli/pkg/server/proto;gnetcli";
+
+package gnetcli;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+message QA {
+  string question = 1;
+  string answer = 2;
+}
+
+message Credentials {
+  string login = 1;
+  string password = 2;
+}
+
+message CMD {
+  string host = 1;
+  string cmd = 2;
+  bool trace = 3;
+  repeated QA qa = 4;
+  double read_timeout = 5;
+  double cmd_timeout = 6;
+  string device = 7;
+  bool string_result = 8;
+  Credentials credentials = 9;
+}
+
+message Device {
+  string name = 1;
+  string prompt_expression = 2;
+  string error_expression = 3;
+  string pager_expression = 4;
+}
+
+message CMDNetconf {
+  string host = 1;
+  string cmd = 2;
+  bool json = 3;
+  double read_timeout = 4; // read timeout in seconds
+  double cmd_timeout = 5; // command execution timeout in seconds
+  Credentials Credentials = 6;
+}
+
+enum TraceOperation {
+  Operation_notset = 0;
+  Operation_unknown = 1;
+  Operation_write = 2;
+  Operation_read = 3;
+}
+
+enum DeviceResultStatus {
+  Device_notset = 0;
+  Device_ok = 1;
+  Device_error = 2;
+}
+
+message CMDTraceItem {
+  TraceOperation operation = 1;
+  bytes data = 2;
+}
+
+message CMDResult {
+  bytes out = 1;
+  string out_str = 2;
+  bytes error = 3;
+  string error_str = 4;
+  repeated CMDTraceItem trace = 5;
+  int32 status = 6;
+}
+
+message DeviceResult {
+  DeviceResultStatus res = 1;
+  string error = 2;
+}
+
+message FileDownloadRequest {
+  string host = 1;
+  string path = 2;
+  string device = 3;
+  Credentials credentials = 4;
+}
+
+message FileUploadRequest {
+  string host = 1;
+  string path = 2;
+  bytes data = 3;
+  string device = 4;
+  Credentials credentials = 5;
+}
+
+message FileResult {
+  string path = 1;
+  bytes data = 2;
+}
+
+message FilesResult {
+  repeated FileResult files = 1;
+}
+
+service Gnetcli {
+  rpc Exec(CMD) returns (CMDResult) {
+    option (google.api.http) = {
+      post: "/api/v1/exec"
+      body: "*"
+    };
+  };
+  rpc ExecChat(stream CMD) returns (stream CMDResult) {};
+  rpc AddDevice(Device) returns (DeviceResult) {
+    option (google.api.http) = {
+      post: "/api/v1/add_device"
+      body: "*"
+    };
+  };
+  rpc ExecNetconf(CMDNetconf) returns (CMDResult) {
+    option (google.api.http) = {
+      post: "/api/v1/exec_netconf"
+      body: "*"
+    };
+  };
+  rpc ExecNetconfChat(stream CMDNetconf) returns (stream CMDResult) {};
+  rpc Downloads(FileDownloadRequest) returns (FilesResult) {
+    option (google.api.http) = {
+      post: "/api/v1/downloads"
+      body: "*"
+    };
+  };
+  rpc Upload(FileUploadRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/v1/upload"
+      body: "*"
+    };
+  };
+}

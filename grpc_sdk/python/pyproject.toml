@@ -1,0 +1,18 @@
+[tool.ruff]
+line-length = 120
+select = [
+    "B",
+    "C",
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E",
+    "W",
+    # isort
+    "I001",
+    # Other
+    "PT",
+    "SIM",
+    "RUF",
+    "ERA",
+]
