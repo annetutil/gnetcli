@@ -1,5 +1,10 @@
 ## python client for Gnetcli server
 
+Install Gnetcli GRPC-server.
+- Download latest release from https://github.com/annetutil/gnetcli/releases/
+- `tar -xzvf gnetcli_server-v1.0.0-darwin-amd64.tar.gz`
+- `./gnetcli_server -debug`
+
 Example:
 
 ```python
