@@ -1,0 +1,17 @@
+site_name: Gnetcli Docs
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Example: lib_examples.md
+
+plugins:
+  - mermaid2
+
+markdown_extensions:
+  - pymdownx.superfences:
+      # make exceptions to highlighting of code:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid
