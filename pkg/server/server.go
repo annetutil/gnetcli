@@ -76,6 +76,11 @@ func (m *Server) makeDevice(hostname string, deviceType string, creds *pb.Creden
 }
 
 func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
+	authData, ok := getAuthFromContext(stream.Context())
+	if !ok {
+		return errors.New("empty auth")
+	}
+	logger := zap.New(m.log.Core()).With(zap.String("login", authData.GetUser()))
 	m.log.Info("start chat")
 	firstCmd, err := stream.Recv()
 	if err != nil {
@@ -92,7 +97,7 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	devTrace := gtrace.NewTraceLimited(cmdTraceLimit)
 	devTraceMulti.AddTrace(devTrace)
 
-	logger := m.log.With(zap.String("host", firstCmd.GetHost()))
+	logger = logger.With(zap.String("host", firstCmd.GetHost()))
 	devInited, err := m.makeDevice(firstCmd.GetHost(), firstCmd.GetDevice(), firstCmd.GetCredentials(), devTraceMulti.Add, logger)
 	if err != nil {
 		return status.Errorf(codes.Internal, err.Error())
