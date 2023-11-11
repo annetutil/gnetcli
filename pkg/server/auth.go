@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
 	"strings"
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -12,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"github.com/annetutil/gnetcli/pkg/credentials"
@@ -65,20 +68,41 @@ func (m *Auth) AuthenticateStream(srv interface{}, ss grpc.ServerStream, info *g
 }
 
 func (m *Auth) authenticate(ctx context.Context) (context.Context, error) {
-	m.log.Debug("authenticate")
+	srcIp, err := extractIP(ctx)
+	if err != nil {
+		return nil, err
+	}
+	logger := zap.New(m.log.Core()).With(zap.String("src", srcIp.String()))
+	logger.Debug("authenticate")
+
 	authRes, err := m.checkToken(ctx)
 	if err != nil {
-		m.log.Debug("authentication error")
-		return nil, err
+		logger.Error("auth error", zap.Error(err))
+		return nil, fmt.Errorf("authentication error %w", err)
 	}
 	if authRes == nil {
-		m.log.Error("empty auth")
-		return nil, err
+		logger.Error("empty auth")
+		return nil, errors.New("empty auth")
 	}
-
 	newCtx := setAuthContext(ctx, *authRes)
-	m.log.Debug("authenticated")
+	logger.Debug("authenticated", zap.String("user", authRes.GetUser()))
 	return newCtx, nil
+}
+
+func extractIP(ctx context.Context) (*netip.Addr, error) {
+	peerAddr, ok := peer.FromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("unable to extrace addr from context")
+	}
+	addr, ok := peerAddr.Addr.(*net.TCPAddr)
+	if !ok {
+		return nil, fmt.Errorf("unable to switch type %v", addr)
+	}
+	srcIP, ok := netip.AddrFromSlice(addr.IP)
+	if !ok {
+		return nil, fmt.Errorf("unable to extract addr %v", addr.IP)
+	}
+	return &srcIP, nil
 }
 
 func (m *Auth) checkToken(ctx context.Context) (*authInfo, error) {
@@ -99,7 +123,7 @@ func (m *Auth) checkToken(ctx context.Context) (*authInfo, error) {
 	}
 	_, basicUser, basicPass, _, err := extractAuthTokens(authorizationHeader)
 	if err != nil {
-		return nil, errors.New("unable to parse auth")
+		return nil, fmt.Errorf("unable to parse auth: %w", err)
 	}
 	if m.login == basicUser && m.password.Value() == basicPass {
 		return newAuthInfo(basicUser), nil
@@ -108,6 +132,9 @@ func (m *Auth) checkToken(ctx context.Context) (*authInfo, error) {
 }
 
 func extractAuthTokens(authorizationHeader string) (bearer, basicUser, basicPass, oauth string, err error) {
+	if len(authorizationHeader) == 0 {
+		return bearer, basicUser, basicPass, oauth, fmt.Errorf("empty auth header")
+	}
 	authorizationHeaderVals := strings.Split(authorizationHeader, " ")
 	if len(authorizationHeaderVals) != 2 {
 		return bearer, basicUser, basicPass, oauth, fmt.Errorf("wrong auth header")
@@ -140,6 +167,10 @@ type authInfo struct {
 	user string
 }
 
+func (m authInfo) GetUser() string {
+	return m.user
+}
+
 func newAuthInfo(user string) *authInfo {
 	return &authInfo{user: user}
 }
@@ -147,4 +178,10 @@ func newAuthInfo(user string) *authInfo {
 func setAuthContext(ctx context.Context, auth authInfo) context.Context {
 	newCtx := context.WithValue(ctx, usernameField, auth)
 	return newCtx
+}
+
+func getAuthFromContext(ctx context.Context) (authInfo, bool) {
+	username := ctx.Value(usernameField)
+	val, ok := username.(authInfo)
+	return val, ok
 }

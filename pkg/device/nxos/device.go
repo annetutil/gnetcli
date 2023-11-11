@@ -1,3 +1,6 @@
+/*
+Package nxos implements Cisco Nexus CLI using genericcli.
+*/
 package nxos
 
 import (

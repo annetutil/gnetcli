@@ -1,3 +1,6 @@
+/*
+Package cmd describes command and command result interface and implementations.
+*/
 package cmd
 
 import (
@@ -57,20 +60,7 @@ func NewCmdResFull(output, err []byte, status int, extra map[string]interface{})
 	}
 }
 
-type CmdResList []CmdRes
-
-func (m CmdResList) Output() []byte {
-	var lst [][]byte
-	for _, res := range m {
-		lst = append(lst, res.Output())
-	}
-	return bytes.Join(lst, []byte("\n\n"))
-}
-
-func (m CmdResList) ToCmdRes() CmdRes {
-	return NewCmdRes(m.Output())
-}
-
+// CmdRes is an interface for command result.
 type CmdRes interface {
 	Output() []byte
 	Error() []byte
@@ -79,17 +69,28 @@ type CmdRes interface {
 	GetExtra(string) (interface{}, bool)
 }
 
+// Cmd is an interface for command.
 type Cmd interface {
+	// GetCmdTimeout returns command timeout
 	GetCmdTimeout() time.Duration
+	// GetReadTimeout returns timeout between sequential reads
 	GetReadTimeout() time.Duration
+	// Value returns command value
 	Value() []byte
+	// GetExprCallback returns mapping of expressions and callbacks
+	// to call if matched.
 	GetExprCallback() ([]string, map[string]string)
+	// QuestionHandler is called when question is matched.
 	QuestionHandler(question []byte) ([]byte, error)
+	// GetQuestionExprs returns list of possible questions.
 	GetQuestionExprs() []expr.Expr
+	// ErrorHandler is called when where is an error found in output.
 	ErrorHandler(error) error
+	// GetAgentForward returns whether SSH agent should be forwarded during execution.
 	GetAgentForward() bool
 }
 
+// CmdImpl implements Cmd interface.
 type CmdImpl struct {
 	command         []byte
 	readTimeout     time.Duration

@@ -1,3 +1,6 @@
+/*
+Package server implements GRPC-server upon gnetcli library.
+*/
 package server
 
 import (
@@ -61,7 +64,7 @@ func WithCredentials(creds credentials.Credentials) Option {
 func (m *Server) makeDevice(hostname string, deviceType string, creds *pb.Credentials, add func(op gtrace.Operation, data []byte), logger *zap.Logger) (device.Device, error) {
 	c := m.creds
 	if creds != nil {
-		c = BuildCreds(creds.GetLogin(), creds.GetPassword(), m.log)
+		c = BuildCreds(creds.GetLogin(), creds.GetPassword(), false, m.log)
 	}
 	connector := ssh.NewStreamer(hostname, c, ssh.WithLogger(logger), ssh.WithTrace(add))
 	devFab, ok := m.deviceMaps[deviceType]
@@ -365,7 +368,7 @@ func validateCmd(cmd *pb.CMD) error {
 	return nil
 }
 
-func BuildCreds(login, password string, logger *zap.Logger) credentials.Credentials {
+func BuildCreds(login, password string, enableAgent bool, logger *zap.Logger) credentials.Credentials {
 	if len(login) == 0 {
 		newLogin := credentials.GetLogin()
 		login = newLogin
@@ -373,11 +376,21 @@ func BuildCreds(login, password string, logger *zap.Logger) credentials.Credenti
 
 	opts := []credentials.CredentialsOption{
 		credentials.WithUsername(login),
-		credentials.WithSSHAgent(),
 		credentials.WithLogger(logger),
+	}
+	if enableAgent {
+		opts = append(opts, credentials.WithSSHAgent())
 	}
 	if len(password) > 0 {
 		opts = append(opts, credentials.WithPassword(credentials.Secret(password)))
+	}
+	creds := credentials.NewSimpleCredentials(opts...)
+	return creds
+}
+
+func BuildEmptyCreds(logger *zap.Logger) credentials.Credentials {
+	opts := []credentials.CredentialsOption{
+		credentials.WithLogger(logger),
 	}
 	creds := credentials.NewSimpleCredentials(opts...)
 	return creds

@@ -18,6 +18,7 @@ func TestError(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\n                          ^\r\nsyntax error, expecting <command>.\r\n"),
 		[]byte("\r\n                      ^\r\nunknown command.\r\n"),
+		[]byte("\r\n                           ^\r\nsyntax error.\r\n\r\n"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }

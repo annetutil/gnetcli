@@ -1,3 +1,6 @@
+/*
+Package device describes high-level interface for interaction with a device.
+*/
 package device
 
 import (

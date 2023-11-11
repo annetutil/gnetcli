@@ -1,3 +1,6 @@
+/*
+Package huawei implements huawei CLI using genericcli.
+*/
 package huawei
 
 import (

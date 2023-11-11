@@ -1,3 +1,6 @@
+/*
+Package cisco implements Cisco Catalyst CLI using genericcli.
+*/
 package cisco
 
 import (

@@ -1,3 +1,6 @@
+/*
+Package ssh implements SSH transport.
+*/
 package ssh
 
 import (
@@ -32,16 +35,10 @@ import (
 )
 
 const (
-	defaultHost         = "localhost"
-	defaultPort         = 22
-	defaultNetconfPort  = 830
-	readErrorBufferSize = 60
-	defaultReadTimeout  = 20 * time.Second
-	defaultCmdTimeout   = 60 * time.Second
-	envPathName         = "PATH"
-	defaultReadSize     = 4096
-	envPATH             = "/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
-	sftpServerPaths     = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
+	defaultPort        = 22
+	defaultReadTimeout = 20 * time.Second
+	defaultReadSize    = 4096
+	sftpServerPaths    = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
 )
 
 var _ streamer.Connector = (*Streamer)(nil)
@@ -454,22 +451,27 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	}
 	if creds.AgentEnabled() {
 		socket := os.Getenv("SSH_AUTH_SOCK")
-		var d net.Dialer
-		conn, err := d.DialContext(ctx, "unix", socket)
-		if err != nil {
-			return nil, err
-		}
-		agentClient := agent.NewClient(conn)
-		agentSigners, err := agentClient.Signers()
-		if err != nil {
-			return nil, err
-		}
-		for _, s := range agentSigners {
-			if as, ok := s.(ssh.AlgorithmSigner); ok {
-				signers = append(signers, NewSSHSignersAlgorithmSignerLogger(as, m.logger))
-			} else {
-				signers = append(signers, NewSSHSignersLogger(s, m.logger))
+		if len(socket) > 0 {
+			var d net.Dialer
+			m.logger.Debug("connect to agent", zap.String("socket", socket))
+			conn, err := d.DialContext(ctx, "unix", socket)
+			if err != nil {
+				return nil, err
 			}
+			agentClient := agent.NewClient(conn)
+			agentSigners, err := agentClient.Signers()
+			if err != nil {
+				return nil, err
+			}
+			for _, s := range agentSigners {
+				if as, ok := s.(ssh.AlgorithmSigner); ok {
+					signers = append(signers, NewSSHSignersAlgorithmSignerLogger(as, m.logger))
+				} else {
+					signers = append(signers, NewSSHSignersLogger(s, m.logger))
+				}
+			}
+		} else {
+			m.logger.Debug("SSH_AUTH_SOCK is not specified")
 		}
 	}
 	if len(signers) != 0 {
@@ -508,6 +510,7 @@ func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
 		return nil, err
 	}
 	remote := m.host + ":" + strconv.Itoa(m.port)
+	m.logger.Debug("open connection", zap.String("remote", remote))
 	var conn *ssh.Client
 	if m.tunnel != nil {
 		if !m.tunnel.IsConnected() {
@@ -637,8 +640,10 @@ func (m *Streamer) Init(ctx context.Context) error {
 	if m.inited {
 		return fmt.Errorf("already inited")
 	}
+	if m.credentials == nil {
+		return fmt.Errorf("empty credentials")
+	}
 	m.inited = true
-	m.logger.Debug("open connection", zap.String("host", m.host))
 
 	conn, err := m.openConnect(ctx)
 	if err != nil {
@@ -719,7 +724,7 @@ func (m *Streamer) passwordKICallbackWrapper(passwords []credentials.Secret) fun
 			return []string{}, nil
 		}
 		if passwordIndex >= len(passwords) { // prevent endless loop
-			return nil, gerror.ThrowAuthException("password auth error")
+			return nil, gerror.NewAuthException("password auth error")
 		}
 		password := passwords[passwordIndex]
 		passwordIndex++
@@ -732,7 +737,7 @@ func (m *Streamer) passwordCallbackWrapper(passwords []credentials.Secret) func(
 	return func() (secret string, err error) {
 		m.logger.Debug("passwordCallback", zap.Int("passwordIndex", passwordIndex))
 		if passwordIndex >= len(passwords) { // prevent endless loop
-			return "", gerror.ThrowAuthException("password auth error")
+			return "", gerror.NewAuthException("password auth error")
 		}
 		password := passwords[passwordIndex]
 		passwordIndex++
@@ -740,8 +745,6 @@ func (m *Streamer) passwordCallbackWrapper(passwords []credentials.Secret) func(
 	}
 }
 
-// makeSftpClient создает sftp клиент.
-// Для useSudo=true запускаем "sudo sftp-server".
 func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), err error) {
 	if !useSudo {
 		sc, err = sftp.NewClient(m.conn)

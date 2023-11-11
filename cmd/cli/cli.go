@@ -28,6 +28,7 @@ func main() {
 	}
 	dt := strings.Join(knownDevs, ", ")
 	hostname := flag.String("hostname", "", "Hostname")
+	port := flag.Int("port", 22, "Port")
 	command := flag.String("command", "", "Command")
 	devType := flag.String("devtype", "", fmt.Sprintf("Device type from %s", dt))
 	login := flag.String("login", "", "Login")
@@ -67,7 +68,11 @@ func main() {
 
 	commands := strings.Split(*command, "\n")
 	creds := buildCreds(*login, *password, logger)
-	connector := ssh.NewStreamer(*hostname, creds, ssh.WithLogger(logger))
+	sshOpts := []ssh.StreamerOption{ssh.WithLogger(logger)}
+	if port != nil {
+		sshOpts = append(sshOpts, ssh.WithPort(*port))
+	}
+	connector := ssh.NewStreamer(*hostname, creds, sshOpts...)
 	devFn, ok := deviceMaps[*devType]
 	if !ok {
 		panic(fmt.Errorf("unknown device %s", *devType))
@@ -155,7 +160,7 @@ func exec(ctx context.Context, dev device.Device, commands []string, logger *zap
 	for _, cmdIter := range commands {
 		cRes, err := dev.Execute(cmd.NewCmd(cmdIter))
 		if err != nil {
-			logger.Fatal("error", zap.Error(err))
+			logger.Warn("error", zap.Error(err))
 		}
 		res = append(res, cRes)
 	}

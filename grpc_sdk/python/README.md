@@ -2,7 +2,7 @@
 
 Install Gnetcli GRPC-server.
 - Download latest release from https://github.com/annetutil/gnetcli/releases/
-- `tar -xzvf gnetcli_server-v1.0.0-darwin-amd64.tar.gz`
+- `tar -xzvf gnetcli_server-v1.0.0-darwin-amd64.tar.gz` (If see 'cannot be opened because the developer cannot be verified', then call `sudo xattr -d com.apple.quarantine gnetcli_server`)
 - `./gnetcli_server -debug`
 
 Example:

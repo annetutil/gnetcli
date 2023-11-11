@@ -1,3 +1,6 @@
+/*
+Package telnet implements telnet transport at very basic level.
+*/
 package telnet
 
 import (
@@ -23,10 +26,7 @@ var _ streamer.Connector = (*Streamer)(nil)
 const (
 	defaultReadSize    = 4096
 	defaultReadTimeout = 20 * time.Second
-)
-
-var (
-	Port = 23
+	defaultPort        = 23
 )
 
 type Streamer struct {
@@ -70,7 +70,7 @@ func (m *Streamer) SetCredentialsInterceptor(inter func(credentials.Credentials)
 
 func (m *Streamer) Init(ctx context.Context) error {
 	m.logger.Debug("open connection", zap.String("host", m.host))
-	conn, err := streamer.TCPDialCtx(ctx, "tcp", fmt.Sprintf("%s:%d", m.host, Port))
+	conn, err := streamer.TCPDialCtx(ctx, "tcp", fmt.Sprintf("%s:%d", m.host, defaultPort))
 	if err != nil {
 		return err
 	}

@@ -1,3 +1,6 @@
+/*
+Package expr implements text matching.
+*/
 package expr
 
 import (

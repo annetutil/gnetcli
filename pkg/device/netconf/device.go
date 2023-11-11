@@ -1,3 +1,6 @@
+/*
+Package netconf implements netconf.
+*/
 package netconf
 
 import (
