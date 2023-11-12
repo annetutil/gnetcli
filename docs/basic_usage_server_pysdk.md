@@ -1,6 +1,6 @@
 ## gnetclisdk
 
-Gnetclisdk is a python GRPC-client. 
+Gnetclisdk is a python client for [Gnetcli GRPC-server](https://annetutil.github.io/gnetcli/basic_usage_server/).
 
 Install:
 
