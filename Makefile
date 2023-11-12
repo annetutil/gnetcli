@@ -6,6 +6,9 @@ all: build proto testrace
 build:
 	go build ./...
 
+build-docker:
+	docker build ./
+
 proto:
 	protoc -I '${CURDIR}/pkg/server/proto/'  \
 		 --go_out='${CURDIR}/pkg/server/proto/' \
