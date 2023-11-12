@@ -1,4 +1,4 @@
-site_name: Gnetcli Docs
+site_name: Gnetcli
 
 nav:
   - Home: index.md
@@ -32,6 +32,7 @@ theme:
     #- navigation.expand
     - navigation.top
     #- navigation.sections
+    - navigation.prune
   include_search_page: false
   search_index_only: true
 
@@ -68,3 +69,6 @@ markdown_extensions:
           format: !!python/name:mermaid2.fence_mermaid
   - pymdownx.snippets:
       check_paths: true
+
+extra:
+  generator: false
