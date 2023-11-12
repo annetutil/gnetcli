@@ -1,0 +1,15 @@
+project_name: gnetcli
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+    main: ./cmd/server/
+    binary: server
+dockers:
+  - image_templates: ["ghcr.io/{{ .ProjectName }}/server:{{ .Version }}-amd64"]
+    goarch: amd64
+    dockerfile: .goreleaser-scratch.dockerfile
