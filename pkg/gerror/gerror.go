@@ -17,6 +17,6 @@ func (m *AuthException) Is(target error) bool {
 	return false
 }
 
-func ThrowAuthException(msg string) error {
+func NewAuthException(msg string) error {
 	return &AuthException{msg: msg}
 }

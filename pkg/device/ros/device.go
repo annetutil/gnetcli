@@ -1,3 +1,6 @@
+/*
+Package ros implements RouterOS CLI using genericcli.
+*/
 package ros
 
 import (
@@ -10,7 +13,7 @@ import (
 )
 
 const (
-	// строка с промтом может иметь вид "\r\n\r\r\r\r[admin@mk-rb3011-test] >   (~1000 пробелов)   \r[admin@mk-rb3011-test] > "
+	// line may be like this "\r\n\r\r\r\r[admin@mk-rb3011-test] >   (~1000 space)   \r[admin@mk-rb3011-test] > "
 	hiddenPrompt       = `((\r\n|\r+|^)\[\S+@\S+\]\s+(\/[\/\w\s-]+)?(<SAFE)?>\s+)?`
 	visiblePrompt      = `(\r\n|\r|^)\[(?P<login>\S+)@(?P<hostname>\S+)\]\s+(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> $`
 	promptExpression   = hiddenPrompt + visiblePrompt

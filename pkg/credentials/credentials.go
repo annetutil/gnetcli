@@ -1,3 +1,6 @@
+/*
+Package credentials describes credentials.
+*/
 package credentials
 
 import (

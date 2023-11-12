@@ -1,3 +1,6 @@
+/*
+Package terminal implements terminal evaluation functions.
+*/
 package terminal
 
 import (
@@ -31,7 +34,7 @@ type Parser struct {
 
 func Parse(data []byte) ([]byte, error) {
 	parser := Parser{
-		pos:  -1, // Первый вызов consume установит pos на нулевой символ строки
+		pos:  -1, // The first call to consume will set pos to 0 character of the string
 		data: data,
 	}
 	return parser.parse()
@@ -123,15 +126,15 @@ func (m *Parser) parse() ([]byte, error) {
 				if nArgsInt == 0 {
 					nArgsInt = 1
 				}
-				// Количество символов может быть больше валидного значения.
+				// The number of characters may be bigger than valid number
 				begin := max(lastNewline+1, escStart-nArgsInt)
 				m.data = sliceEdit(m.data, begin, m.pos+1)
 				m.pos = begin - 1
 
 			case ELINE, SGR:
 				m.data = sliceEdit(m.data, escStart, m.pos+1)
-				// Откатываемся на место удаленного esc-1, consume перейдет на позицию старого esc
-				// Необходимо на случай двух esc последовательностей подряд
+				// Rolling back to the place of the deleted esc-1, consume moved to the esc old pos
+				// Necessary in case of two esc sequences in a row
 				m.pos = escStart - 1
 			case CUP, ED: // not implemented
 				m.data = sliceEdit(m.data, escStart, m.pos+1)

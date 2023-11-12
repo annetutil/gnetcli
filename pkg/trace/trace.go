@@ -1,3 +1,6 @@
+/*
+Package trace provides interface and implementation for collecting communication with an CLI.
+*/
 package trace
 
 import (

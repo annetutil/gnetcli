@@ -1,3 +1,6 @@
+/*
+Package genericcli implements Device interface using regular expressions.
+*/
 package genericcli
 
 import (
@@ -331,7 +334,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 
 	matchedExprName := exprs.GetName(readRes.GetPatternNo())
 	if matchedExprName == "passwordError" {
-		return gerror.ThrowAuthException("cli auth user")
+		return gerror.NewAuthException("cli auth user")
 	}
 
 	return err

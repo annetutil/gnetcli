@@ -1,3 +1,6 @@
+/*
+Package testutils provides functions to use in complex tests.
+*/
 package testutils
 
 import (

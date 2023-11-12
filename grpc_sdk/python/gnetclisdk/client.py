@@ -11,7 +11,7 @@ from typing import Any, AsyncIterator, List, Optional, Tuple
 import grpc
 from google.protobuf.message import Message
 
-from . import server_pb2, server_pb2_grpc
+from .proto import server_pb2, server_pb2_grpc
 from .auth import BasicClientAuthentication, ClientAuthentication, OAuthClientAuthentication
 from .exceptions import parse_grpc_error
 from .interceptors import get_auth_client_interceptors

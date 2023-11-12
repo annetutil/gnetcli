@@ -1,3 +1,6 @@
+/*
+Package juniper implements juniper CLI using genericcli.
+*/
 package juniper
 
 import (
@@ -12,7 +15,7 @@ import (
 
 const (
 	promptExpression = `(\r\n({master}|{master:\d}))?\r\n(?P<prompt>[\w\-]+@[\w\-]+>) $`
-	errorExpression  = `\n(syntax error, expecting <command>.|unknown command\.)\r\n`
+	errorExpression  = `\n(syntax error\.|syntax error, expecting <command>.|unknown command\.)\r\n`
 	pagerExpression  = `\n---\(more( \d+%)?\)---$`
 )
 

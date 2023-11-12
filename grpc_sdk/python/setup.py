@@ -8,7 +8,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="gnetclisdk",
-    version="1.0.0",
+    version="1.0.1",
     description="Client for Gnetcli GRPC-server",
     long_description=readme,
     long_description_content_type="text/markdown",
@@ -16,12 +16,7 @@ setup(
     author_email="gescheit12@gmail.com",
     url="https://github.com/annetutil/gnetcli",
     license="MIT",
-    packages=[
-        "gnetclisdk",
-    ],
-    package_dir={"gnetclisdk": "../../pkg/server/proto"},
-    package_data={"gnetclisdk": ["../../pkg/server/proto/*.py"]},
-    include_package_data=True,
+    package_dir={"gnetclisdk": "gnetclisdk"},
     install_requires=list(requirements.splitlines()),
     classifiers=[
         "Development Status :: 3 - Alpha",

@@ -1,3 +1,6 @@
+/*
+Package pc implements upon generic SSH-server with ability to exec like Linux, macOS, etc.
+*/
 package pc
 
 import (

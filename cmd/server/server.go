@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
@@ -21,10 +22,12 @@ import (
 
 func main() {
 	tls := flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
-	certFile := flag.String("cert_file", "", "The TLS cert file")
-	keyFile := flag.String("key_file", "", "The TLS key file")
-	login := flag.String("login", "", "Authorization login")
-	password := flag.String("password", "", "Authorization password")
+	certFile := flag.String("cert-file", "", "The TLS cert file")
+	keyFile := flag.String("key-file", "", "The TLS key file")
+	basicAuth := flag.String("basic-auth", "", "Authenticate client using Basic auth")
+	devLogin := flag.String("dev-login", "", "Authenticate password")
+	devPassword := flag.String("dev-password", "", "Authorization password")
+	devUseAgent := flag.Bool("dev-enable-agent", false, "Enable pubkey auth using ssh-agent")
 	port := flag.Int("port", 50051, "The server port")
 	debug := flag.Bool("debug", false, "set debug log level")
 	flag.Parse()
@@ -56,8 +59,12 @@ func main() {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	var auth *server.Auth
-	if len(*login) > 0 && len(*password) > 0 {
-		auth = server.NewAuth(logger, *login, gcred.Secret(*password))
+	if len(*basicAuth) > 0 {
+		basicAuthSplit := strings.SplitN(*basicAuth, ":", 2)
+		if len(basicAuthSplit) != 2 {
+			panic("wrong basicAuth format")
+		}
+		auth = server.NewAuth(logger, basicAuthSplit[0], gcred.Secret(basicAuthSplit[1]))
 	} else {
 		logger.Error("server is working in dangerous authentication free mode")
 		auth = server.NewAuthInsecure(logger)
@@ -75,11 +82,14 @@ func main() {
 	)
 	grpcServer := grpc.NewServer(opts...)
 
-	creds := server.BuildCreds("", "", logger)
-	s := server.New(
-		server.WithLogger(logger),
-		server.WithCredentials(creds),
-	)
+	serverOpts := []server.Option{server.WithLogger(logger)}
+	devCreds := server.BuildEmptyCreds(logger)
+	if len(*devLogin) > 0 || len(*devPassword) > 0 || *devUseAgent {
+		devCreds = server.BuildCreds(*devLogin, *devPassword, *devUseAgent, logger)
+	}
+	serverOpts = append(serverOpts, server.WithCredentials(devCreds))
+
+	s := server.New(serverOpts...)
 	pb.RegisterGnetcliServer(grpcServer, s)
 	reflection.Register(grpcServer)
 	err = grpcServer.Serve(lis)

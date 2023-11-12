@@ -1,3 +1,6 @@
+/*
+Package streamer describes interface for interaction on network level.
+*/
 package streamer
 
 import (

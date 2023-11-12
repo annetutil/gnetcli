@@ -76,14 +76,14 @@ func TestParseCursorBackward(t *testing.T) {
 	check(t, "hello world", "hello.."+cback(1)+cback(1)+" world."+cback(1))
 	check(t, "", cback(1)+cback(2))
 
-	// Проверяем что перемещение курсора применяется до newline.
+	// Check that the cursor movement is applied before newline.
 	check(t, "foo\nbar", "foo\nfoo"+cback(42)+"bar")
 
-	// TODO(manushkin): сейчас курсор назад реализовани как __удаление__ символов.
-	// Но это не эквивалентно если prefix длинее suffix.
+	// TODO(manushkin): cursor back implemented as __deletion__ symbol.
+	// But it is not equivalent if prefix is longer than suffix.
 	// manushkin@laptop:~$ echo -e 'bar bar\e[42Dfoo'
 	// foo bar
-	// В текущей реализации будет "foo".
+	// will return "foo".
 }
 
 func TestBadEscape(t *testing.T) {
