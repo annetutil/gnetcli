@@ -9,7 +9,7 @@ The project consist of go-library, GRPC-server and CLI-tool. It is typically use
 - Netconf is supported.
 - SSH tunneling is supported.
 - Basic terminal evaluation.
-- CLI and GRPC-server for interacting with non-Go projects and other automations.
+- [CLI](https://annetutil.github.io/gnetcli/basic_usage_cli/) and [GRPC-server](https://annetutil.github.io/gnetcli/basic_usage_server/) for interacting with non-Go projects and other automations.
 
 ## Quick Start
 ### Go-library
