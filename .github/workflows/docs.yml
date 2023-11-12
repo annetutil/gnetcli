@@ -7,6 +7,11 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   github_pages:
     runs-on: ubuntu-latest
