@@ -30,7 +30,7 @@ func main() {
 	hostname := flag.String("hostname", "", "Hostname")
 	port := flag.Int("port", 22, "Port")
 	command := flag.String("command", "", "Command")
-	devType := flag.String("devtype", "", fmt.Sprintf("Device type from %s", dt))
+	devType := flag.String("devtype", "", fmt.Sprintf("Device type from dev-conf file or from predifined: %s", dt))
 	login := flag.String("login", "", "Login")
 	password := flag.String("password", "", "Password")
 	debug := flag.Bool("debug", false, "Set debug log level")
@@ -172,12 +172,12 @@ func loadDevice(path string) (map[string]*genericcli.GenericCLI, error) {
 	if err != nil {
 		return nil, err
 	}
-	conf := devconf.DevConfs{}
+	conf := devconf.NewConf()
 	err = yaml.Unmarshal(yamlFile, &conf)
 	if err != nil {
 		return nil, err
 	}
-	res, err := conf.Make()
+	res, err := conf.Devices.Make()
 	if err != nil {
 		return nil, err
 	}

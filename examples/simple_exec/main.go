@@ -12,23 +12,12 @@ import (
 	"github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/cisco"
-	"github.com/annetutil/gnetcli/pkg/device/genericcli"
-	"github.com/annetutil/gnetcli/pkg/device/huawei"
-	"github.com/annetutil/gnetcli/pkg/device/juniper"
-	"github.com/annetutil/gnetcli/pkg/streamer"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
 )
-
-var devMapping = map[string]func(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice{
-	"cisco":   cisco.NewDevice,
-	"huawei":  huawei.NewDevice,
-	"juniper": juniper.NewDevice,
-}
 
 func main() {
 	host := flag.String("host", "", "host")
 	login := flag.String("login", "", "login")
-	devtype := flag.String("devtype", "", "devtype")
 	password := flag.String("password", "", "password")
 	command := flag.String("command", "", "command")
 	debug := flag.Bool("debug", false, "set debug log level")
@@ -42,10 +31,6 @@ func main() {
 	if login == nil {
 		newLogin := credentials.GetLogin()
 		login = &newLogin
-	}
-	devFab, ok := devMapping[*devtype]
-	if !ok {
-		panic(fmt.Sprintf("unknown devtype %s", *devtype))
 	}
 	logConfig := zap.NewProductionConfig()
 	if *debug {
@@ -66,7 +51,7 @@ func main() {
 
 	connector := ssh.NewStreamer(*host, creds, ssh.WithLogger(logger))
 	var dev device.Device
-	deva := devFab(connector)
+	deva := cisco.NewDevice(connector)
 	dev = &deva
 	err := dev.Connect(ctx)
 	if err != nil {

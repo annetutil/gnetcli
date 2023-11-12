@@ -2,11 +2,62 @@ site_name: Gnetcli Docs
 
 nav:
   - Home: index.md
+  - Getting started:
+    - Installation: install.md
+    - Basic usage: basic_usage.md
+    - CLI basic usage: basic_usage_cli.md
+    - GRPC-server basic usage: basic_usage_server.md
+    - GRPC-server python sdk: basic_usage_server_pysdk.md
   - Architecture: architecture.md
-  - Example: lib_examples.md
+  - Example:
+    - Cisco CLI: examples_simple_exec.md
+    - With question: examples_with_question.md
 
 plugins:
   - mermaid2
+site_author: Aleksandr Balezin
+site_description: >-
+  The ultimate solution for CLI automation in Golang
+repo_name: annetutil/gnetcli
+repo_url: https://github.com/annetutil/gnetcli
+edit_uri: ""
+
+theme:
+  name: material
+  analytics:
+    provider: google
+    gtag: G-F8LHZR9DT2
+  features:
+    - navigation.tabs
+    #- navigation.expand
+    - navigation.top
+    #- navigation.sections
+  include_search_page: false
+  search_index_only: true
+
+  # Default values, taken from mkdocs_theme.yml
+  language: en
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: cyan
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+  font:
+    text: Manrope
+    code: Fira Mono
+
 
 markdown_extensions:
   - pymdownx.superfences:
@@ -15,3 +66,5 @@ markdown_extensions:
         - name: mermaid
           class: mermaid
           format: !!python/name:mermaid2.fence_mermaid
+  - pymdownx.snippets:
+      check_paths: true

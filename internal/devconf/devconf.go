@@ -27,6 +27,14 @@ type DevConf struct {
 
 type DevConfs []DevConf
 
+func NewConf() *Conf {
+	return &Conf{}
+}
+
+type Conf struct {
+	Devices DevConfs `yaml:"devices"`
+}
+
 func (m DevConfs) Make() (map[string]*genericcli.GenericCLI, error) {
 	res := map[string]*genericcli.GenericCLI{}
 	for _, v := range m {

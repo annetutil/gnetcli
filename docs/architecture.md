@@ -97,14 +97,14 @@ stateDiagram-v2
 </td>
 </tr></tbody></table>
 
-The `Device`interface represents high-level abstractions to execute commands and do other tasks on a device.
+The `Device` interface represents high-level abstractions to execute commands and to perform other tasks on a device.
 `Device` is the cornerstone of the project, you must always use it instead of a concrete types.
 
 The interface `Connector` implements low-level interaction with a device, like SSH, telnet, console...
 
 Gnetcli provides `Device` implementation called `GenericCLI`which uses regular expressions to identify prompt, questions, errors, and so on.
 There are also included several implementations like Cisco, Huawei, Juniper, etc.
-Unfortunately, these implementations may not be ideal because they, as they were created based on limited usage of a specific device, specific logins, commands, and software version.
+Unfortunately, these implementations may not be ideal because they are created based on limited usage of a specific device, specific logins, commands, and software version.
 Consequently, your experience may differ, and the implementations might not work function properly.
 
 ### Development
@@ -428,6 +428,7 @@ so it uses newly create Device from `myvendor.NewDevice()`.
 
 Go through the cases listed below and modify tests and device expressions. 
 These are not an exhaustive list but a guideline based on our experience working with vendors.
+
 * `myvendorPromptExpression`
     * Prompt for regular user.
     * Prompt for administrator.

@@ -7,7 +7,7 @@ The project consist of go-library, GRPC-server and CLI-tool. It is typically use
 - Execute commands instead of just reading and writing.
 - Pager, questions and error handling are supported.
 - Netconf is supported.
-- SSH tunnels is supported.
+- SSH tunneling is supported.
 - Basic terminal evaluation.
 - CLI and GRPC-server for interacting with non-Go projects and other automations.
 
