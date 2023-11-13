@@ -7,4 +7,4 @@ FROM alpine
 COPY --from=build /build/server /app/
 WORKDIR /app
 ENTRYPOINT [ "/app/server" ]
-CMD [ "-debug" ]
+CMD [ "-debug", "-login", "mylogin", "-password", "mysecret" ]

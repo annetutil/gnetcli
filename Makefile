@@ -7,7 +7,7 @@ build:
 	go build ./...
 
 build-docker:
-	docker build ./
+	docker build -f ./image/Dockerfile -t gnetcli-server .
 
 proto:
 	protoc -I '${CURDIR}/pkg/server/proto/'  \
