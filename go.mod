@@ -13,7 +13,6 @@ require (
 	golang.org/x/sync v0.4.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20231002182017-d307bd883b97
 	google.golang.org/grpc v1.58.2
-	google.golang.org/grpc/examples v0.0.0-20231113221032-8645f95509d6
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )

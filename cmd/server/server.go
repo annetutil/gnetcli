@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -12,13 +14,22 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/examples/data"
 	"google.golang.org/grpc/reflection"
 
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/server"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
 )
+
+func path(rel string) string {
+	_, currentFile, _, _ := runtime.Caller(0)
+	basepath := filepath.Dir(currentFile)
+	if filepath.IsAbs(rel) {
+		return rel
+	}
+
+	return filepath.Join(basepath, rel)
+}
 
 func main() {
 	tls := flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
@@ -47,10 +58,10 @@ func main() {
 	var opts []grpc.ServerOption
 	if *tls {
 		if *certFile == "" {
-			*certFile = data.Path("x509/server_cert.pem")
+			*certFile = path("x509/server_cert.pem")
 		}
 		if *keyFile == "" {
-			*keyFile = data.Path("x509/server_key.pem")
+			*keyFile = path("x509/server_key.pem")
 		}
 		creds, err := credentials.NewServerTLSFromFile(*certFile, *keyFile)
 		if err != nil {
