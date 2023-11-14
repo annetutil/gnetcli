@@ -9,6 +9,6 @@ builds:
     main: ./cmd/server/
     binary: server
 dockers:
-  - image_templates: ["ghcr.io/annetutil/{{ .ProjectName }}-server:{{ .Version }}"]
+  - image_templates: ["ghcr.io/kglushen/{{ .ProjectName }}-server:{{ .Version }}"]
     goarch: amd64
     dockerfile: .goreleaser-scratch.dockerfile
