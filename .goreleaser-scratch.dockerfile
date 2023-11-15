@@ -6,4 +6,4 @@ LABEL repo="https://github.com/annetutil/gnetcli"
 
 COPY server /app/server
 ENTRYPOINT [ "/app/server" ]
-CMD [ "-debug", "-login", "mylogin", "-password", "mysecret" ]
+CMD [ "-basic-auth", "mylogin:mysecret" ]
