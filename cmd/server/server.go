@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -29,6 +30,14 @@ func path(rel string) string {
 	}
 
 	return filepath.Join(basepath, rel)
+}
+
+func parseAuth(basicAuth string) (string, gcred.Secret) {
+	basicAuthSplit := strings.SplitN(basicAuth, ":", 2)
+	if len(basicAuthSplit) != 2 {
+		panic("wrong basicAuth format")
+	}
+	return basicAuthSplit[0], gcred.Secret(basicAuthSplit[1])
 }
 
 func main() {
@@ -70,12 +79,15 @@ func main() {
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	var auth *server.Auth
+	envBasicAuth, exists := os.LookupEnv("BASIC_AUTH")
 	if len(*basicAuth) > 0 {
-		basicAuthSplit := strings.SplitN(*basicAuth, ":", 2)
-		if len(basicAuthSplit) != 2 {
-			panic("wrong basicAuth format")
-		}
-		auth = server.NewAuth(logger, basicAuthSplit[0], gcred.Secret(basicAuthSplit[1]))
+		login, secret := parseAuth(*basicAuth)
+		logger.Info("auth string assigned with flag")
+		auth = server.NewAuth(logger, login, secret)
+	} else if exists {
+		login, secret := parseAuth(envBasicAuth)
+		logger.Info("auth string assigned with env")
+		auth = server.NewAuth(logger, login, secret)
 	} else {
 		logger.Error("server is working in dangerous authentication free mode")
 		auth = server.NewAuthInsecure(logger)
