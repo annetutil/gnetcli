@@ -7,3 +7,4 @@ ENV BASIC_AUTH="mylogin:mysecret"
 COPY server /app/server
 ENTRYPOINT [ "/app/server" ]
 CMD [ "-debug" ]
+

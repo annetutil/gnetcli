@@ -8,4 +8,3 @@ ENV BASIC_AUTH="mylogin:mysecret"
 COPY --from=build /build/server /app/
 ENTRYPOINT [ "/app/server" ]
 CMD [ "-debug" ]
-
