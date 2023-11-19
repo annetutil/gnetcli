@@ -12,9 +12,9 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
-	"github.com/annetutil/gnetcli/internal/devconf"
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
+	"github.com/annetutil/gnetcli/pkg/devconf"
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
