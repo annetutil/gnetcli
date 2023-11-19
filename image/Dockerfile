@@ -4,6 +4,7 @@ WORKDIR /build
 RUN CGO_ENABLED=0 go build ./cmd/server/
 
 FROM alpine
+ENV BASIC_AUTH="mylogin:mysecret"
 COPY --from=build /build/server /app/
 ENTRYPOINT [ "/app/server" ]
-CMD [ "-basic-auth", "mylogin:mysecret" ]
+CMD [ "-debug" ]
