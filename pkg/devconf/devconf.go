@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"go.uber.org/zap"
+	"gopkg.in/yaml.v3"
 
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/cisco"
@@ -102,4 +103,17 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 		"netconf": netconf.BindDeviceOpts(netconf.NewDevice, netconf.WithLogger(logger)),
 	}
 	return deviceMaps
+}
+
+func LoadYamlDeviceConfigs(content []byte) (map[string]*genericcli.GenericCLI, error) {
+	conf := NewConf()
+	err := yaml.Unmarshal(content, &conf)
+	if err != nil {
+		return nil, err
+	}
+	res, err := conf.Devices.Make()
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
