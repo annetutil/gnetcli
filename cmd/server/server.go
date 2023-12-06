@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -9,10 +10,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -49,6 +52,8 @@ func main() {
 	devPassword := flag.String("dev-password", "", "Authorization password")
 	devUseAgent := flag.Bool("dev-enable-agent", false, "Enable pubkey auth using ssh-agent")
 	port := flag.Int("port", 50051, "The server port")
+	disableTcp := flag.Bool("disable-tcp", false, "Disable TCP listener")
+	unixSocket := flag.String("unix-socket", "", "Unix socket path")
 	debug := flag.Bool("debug", false, "set debug log level")
 	flag.Parse()
 	logConfig := zap.NewProductionConfig()
@@ -57,12 +62,26 @@ func main() {
 	}
 
 	logger := zap.Must(logConfig.Build())
-
-	address := fmt.Sprintf("localhost:%d", *port)
-	logger.Debug("listening", zap.String("address", address))
-	lis, err := net.Listen("tcp", address)
-	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+	var listeners []net.Listener
+	if len(*unixSocket) > 0 {
+		logger.Debug("init unix socket", zap.String("path", *unixSocket))
+		unixSocketLn, err := newUnixSocket(*unixSocket)
+		if err != nil {
+			logger.Panic("unix socket error", zap.Error(err))
+		}
+		listeners = append(listeners, unixSocketLn)
+	}
+	if !*disableTcp {
+		address := fmt.Sprintf("localhost:%d", *port)
+		logger.Debug("init tcp socket", zap.String("address", address))
+		tcpSocketLn, err := newTcpSocket(address)
+		if err != nil {
+			logger.Panic("tcp socket error", zap.Error(err))
+		}
+		listeners = append(listeners, tcpSocketLn)
+	}
+	if len(listeners) == 0 {
+		logger.Panic("specify tcp or unix socket")
 	}
 	var opts []grpc.ServerOption
 	if *tls {
@@ -115,6 +134,34 @@ func main() {
 	s := server.New(serverOpts...)
 	pb.RegisterGnetcliServer(grpcServer, s)
 	reflection.Register(grpcServer)
-	err = grpcServer.Serve(lis)
+	ctx := context.Background()
+	wg, _ := errgroup.WithContext(ctx)
+	for _, listener := range listeners {
+		wListener := listener
+		wg.Go(func() error {
+			return grpcServer.Serve(wListener)
+		})
+	}
+	err := wg.Wait()
 	panic(err)
+}
+
+func newUnixSocket(path string) (net.Listener, error) {
+	if err := syscall.Unlink(path); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	l, err := net.Listen("unix", path)
+	if err != nil {
+		return nil, err
+	}
+	return l, nil
+}
+
+func newTcpSocket(address string) (net.Listener, error) {
+	lis, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+	return lis, nil
 }
