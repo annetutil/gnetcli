@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 
+	"github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/cisco"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
@@ -19,11 +20,25 @@ import (
 	"github.com/annetutil/gnetcli/pkg/streamer"
 )
 
+const (
+	FeatureAutocmds        = "autocmds"
+	FeatureSpacesAfterEcho = "spaces_after_echo"
+)
+
 type DevConf struct {
-	Name             string `yaml:"name"`
-	PromptExpression string `yaml:"prompt_expression"`
-	ErrorExpression  string `yaml:"error_expression"`
-	PagerExpression  string `yaml:"pager_expression"`
+	Name               string        `yaml:"name"`
+	PromptExpression   string        `yaml:"prompt_expression"`
+	ErrorExpression    string        `yaml:"error_expression"`
+	PagerExpression    string        `yaml:"pager_expression"`
+	QuestionExpression string        `yaml:"question_expression"`
+	Features           []interface{} `yaml:"features"`
+	Tests              TestsConf     `yaml:"tests"`
+}
+
+type TestsConf struct {
+	PromptExpressionVariants []string `yaml:"prompt_expression_variants"`
+	ErrorExpressionVariants  []string `yaml:"error_expression_variants"`
+	PagerExpressionVariants  []string `yaml:"pager_expression_variants"`
 }
 
 type DevConfs []DevConf
@@ -70,13 +85,76 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 		}
 		opts = append(opts, genericcli.WithPager(expr.NewSimpleExprLast200(m.PagerExpression)))
 	}
-
+	if len(m.QuestionExpression) > 0 {
+		_, err := regexp.Compile(m.QuestionExpression)
+		if err != nil {
+			return nil, fmt.Errorf("pager question error %w", err)
+		}
+		opts = append(opts, genericcli.WithQuestion(expr.NewSimpleExprLast200(m.QuestionExpression)))
+	}
+	for _, feature := range m.Features {
+		switch featureTyped := feature.(type) {
+		case string:
+			switch featureTyped {
+			case FeatureSpacesAfterEcho:
+				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
+					return expr.NewSimpleExpr(fmt.Sprintf(`%s *\r\n`, regexp.QuoteMeta(string(c.Value()))))
+				})
+				opts = append(opts, a)
+			default:
+				return nil, fmt.Errorf("unknown feature '%s'", feature)
+			}
+		case map[string]interface{}:
+			if len(featureTyped) != 1 {
+				return nil, fmt.Errorf("unxpected feature len %d", len(featureTyped))
+			}
+			mapFeature := getLastItem(featureTyped)
+			switch mapFeature {
+			case FeatureAutocmds:
+				autoCommands, err := toStrSlice(featureTyped[FeatureAutocmds])
+				if err != nil {
+					return nil, err
+				}
+				var autoCommandCmd []cmd.Cmd
+				for _, autoCmd := range autoCommands {
+					autoCommandCmd = append(autoCommandCmd, cmd.NewCmd(autoCmd))
+				}
+				opts = append(opts, genericcli.WithAutoCommands(autoCommandCmd))
+			}
+		default:
+			return nil, fmt.Errorf("unknown type %v", feature)
+		}
+	}
 	cli := genericcli.MakeGenericCLI(
 		expr.NewSimpleExprLast200(m.PromptExpression),
 		expr.NewSimpleExprLast200(errorExpr),
 		opts...,
 	)
 	return &cli, nil
+}
+
+func getLastItem(input map[string]interface{}) string {
+	var lastVal string
+	for item := range input {
+		lastVal = item
+	}
+	return lastVal
+}
+
+func toStrSlice(input interface{}) ([]string, error) {
+	inputTyped, ok := input.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unknown type")
+	}
+	res := []string{}
+	for _, item := range inputTyped {
+		newVal, ok := item.(string)
+		if !ok {
+			return nil, fmt.Errorf("wrong type %v", item)
+		}
+		res = append(res, newVal)
+	}
+	return res, nil
 }
 
 func GenericCLIDevToDev(cli *genericcli.GenericCLI, opts ...genericcli.GenericDeviceOption) func(connector streamer.Connector) device.Device {

@@ -8,11 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/annetutil/gnetcli/pkg/expr"
 )
 
-func ExprTester(t *testing.T, errorCases [][]byte, expressions ...string) {
+func ExprTester(t *testing.T, cases [][]byte, expressions ...string) {
 	var errorExpr expr.Expr
 
 	if len(expressions) == 0 {
@@ -27,11 +28,11 @@ func ExprTester(t *testing.T, errorCases [][]byte, expressions ...string) {
 		errorExpr = expr.NewSimpleExprList(errorExprList...)
 	}
 
-	for _, tc := range errorCases {
+	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
 			res, ok := errorExpr.Match(tc)
-			assert.True(t, ok, fmt.Sprintf("regex: %s\ndata: %s", errorExpr.Repr(), tc))
-			assert.NotNil(t, res)
+			require.True(t, ok, fmt.Sprintf("regex: %q not matched\ndata: '%q'", errorExpr.Repr(), tc))
+			require.NotNil(t, res)
 		})
 	}
 }

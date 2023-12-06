@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"go.uber.org/zap"
@@ -18,7 +19,31 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
+	"github.com/annetutil/gnetcli/pkg/testutils"
 )
+
+type questionFlags []string
+
+func (m *questionFlags) String() string {
+	return strings.Join(*m, ",")
+}
+
+func (m *questionFlags) Set(value string) error {
+	*m = append(*m, strings.TrimSpace(value))
+	return nil
+}
+
+func parseQuestions(input []string) []cmd.CmdOption {
+	var res []cmd.CmdOption
+	for _, question := range input {
+		splitRes := strings.SplitN(question, ":::", 2)
+		if len(splitRes) == 2 {
+			fmt.Printf("splitRes %s\n", splitRes)
+			res = append(res, cmd.WithAnswers(cmd.NewAnswer(splitRes[0], splitRes[1])))
+		}
+	}
+	return res
+}
 
 func main() {
 	var knownDevs []string
@@ -26,23 +51,21 @@ func main() {
 	for dName := range deviceMaps {
 		knownDevs = append(knownDevs, dName)
 	}
+	var question questionFlags
 	dt := strings.Join(knownDevs, ", ")
 	hostname := flag.String("hostname", "", "Hostname")
 	port := flag.Int("port", 22, "Port")
 	command := flag.String("command", "", "Command")
+	flag.Var(&question, "question", "Question")
 	devType := flag.String("devtype", "", fmt.Sprintf("Device type from dev-conf file or from predifined: %s", dt))
 	login := flag.String("login", "", "Login")
 	password := flag.String("password", "", "Password")
 	debug := flag.Bool("debug", false, "Set debug log level")
+	test := flag.Bool("test", false, "Run tests on config")
 	jsonOut := flag.Bool("json", false, "Output in JSON")
 	deviceFiles := flag.String("dev-conf", "", "Path to yaml with device types")
 	flag.Parse()
-	if len(*hostname) == 0 {
-		panic("empty hostname")
-	}
-	if len(*command) == 0 {
-		panic("empty command")
-	}
+	fmt.Printf("question=%s\n", question)
 	logConfig := zap.NewProductionConfig()
 	if *debug {
 		logConfig = zap.NewDevelopmentConfig()
@@ -52,7 +75,7 @@ func main() {
 	deviceMaps = devconf.InitDefaultDeviceMapping(zap.NewNop())
 
 	if len(*deviceFiles) > 0 {
-		res, err := loadDevice(*deviceFiles)
+		res, _, err := loadDevice(*deviceFiles)
 		if err != nil {
 			panic(err)
 		}
@@ -65,7 +88,39 @@ func main() {
 			deviceMaps[name] = devconf.GenericCLIDevToDev(devType)
 		}
 	}
+	if *test && len(*deviceFiles) > 0 {
+		_, conf, err := loadDevice(*deviceFiles)
+		if err != nil {
+			panic(err)
+		}
+		var tests []testing.InternalTest
+		for _, vendorConf := range conf.Devices {
+			for i, errExpTestData := range vendorConf.Tests.ErrorExpressionVariants {
+				tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_err_%d", vendorConf.Name, i), func(t *testing.T) {
+					testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.ErrorExpression)
+				}})
+			}
+			for i, errExpTestData := range vendorConf.Tests.PromptExpressionVariants {
+				tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_prompt_%d", vendorConf.Name, i), func(t *testing.T) {
+					testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.PromptExpression)
+				}})
+			}
+			for i, errExpTestData := range vendorConf.Tests.PagerExpressionVariants {
+				tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_pager_%d", vendorConf.Name, i), func(t *testing.T) {
+					testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.PagerExpression)
+				}})
+			}
 
+		}
+		testing.Main(nil, tests, nil, nil)
+		return
+	}
+	if len(*hostname) == 0 {
+		panic("empty hostname")
+	}
+	if len(*command) == 0 {
+		panic("empty command")
+	}
 	commands := strings.Split(*command, "\n")
 	creds := buildCreds(*login, *password, logger)
 	sshOpts := []ssh.StreamerOption{ssh.WithLogger(logger)}
@@ -80,7 +135,8 @@ func main() {
 	dev := devFn(connector)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	res, err := exec(ctx, dev, commands, logger)
+	cmdQuestion := parseQuestions(question)
+	res, err := exec(ctx, dev, commands, cmdQuestion, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -151,14 +207,14 @@ func buildCreds(login, password string, logger *zap.Logger) gcred.Credentials {
 	return creds
 }
 
-func exec(ctx context.Context, dev device.Device, commands []string, logger *zap.Logger) ([]cmd.CmdRes, error) {
+func exec(ctx context.Context, dev device.Device, commands []string, cmdopts []cmd.CmdOption, logger *zap.Logger) ([]cmd.CmdRes, error) {
 	err := dev.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var res []cmd.CmdRes
 	for _, cmdIter := range commands {
-		cRes, err := dev.Execute(cmd.NewCmd(cmdIter))
+		cRes, err := dev.Execute(cmd.NewCmd(cmdIter, cmdopts...))
 		if err != nil {
 			logger.Warn("error", zap.Error(err))
 		}
@@ -167,19 +223,19 @@ func exec(ctx context.Context, dev device.Device, commands []string, logger *zap
 	return res, nil
 }
 
-func loadDevice(path string) (map[string]*genericcli.GenericCLI, error) {
+func loadDevice(path string) (map[string]*genericcli.GenericCLI, *devconf.Conf, error) {
 	yamlFile, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	conf := devconf.NewConf()
 	err = yaml.Unmarshal(yamlFile, &conf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	res, err := conf.Devices.Make()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return res, nil
+	return res, conf, nil
 }
