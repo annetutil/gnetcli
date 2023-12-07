@@ -59,6 +59,9 @@ func main() {
 	}
 
 	res, err := dev.Execute(cmd.NewCmd(*command))
+	if err != nil {
+		panic(err)
+	}
 	if res.Status() == 0 {
 		fmt.Printf("Result: %s\n", res.Output())
 	} else {
