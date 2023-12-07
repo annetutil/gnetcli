@@ -23,9 +23,7 @@ message CMD {
   repeated QA qa = 4;
   double read_timeout = 5;
   double cmd_timeout = 6;
-  string device = 7;
   bool string_result = 8;
-  Credentials credentials = 9;
 }
 
 message Device {
@@ -41,7 +39,6 @@ message CMDNetconf {
   bool json = 3;
   double read_timeout = 4; // read timeout in seconds
   double cmd_timeout = 5; // command execution timeout in seconds
-  Credentials Credentials = 6;
 }
 
 enum TraceOperation {
@@ -62,6 +59,13 @@ message CMDTraceItem {
   bytes data = 2;
 }
 
+message HostParams {
+  string host = 1;
+  Credentials credentials = 2;
+  int32 port = 3;
+  string device = 4;
+}
+
 message CMDResult {
   bytes out = 1;
   string out_str = 2;
@@ -78,29 +82,43 @@ message DeviceResult {
 
 message FileDownloadRequest {
   string host = 1;
-  string path = 2;
+  repeated string paths = 2;
   string device = 3;
   Credentials credentials = 4;
 }
 
+enum FileStatus {
+  FileStatus_notset = 0;
+  FileStatus_ok = 1;
+  FileStatus_error = 2;
+  FileStatus_not_found = 3;
+  FileStatus_is_dir = 4;
+}
+
+message FileData {
+  string path = 1;
+  bytes data = 2;
+  FileStatus status = 3;
+}
+
 message FileUploadRequest {
   string host = 1;
-  string path = 2;
-  bytes data = 3;
   string device = 4;
+  repeated FileData files = 3;
   Credentials credentials = 5;
 }
 
-message FileResult {
-  string path = 1;
-  bytes data = 2;
-}
-
 message FilesResult {
-  repeated FileResult files = 1;
+  repeated FileData files = 1;
 }
 
 service Gnetcli {
+  rpc SetupHostParams(HostParams) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/api/v1/setup_host_params"
+      body: "*"
+    };
+  };
   rpc Exec(CMD) returns (CMDResult) {
     option (google.api.http) = {
       post: "/api/v1/exec"
@@ -121,7 +139,7 @@ service Gnetcli {
     };
   };
   rpc ExecNetconfChat(stream CMDNetconf) returns (stream CMDResult) {};
-  rpc Downloads(FileDownloadRequest) returns (FilesResult) {
+  rpc Download(FileDownloadRequest) returns (FilesResult) {
     option (google.api.http) = {
       post: "/api/v1/downloads"
       body: "*"

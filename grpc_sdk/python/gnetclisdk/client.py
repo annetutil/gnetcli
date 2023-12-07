@@ -4,9 +4,9 @@ import os.path
 import uuid
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, AsyncIterator, List, Optional, Tuple
+from typing import Any, AsyncIterator, List, Optional, Tuple, Dict
 
 import grpc
 from google.protobuf.message import Message
@@ -47,6 +47,19 @@ class Credentials:
         pb.login = self.login
         pb.password = self.password
         return pb
+
+
+@dataclass
+class File:
+    content: bytes
+    status: server_pb2.FileStatus
+
+
+@dataclass
+class HostParams:
+    device: str
+    port: Optional[int] = None
+    credentials: Optional[Credentials] = None
 
 
 def make_auth(auth_token: str) -> ClientAuthentication:
@@ -102,22 +115,18 @@ class Gnetcli:
         self,
         hostname: str,
         cmd: str,
-        device: str,
         trace: bool = False,
         qa: Optional[List[QA]] = None,
         read_timeout: float = 0.0,
         cmd_timeout: float = 0.0,
-        credentials: Optional[Credentials] = None,
     ) -> Message:
         pbcmd = make_cmd(
             hostname=hostname,
-            device=device,
             cmd=cmd,
             trace=trace,
             qa=qa,
             read_timeout=read_timeout,
             cmd_timeout=cmd_timeout,
-            credentials=credentials,
         )
         if self._channel is None:
             _logger.debug("connect to %s", self._server)
@@ -198,32 +207,40 @@ class Gnetcli:
         finally:
             await sess.close()
 
-    async def upload(self, hostname: str, file_path: str, data: bytes) -> Message:
-        pbcmd = server_pb2.FileUploadRequest(host=hostname, path=file_path, data=data)
+    async def set_host_params(self, hostname: str, params: HostParams) -> None:
+        pbcmd = server_pb2.HostParams(
+            host=hostname,
+            port=params.port,
+            credentials=params.credentials.make_pb(),
+            device=params.device)
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:
-            _logger.debug("upload %s to %s", file_path, hostname)
+            _logger.debug("set params for %s", hostname)
+            stub = server_pb2_grpc.GnetcliStub(channel)
+            await grpc_call_wrapper(stub.SetupHostParams, pbcmd)
+        return
+
+    async def upload(self, hostname: str, files: Dict[str, File]) -> None:
+        pbcmd = server_pb2.FileUploadRequest(host=hostname, files=make_files_request(files))
+        _logger.debug("connect to %s", self._server)
+        async with self._grpc_channel_fn(self._server, options=self._options) as channel:
+            _logger.debug("upload %s to %s", files.keys(), hostname)
             stub = server_pb2_grpc.GnetcliStub(channel)
             response: Message = await grpc_call_wrapper(stub.Upload, pbcmd)
-            return response
+            _logger.debug("upload res %s", response)
+        return
 
-    async def download(self, hostname: str, file_path: str) -> Message:
-        pbcmd = server_pb2.FileDownloadRequest(host=hostname, path=file_path)
+    async def download(self, hostname: str, paths: List[str]) -> Dict[str, File]:
+        pbcmd = server_pb2.FileDownloadRequest(host=hostname, paths=paths)
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:
-            _logger.debug("download %s for %s", file_path, hostname)
+            _logger.debug("download %s from %s", paths, hostname)
             stub = server_pb2_grpc.GnetcliStub(channel)
-            response: Message = await grpc_call_wrapper(stub.Download, pbcmd)
-            return response
-
-    async def downloads(self, hostname: str, file_path: str) -> Message:
-        pbcmd = server_pb2.FileDownloadRequest(host=hostname, path=file_path)
-        _logger.debug("connect to %s", self._server)
-        async with self._grpc_channel_fn(self._server, options=self._options) as channel:
-            _logger.debug("downloads %s for %s", file_path, hostname)
-            stub = server_pb2_grpc.GnetcliStub(channel)
-            response: Message = await grpc_call_wrapper(stub.Downloads, pbcmd)
-            return response
+            response: server_pb2.FilesResult = await grpc_call_wrapper(stub.Download, pbcmd)
+        res: Dict[str, File] = {}
+        for file in response.files:
+            res[file.path] = File(content=file.data, status=file.status)
+        return res
 
 
 class GnetcliSession(ABC):
@@ -321,23 +338,19 @@ class GnetcliSessionCmd(GnetcliSession):
     async def cmd(
         self,
         cmd: str,
-        device: str,
         trace: bool = False,
         qa: Optional[List[QA]] = None,
         cmd_timeout: float = 0.0,
         read_timeout: float = 0.0,
-        credentials: Optional[Credentials] = None,
     ) -> Message:
         _logger.debug("session cmd %r", cmd)
         pbcmd = make_cmd(
             hostname=self._hostname,
-            device=device,
             cmd=cmd,
             trace=trace,
             qa=qa,
             read_timeout=read_timeout,
             cmd_timeout=cmd_timeout,
-            credentials=credentials,
         )
         return await self._cmd(pbcmd)
 
@@ -352,7 +365,7 @@ class GnetcliSessionCmd(GnetcliSession):
 class GnetcliSessionNetconf(GnetcliSession):
     async def cmd(self, cmd: str, trace: bool = False, json: bool = False) -> Message:
         _logger.debug("netconf session cmd %r", cmd)
-        cmdpb = server_pb2.CMDNetconf(host=self._hostname, credentials=self._credentials, cmd=cmd, json=json)
+        cmdpb = server_pb2.CMDNetconf(host=self._hostname, cmd=cmd, json=json)
         return await self._cmd(cmdpb)
 
     async def connect(self) -> None:
@@ -420,12 +433,10 @@ def format_long_msg(msg: str, max_len: int) -> str:
 def make_cmd(
     hostname: str,
     cmd: str,
-    device: str,
     trace: bool = False,
     qa: Optional[List[QA]] = None,
     read_timeout: float = 0.0,
     cmd_timeout: float = 0.0,
-    credentials: Optional[Credentials] = None,
 ) -> Message:
     qa_cmd: List[Message] = []
     if qa:
@@ -434,9 +445,6 @@ def make_cmd(
             qaitem.question = item.question
             qaitem.answer = item.answer
             qa_cmd.append(qaitem)
-    credentialspb = None
-    if credentials:
-        credentialspb = credentials.make_pb()
     res = server_pb2.CMD(
         host=hostname,
         cmd=cmd,
@@ -444,7 +452,12 @@ def make_cmd(
         qa=qa_cmd,
         read_timeout=read_timeout,
         cmd_timeout=cmd_timeout,
-        device=device,
-        credentials=credentialspb,
     )
     return res  # type: ignore
+
+
+def make_files_request(files: Dict[str, File]) -> List[server_pb2.FileData]:
+    res: List[server_pb2.FileData] = []
+    for path, file in files.items():
+        res.append(server_pb2.FileData(path=path, data=file.content))
+    return res

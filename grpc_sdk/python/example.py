@@ -4,7 +4,7 @@ import logging
 from base64 import b64encode
 from typing import Optional
 
-from gnetclisdk.client import Credentials, Gnetcli
+from gnetclisdk.client import Credentials, Gnetcli, HostParams
 
 
 async def amain(
@@ -20,8 +20,11 @@ async def amain(
     dev_creds = None
     if device_login and device_password:
         dev_creds = Credentials(device_login, device_password)
-    res = await api.cmd(hostname=host, device=device, cmd=cmd, credentials=dev_creds)
+    await api.set_host_params(hostname=host, params=HostParams(device=device, credentials=dev_creds))
+    res = await api.cmd(hostname=host, cmd=cmd)
     print("err=%s status=%s out=%s" % (res.error, res.status, res.out))
+    res = await api.download(hostname=host, paths=["/tmp/test"])
+    print(res)
 
 
 def basic_auth(username: str, password: str) -> str:
@@ -39,6 +42,7 @@ if __name__ == "__main__":
     parser.add_argument("--insecure", help="Use insecure connection", action="store_true")
     parser.add_argument("--debug", help="Set debug log level", action="store_true")
     parser.add_argument("--host", help="Host", required=True)
+    parser.add_argument("--port", help="Port", default=22, required=False)
     args = parser.parse_args()
     level = logging.INFO
     if args.debug:

@@ -34,6 +34,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			expr.NewSimpleExprLast200(pagerExpression),
 		),
 		genericcli.WithAutoCommands(autoCommands),
+		genericcli.WithSFTPEnabled(),
 		genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
 			return expr.NewSimpleExpr(fmt.Sprintf(`%s *\r\n`, regexp.QuoteMeta(string(c.Value()))))
 		}),
