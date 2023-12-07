@@ -60,7 +60,11 @@ func main() {
 
 	res, err := dev.Execute(cmd.NewCmd(*command))
 	if err != nil {
-		logger.Fatal("error", zap.Error(err))
+		panic(err)
 	}
-	fmt.Printf("output: %v", string(res.Output()))
+	if res.Status() == 0 {
+		fmt.Printf("Result: %s\n", res.Output())
+	} else {
+		fmt.Printf("Error: %s\nStatus: %d\n", res.Error(), res.Status())
+	}
 }

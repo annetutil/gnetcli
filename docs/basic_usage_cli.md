@@ -47,17 +47,3 @@ Usage of cli:
   -port int
     	Port (default 22)
 ```
-
-### Adding new device type
-
-You can add your device CLI using configuration file:
-
-```yaml
-devices:
-  - name: myvendor
-    prompt_expression: '<\w+>$'
-    error_expression: '\^\r\nError:'
-```
-```shell
-cli -dev-conf dev.yaml -devtype myvendor ...
-```

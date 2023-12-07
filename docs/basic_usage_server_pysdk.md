@@ -17,7 +17,8 @@ import os, asyncio
 async def example():
     api = Gnetcli(insecure_grpc=True)
     dev_creds = Credentials(os.environ.get("LOGIN"), os.environ.get("PASSWORD"))
-    res = await api.cmd(hostname="myhost", device="huawei", cmd="dis clock", credentials=dev_creds)
+    await api.set_host_params(hostname="myhost", params=HostParams(device="huawei", credentials=dev_creds))
+res = await api.cmd(hostname="myhost", cmd="dis clock")
     print("err=%s status=%s out=%s" % (res.error, res.status, res.out))
 
 asyncio.run(example())

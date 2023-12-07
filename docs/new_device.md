@@ -1,11 +1,14 @@
-### New vendor
-This is an example how to make config for a new vendor. See full documentation here.
+### New device
+This is an example how to make a config for a new vendor. See full documentation [here](architecture.md).
 
 Here we are playing with qfx in docker: 
+
 ```shell
 docker run -it -p 2222:22 --privileged aninchat/vr-vqfx:19.4R1.10
 ```
+
 Let's start with an empty config:
+
 ```yaml
 # gnetcli_conf.yaml
 devices:
@@ -13,16 +16,21 @@ devices:
     prompt_expression: '$.^' # just stub that will never match
     error_expression: '$.^'
 ```
+
 Run any command to get debug output with read data:
+
 ```shell
 cli -dev-conf gnetcli_conf.yaml -devtype 'myvendor' -command 'show system uptime' -port 2222 -hostname 127.0.0.1 -login vrnetlab -password VR-netlab9 -debug
 ```
+
 Output:
+
 ```go
 read	{"data": "Last login: Mon Dec  4 22:22:25 2023 from 10.0.0.2\r\r\n--- JUNOS 19.4R1.10 built 2019-12-19 03:54:05 UTC\r\n"}
 read	{"data": "{master:0}\r\n"}
 read	{"data": "vrnetlab@vr-vqfx> "}
 ```
+
 In the output we see prompt `vrnetlab@vr-vqfx> ` for which we must write regular expression.
 Keep in mind that expressions must be as specific as possible. https://regex101.com/ is very instrumental for testing. Expression
 `\r\n(?P<user>[\w]{1,10})@(?P<hostname>[\w-]{1,10})> $` will go well. Also, we can add test data in `test` section.
@@ -217,4 +225,20 @@ devices:
       - autocmd: 
         - set cli complete-on-space off 
         - set cli screen-length 0
+```
+
+#### Final config
+```yaml
+devices:
+  - name: myvendor
+    prompt_expression: '\n(?P<user>[\w]{1,10})@(?P<hostname>[\w-]{1,10})> $'
+    error_expression: ' *\^\r\nunknown command\.\r\n'
+    pager_expression: '---\(more( \d{1,2}%)?\)---'
+    question_expression: '\n.+\? \[yes,no\] \(no\) $'
+    features: [spaces_after_echo, {autocmd: [test, test]}]
+    tests:
+      prompt_expression_variants:
+          - "\r\nvrnetlab@vr-vqfx> "
+      error_expression_variants:
+          - "                  ^\r\nunknown command.\r\n"
 ```
