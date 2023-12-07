@@ -20,6 +20,7 @@ func TestErrors(t *testing.T) {
 func TestPrompt(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\ndcx1-j1#"),
+		[]byte("\r\nhost-s2(config)#"),
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
