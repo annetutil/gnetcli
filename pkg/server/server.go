@@ -101,7 +101,13 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 		c = paramCreds
 	}
 	deviceType := params.GetDevice()
-	connector := ssh.NewStreamer(hostname, c, ssh.WithLogger(logger), ssh.WithTrace(add))
+	streamerOpts := []ssh.StreamerOption{ssh.WithLogger(logger), ssh.WithTrace(add)}
+	port := params.GetPort()
+	if port > 0 {
+		streamerOpts = append(streamerOpts, ssh.WithPort(port))
+	}
+	connector := ssh.NewStreamer(hostname, c, streamerOpts...)
+
 	devFab, ok := m.deviceMaps[deviceType]
 	if !ok {
 		return nil, fmt.Errorf("unknown device %v", deviceType)
