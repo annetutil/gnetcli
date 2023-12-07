@@ -13,7 +13,7 @@ import (
 const (
 	loginExpression    = `.*Username:$`
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(?P<prompt>[\w\-]+)[>|#]$`
+	promptExpression   = `(?P<prompt>[\w\-]+(\(config\))?)[>|#]$`
 	errorExpression    = `(` +
 		`\r\n% Invalid input detected at '\^' marker.\r\n\r\n` +
 		`|^\r? +\^\n(% )?Invalid [\w ()]+ at '\^' marker\.` +
