@@ -1,4 +1,4 @@
-A program which execute `display interfaces` and return output, error and exit status.
+A program which execute `display clock` and return output, error and exit status.
 
 ```go
 package main
@@ -36,11 +36,27 @@ func main() {
 		panic(err)
     }
 	defer dev.Close()
-	res, _ := dev.Execute(cmd.NewCmd("display interfaces"))
+	res, _ := dev.Execute(cmd.NewCmd("display clock"))
 	if res.Status() == 0 {
 		fmt.Printf("Result: %s\n", res.Output())
 	} else {
-		fmt.Printf("Error: %s\nStatus: %d\n", res.Status(), res.Error())
+		fmt.Printf("Error: %s\nStatus: %d\n", res.Error(), res.Status())
 	}
 }
+```
+
+Produces the following output it command was executed successfully:
+
+```text
+Result: 2023-12-07 12:01:49
+Thursday
+Time Zone(UTC) : UTC
+```
+
+In case of error:
+
+```text
+Error:           ^
+Error: Unrecognized command found at '^' position.
+Status: 1
 ```
