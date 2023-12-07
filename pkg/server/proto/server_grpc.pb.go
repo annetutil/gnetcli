@@ -20,12 +20,13 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
+	Gnetcli_SetupHostParams_FullMethodName = "/gnetcli.Gnetcli/SetupHostParams"
 	Gnetcli_Exec_FullMethodName            = "/gnetcli.Gnetcli/Exec"
 	Gnetcli_ExecChat_FullMethodName        = "/gnetcli.Gnetcli/ExecChat"
 	Gnetcli_AddDevice_FullMethodName       = "/gnetcli.Gnetcli/AddDevice"
 	Gnetcli_ExecNetconf_FullMethodName     = "/gnetcli.Gnetcli/ExecNetconf"
 	Gnetcli_ExecNetconfChat_FullMethodName = "/gnetcli.Gnetcli/ExecNetconfChat"
-	Gnetcli_Downloads_FullMethodName       = "/gnetcli.Gnetcli/Downloads"
+	Gnetcli_Download_FullMethodName        = "/gnetcli.Gnetcli/Download"
 	Gnetcli_Upload_FullMethodName          = "/gnetcli.Gnetcli/Upload"
 )
 
@@ -33,12 +34,13 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GnetcliClient interface {
+	SetupHostParams(ctx context.Context, in *HostParams, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Exec(ctx context.Context, in *CMD, opts ...grpc.CallOption) (*CMDResult, error)
 	ExecChat(ctx context.Context, opts ...grpc.CallOption) (Gnetcli_ExecChatClient, error)
 	AddDevice(ctx context.Context, in *Device, opts ...grpc.CallOption) (*DeviceResult, error)
 	ExecNetconf(ctx context.Context, in *CMDNetconf, opts ...grpc.CallOption) (*CMDResult, error)
 	ExecNetconfChat(ctx context.Context, opts ...grpc.CallOption) (Gnetcli_ExecNetconfChatClient, error)
-	Downloads(ctx context.Context, in *FileDownloadRequest, opts ...grpc.CallOption) (*FilesResult, error)
+	Download(ctx context.Context, in *FileDownloadRequest, opts ...grpc.CallOption) (*FilesResult, error)
 	Upload(ctx context.Context, in *FileUploadRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
@@ -48,6 +50,15 @@ type gnetcliClient struct {
 
 func NewGnetcliClient(cc grpc.ClientConnInterface) GnetcliClient {
 	return &gnetcliClient{cc}
+}
+
+func (c *gnetcliClient) SetupHostParams(ctx context.Context, in *HostParams, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, Gnetcli_SetupHostParams_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *gnetcliClient) Exec(ctx context.Context, in *CMD, opts ...grpc.CallOption) (*CMDResult, error) {
@@ -139,9 +150,9 @@ func (x *gnetcliExecNetconfChatClient) Recv() (*CMDResult, error) {
 	return m, nil
 }
 
-func (c *gnetcliClient) Downloads(ctx context.Context, in *FileDownloadRequest, opts ...grpc.CallOption) (*FilesResult, error) {
+func (c *gnetcliClient) Download(ctx context.Context, in *FileDownloadRequest, opts ...grpc.CallOption) (*FilesResult, error) {
 	out := new(FilesResult)
-	err := c.cc.Invoke(ctx, Gnetcli_Downloads_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Gnetcli_Download_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -161,12 +172,13 @@ func (c *gnetcliClient) Upload(ctx context.Context, in *FileUploadRequest, opts 
 // All implementations must embed UnimplementedGnetcliServer
 // for forward compatibility
 type GnetcliServer interface {
+	SetupHostParams(context.Context, *HostParams) (*emptypb.Empty, error)
 	Exec(context.Context, *CMD) (*CMDResult, error)
 	ExecChat(Gnetcli_ExecChatServer) error
 	AddDevice(context.Context, *Device) (*DeviceResult, error)
 	ExecNetconf(context.Context, *CMDNetconf) (*CMDResult, error)
 	ExecNetconfChat(Gnetcli_ExecNetconfChatServer) error
-	Downloads(context.Context, *FileDownloadRequest) (*FilesResult, error)
+	Download(context.Context, *FileDownloadRequest) (*FilesResult, error)
 	Upload(context.Context, *FileUploadRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedGnetcliServer()
 }
@@ -175,6 +187,9 @@ type GnetcliServer interface {
 type UnimplementedGnetcliServer struct {
 }
 
+func (UnimplementedGnetcliServer) SetupHostParams(context.Context, *HostParams) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetupHostParams not implemented")
+}
 func (UnimplementedGnetcliServer) Exec(context.Context, *CMD) (*CMDResult, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
@@ -190,8 +205,8 @@ func (UnimplementedGnetcliServer) ExecNetconf(context.Context, *CMDNetconf) (*CM
 func (UnimplementedGnetcliServer) ExecNetconfChat(Gnetcli_ExecNetconfChatServer) error {
 	return status.Errorf(codes.Unimplemented, "method ExecNetconfChat not implemented")
 }
-func (UnimplementedGnetcliServer) Downloads(context.Context, *FileDownloadRequest) (*FilesResult, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Downloads not implemented")
+func (UnimplementedGnetcliServer) Download(context.Context, *FileDownloadRequest) (*FilesResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Download not implemented")
 }
 func (UnimplementedGnetcliServer) Upload(context.Context, *FileUploadRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Upload not implemented")
@@ -207,6 +222,24 @@ type UnsafeGnetcliServer interface {
 
 func RegisterGnetcliServer(s grpc.ServiceRegistrar, srv GnetcliServer) {
 	s.RegisterService(&Gnetcli_ServiceDesc, srv)
+}
+
+func _Gnetcli_SetupHostParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HostParams)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GnetcliServer).SetupHostParams(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Gnetcli_SetupHostParams_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GnetcliServer).SetupHostParams(ctx, req.(*HostParams))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Gnetcli_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -315,20 +348,20 @@ func (x *gnetcliExecNetconfChatServer) Recv() (*CMDNetconf, error) {
 	return m, nil
 }
 
-func _Gnetcli_Downloads_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Gnetcli_Download_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(FileDownloadRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GnetcliServer).Downloads(ctx, in)
+		return srv.(GnetcliServer).Download(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Gnetcli_Downloads_FullMethodName,
+		FullMethod: Gnetcli_Download_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GnetcliServer).Downloads(ctx, req.(*FileDownloadRequest))
+		return srv.(GnetcliServer).Download(ctx, req.(*FileDownloadRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -359,6 +392,10 @@ var Gnetcli_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*GnetcliServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "SetupHostParams",
+			Handler:    _Gnetcli_SetupHostParams_Handler,
+		},
+		{
 			MethodName: "Exec",
 			Handler:    _Gnetcli_Exec_Handler,
 		},
@@ -371,8 +408,8 @@ var Gnetcli_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Gnetcli_ExecNetconf_Handler,
 		},
 		{
-			MethodName: "Downloads",
-			Handler:    _Gnetcli_Downloads_Handler,
+			MethodName: "Download",
+			Handler:    _Gnetcli_Download_Handler,
 		},
 		{
 			MethodName: "Upload",

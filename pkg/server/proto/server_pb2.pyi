@@ -20,6 +20,14 @@ class DeviceResultStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     Device_notset: _ClassVar[DeviceResultStatus]
     Device_ok: _ClassVar[DeviceResultStatus]
     Device_error: _ClassVar[DeviceResultStatus]
+
+class FileStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = []
+    FileStatus_notset: _ClassVar[FileStatus]
+    FileStatus_ok: _ClassVar[FileStatus]
+    FileStatus_error: _ClassVar[FileStatus]
+    FileStatus_not_found: _ClassVar[FileStatus]
+    FileStatus_is_dir: _ClassVar[FileStatus]
 Operation_notset: TraceOperation
 Operation_unknown: TraceOperation
 Operation_write: TraceOperation
@@ -27,6 +35,11 @@ Operation_read: TraceOperation
 Device_notset: DeviceResultStatus
 Device_ok: DeviceResultStatus
 Device_error: DeviceResultStatus
+FileStatus_notset: FileStatus
+FileStatus_ok: FileStatus
+FileStatus_error: FileStatus
+FileStatus_not_found: FileStatus
+FileStatus_is_dir: FileStatus
 
 class QA(_message.Message):
     __slots__ = ["question", "answer"]
@@ -45,26 +58,22 @@ class Credentials(_message.Message):
     def __init__(self, login: _Optional[str] = ..., password: _Optional[str] = ...) -> None: ...
 
 class CMD(_message.Message):
-    __slots__ = ["host", "cmd", "trace", "qa", "read_timeout", "cmd_timeout", "device", "string_result", "credentials"]
+    __slots__ = ["host", "cmd", "trace", "qa", "read_timeout", "cmd_timeout", "string_result"]
     HOST_FIELD_NUMBER: _ClassVar[int]
     CMD_FIELD_NUMBER: _ClassVar[int]
     TRACE_FIELD_NUMBER: _ClassVar[int]
     QA_FIELD_NUMBER: _ClassVar[int]
     READ_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
     CMD_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
-    DEVICE_FIELD_NUMBER: _ClassVar[int]
     STRING_RESULT_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     host: str
     cmd: str
     trace: bool
     qa: _containers.RepeatedCompositeFieldContainer[QA]
     read_timeout: float
     cmd_timeout: float
-    device: str
     string_result: bool
-    credentials: Credentials
-    def __init__(self, host: _Optional[str] = ..., cmd: _Optional[str] = ..., trace: bool = ..., qa: _Optional[_Iterable[_Union[QA, _Mapping]]] = ..., read_timeout: _Optional[float] = ..., cmd_timeout: _Optional[float] = ..., device: _Optional[str] = ..., string_result: bool = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
+    def __init__(self, host: _Optional[str] = ..., cmd: _Optional[str] = ..., trace: bool = ..., qa: _Optional[_Iterable[_Union[QA, _Mapping]]] = ..., read_timeout: _Optional[float] = ..., cmd_timeout: _Optional[float] = ..., string_result: bool = ...) -> None: ...
 
 class Device(_message.Message):
     __slots__ = ["name", "prompt_expression", "error_expression", "pager_expression"]
@@ -79,20 +88,18 @@ class Device(_message.Message):
     def __init__(self, name: _Optional[str] = ..., prompt_expression: _Optional[str] = ..., error_expression: _Optional[str] = ..., pager_expression: _Optional[str] = ...) -> None: ...
 
 class CMDNetconf(_message.Message):
-    __slots__ = ["host", "cmd", "json", "read_timeout", "cmd_timeout", "Credentials"]
+    __slots__ = ["host", "cmd", "json", "read_timeout", "cmd_timeout"]
     HOST_FIELD_NUMBER: _ClassVar[int]
     CMD_FIELD_NUMBER: _ClassVar[int]
     JSON_FIELD_NUMBER: _ClassVar[int]
     READ_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
     CMD_TIMEOUT_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     host: str
     cmd: str
     json: bool
     read_timeout: float
     cmd_timeout: float
-    Credentials: Credentials
-    def __init__(self, host: _Optional[str] = ..., cmd: _Optional[str] = ..., json: bool = ..., read_timeout: _Optional[float] = ..., cmd_timeout: _Optional[float] = ..., Credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
+    def __init__(self, host: _Optional[str] = ..., cmd: _Optional[str] = ..., json: bool = ..., read_timeout: _Optional[float] = ..., cmd_timeout: _Optional[float] = ...) -> None: ...
 
 class CMDTraceItem(_message.Message):
     __slots__ = ["operation", "data"]
@@ -101,6 +108,18 @@ class CMDTraceItem(_message.Message):
     operation: TraceOperation
     data: bytes
     def __init__(self, operation: _Optional[_Union[TraceOperation, str]] = ..., data: _Optional[bytes] = ...) -> None: ...
+
+class HostParams(_message.Message):
+    __slots__ = ["host", "credentials", "port", "device"]
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    PORT_FIELD_NUMBER: _ClassVar[int]
+    DEVICE_FIELD_NUMBER: _ClassVar[int]
+    host: str
+    credentials: Credentials
+    port: int
+    device: str
+    def __init__(self, host: _Optional[str] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ..., port: _Optional[int] = ..., device: _Optional[str] = ...) -> None: ...
 
 class CMDResult(_message.Message):
     __slots__ = ["out", "out_str", "error", "error_str", "trace", "status"]
@@ -127,41 +146,41 @@ class DeviceResult(_message.Message):
     def __init__(self, res: _Optional[_Union[DeviceResultStatus, str]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class FileDownloadRequest(_message.Message):
-    __slots__ = ["host", "path", "device", "credentials"]
+    __slots__ = ["host", "paths", "device", "credentials"]
     HOST_FIELD_NUMBER: _ClassVar[int]
-    PATH_FIELD_NUMBER: _ClassVar[int]
+    PATHS_FIELD_NUMBER: _ClassVar[int]
     DEVICE_FIELD_NUMBER: _ClassVar[int]
     CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     host: str
-    path: str
+    paths: _containers.RepeatedScalarFieldContainer[str]
     device: str
     credentials: Credentials
-    def __init__(self, host: _Optional[str] = ..., path: _Optional[str] = ..., device: _Optional[str] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
+    def __init__(self, host: _Optional[str] = ..., paths: _Optional[_Iterable[str]] = ..., device: _Optional[str] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
+
+class FileData(_message.Message):
+    __slots__ = ["path", "data", "status"]
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    data: bytes
+    status: FileStatus
+    def __init__(self, path: _Optional[str] = ..., data: _Optional[bytes] = ..., status: _Optional[_Union[FileStatus, str]] = ...) -> None: ...
 
 class FileUploadRequest(_message.Message):
-    __slots__ = ["host", "path", "data", "device", "credentials"]
+    __slots__ = ["host", "device", "files", "credentials"]
     HOST_FIELD_NUMBER: _ClassVar[int]
-    PATH_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
     DEVICE_FIELD_NUMBER: _ClassVar[int]
+    FILES_FIELD_NUMBER: _ClassVar[int]
     CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     host: str
-    path: str
-    data: bytes
     device: str
+    files: _containers.RepeatedCompositeFieldContainer[FileData]
     credentials: Credentials
-    def __init__(self, host: _Optional[str] = ..., path: _Optional[str] = ..., data: _Optional[bytes] = ..., device: _Optional[str] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
-
-class FileResult(_message.Message):
-    __slots__ = ["path", "data"]
-    PATH_FIELD_NUMBER: _ClassVar[int]
-    DATA_FIELD_NUMBER: _ClassVar[int]
-    path: str
-    data: bytes
-    def __init__(self, path: _Optional[str] = ..., data: _Optional[bytes] = ...) -> None: ...
+    def __init__(self, host: _Optional[str] = ..., device: _Optional[str] = ..., files: _Optional[_Iterable[_Union[FileData, _Mapping]]] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
 
 class FilesResult(_message.Message):
     __slots__ = ["files"]
     FILES_FIELD_NUMBER: _ClassVar[int]
-    files: _containers.RepeatedCompositeFieldContainer[FileResult]
-    def __init__(self, files: _Optional[_Iterable[_Union[FileResult, _Mapping]]] = ...) -> None: ...
+    files: _containers.RepeatedCompositeFieldContainer[FileData]
+    def __init__(self, files: _Optional[_Iterable[_Union[FileData, _Mapping]]] = ...) -> None: ...

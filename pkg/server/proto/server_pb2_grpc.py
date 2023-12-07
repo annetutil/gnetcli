@@ -15,6 +15,11 @@ class GnetcliStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.SetupHostParams = channel.unary_unary(
+                '/gnetcli.Gnetcli/SetupHostParams',
+                request_serializer=server__pb2.HostParams.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
         self.Exec = channel.unary_unary(
                 '/gnetcli.Gnetcli/Exec',
                 request_serializer=server__pb2.CMD.SerializeToString,
@@ -40,8 +45,8 @@ class GnetcliStub(object):
                 request_serializer=server__pb2.CMDNetconf.SerializeToString,
                 response_deserializer=server__pb2.CMDResult.FromString,
                 )
-        self.Downloads = channel.unary_unary(
-                '/gnetcli.Gnetcli/Downloads',
+        self.Download = channel.unary_unary(
+                '/gnetcli.Gnetcli/Download',
                 request_serializer=server__pb2.FileDownloadRequest.SerializeToString,
                 response_deserializer=server__pb2.FilesResult.FromString,
                 )
@@ -54,6 +59,12 @@ class GnetcliStub(object):
 
 class GnetcliServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def SetupHostParams(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def Exec(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -85,7 +96,7 @@ class GnetcliServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def Downloads(self, request, context):
+    def Download(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -100,6 +111,11 @@ class GnetcliServicer(object):
 
 def add_GnetcliServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'SetupHostParams': grpc.unary_unary_rpc_method_handler(
+                    servicer.SetupHostParams,
+                    request_deserializer=server__pb2.HostParams.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
             'Exec': grpc.unary_unary_rpc_method_handler(
                     servicer.Exec,
                     request_deserializer=server__pb2.CMD.FromString,
@@ -125,8 +141,8 @@ def add_GnetcliServicer_to_server(servicer, server):
                     request_deserializer=server__pb2.CMDNetconf.FromString,
                     response_serializer=server__pb2.CMDResult.SerializeToString,
             ),
-            'Downloads': grpc.unary_unary_rpc_method_handler(
-                    servicer.Downloads,
+            'Download': grpc.unary_unary_rpc_method_handler(
+                    servicer.Download,
                     request_deserializer=server__pb2.FileDownloadRequest.FromString,
                     response_serializer=server__pb2.FilesResult.SerializeToString,
             ),
@@ -144,6 +160,23 @@ def add_GnetcliServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class Gnetcli(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def SetupHostParams(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/gnetcli.Gnetcli/SetupHostParams',
+            server__pb2.HostParams.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def Exec(request,
@@ -231,7 +264,7 @@ class Gnetcli(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
-    def Downloads(request,
+    def Download(request,
             target,
             options=(),
             channel_credentials=None,
@@ -241,7 +274,7 @@ class Gnetcli(object):
             wait_for_ready=None,
             timeout=None,
             metadata=None):
-        return grpc.experimental.unary_unary(request, target, '/gnetcli.Gnetcli/Downloads',
+        return grpc.experimental.unary_unary(request, target, '/gnetcli.Gnetcli/Download',
             server__pb2.FileDownloadRequest.SerializeToString,
             server__pb2.FilesResult.FromString,
             options, channel_credentials,

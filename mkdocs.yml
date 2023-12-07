@@ -9,6 +9,7 @@ nav:
     - Installation: install.md
     - Basic usage: basic_usage.md
     - New device: new_device.md
+    - GRPC: grpc.md
     - CLI basic usage: basic_usage_cli.md
     - GRPC-server basic usage: basic_usage_server.md
     - GRPC-server python sdk: basic_usage_server_pysdk.md
