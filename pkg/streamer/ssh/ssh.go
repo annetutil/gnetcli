@@ -890,7 +890,13 @@ func (m *Streamer) sftpDownloadFile(sc *sftp.Client, filePath string) streamer.F
 
 func (m *Streamer) Upload(filePaths map[string]streamer.File) error {
 	if m.sftpEnabled {
-		return m.uploadSftp(filePaths, true)
+		err := m.uploadSftp(filePaths, false)
+		if err != nil {
+			m.logger.Debug("retry upload with sudo", zap.Error(err))
+			err := m.uploadSftp(filePaths, true)
+			return err
+		}
+		return nil
 	}
 	return device.ErrorStreamerNotSupportedByDevice
 }
