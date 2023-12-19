@@ -37,4 +37,5 @@ func ExecuteBulk(dev Device, commands []gcmd.Cmd) ([]gcmd.CmdRes, error) {
 
 type SFTPSupport interface {
 	EnableSFTP()
+	SFTPSudoTry()
 }
