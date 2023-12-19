@@ -91,6 +91,7 @@ type Streamer struct {
 	inited                 bool
 	trace                  trace.CB
 	sftpEnabled            bool
+	sftpSudoTry            bool
 	readTimeout            time.Duration
 	forwardAgent           agent.Agent
 	hostKeyCallback        ssh.HostKeyCallback
@@ -108,6 +109,10 @@ func (m *Streamer) SetReadTimeout(timeout time.Duration) time.Duration {
 
 func (m *Streamer) EnableSFTP() {
 	m.sftpEnabled = true
+}
+
+func (m *Streamer) SFTPSudoTry() {
+	m.sftpSudoTry = true
 }
 
 func (m *Streamer) SetCredentialsInterceptor(inter func(credentials.Credentials) credentials.Credentials) {
@@ -132,6 +137,7 @@ func NewStreamer(host string, credentials credentials.Credentials, opts ...Strea
 		inited:                 false,
 		trace:                  nil,
 		sftpEnabled:            false,
+		sftpSudoTry:            false,
 		readTimeout:            defaultReadTimeout,
 		hostKeyCallback:        ssh.InsecureIgnoreHostKey(),
 	}
@@ -891,12 +897,12 @@ func (m *Streamer) sftpDownloadFile(sc *sftp.Client, filePath string) streamer.F
 func (m *Streamer) Upload(filePaths map[string]streamer.File) error {
 	if m.sftpEnabled {
 		err := m.uploadSftp(filePaths, false)
-		if err != nil {
-			m.logger.Debug("retry upload with sudo", zap.Error(err))
+		if err != nil && m.sftpSudoTry {
+			m.logger.Info("retry upload with sudo", zap.Error(err))
 			err := m.uploadSftp(filePaths, true)
 			return err
 		}
-		return nil
+		return err
 	}
 	return device.ErrorStreamerNotSupportedByDevice
 }
@@ -904,29 +910,29 @@ func (m *Streamer) Upload(filePaths map[string]streamer.File) error {
 func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) error {
 	sc, stop, err := m.makeSftpClient(useSudo)
 	if err != nil {
-		return err
+		return fmt.Errorf("makeSftpClient err %w", err)
 	}
 	defer stop()
 	for filePath, fileData := range filePaths {
 		f, err := sc.Create(filePath)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to create %q %w", filePath, err)
 		}
 
 		_, err = f.Write(fileData.Data)
 		if err != nil {
-			return err
+			return fmt.Errorf("write error %q %w", filePath, err)
 		}
 		if fileData.Mode != nil {
 			err = f.Chmod(*fileData.Mode)
 			if err != nil {
-				return err
+				return fmt.Errorf("chmod error %s %v %w", filePath, fileData.Mode, err)
 			}
 		}
 		if fileData.Chmod != nil {
 			err = f.Chown(fileData.Chmod.UID, fileData.Chmod.GID)
 			if err != nil {
-				return fmt.Errorf("chmod error %s %v", filePath, fileData.Chmod)
+				return fmt.Errorf("chmod error %s %v %w", filePath, fileData.Chmod, err)
 			}
 		}
 	}

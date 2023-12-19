@@ -34,6 +34,7 @@ func (m *Device) Connect(ctx context.Context) error {
 	err := m.connector.Init(ctx)
 	if sftpSupported, ok := m.connector.(device.SFTPSupport); ok {
 		sftpSupported.EnableSFTP()
+		sftpSupported.SFTPSudoTry()
 	}
 	if err != nil {
 		return err
