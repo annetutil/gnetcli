@@ -326,7 +326,11 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		}
 	}
 
-	exprs := expr.NewSimpleExprListNamed(map[string][]expr.Expr{"prompt": {cli.prompt}, "passwordError": {cli.passwordError}})
+	checkExprs := []expr.NamedExpr{
+		{Name: "prompt", Exprs: []expr.Expr{cli.prompt}},
+		{Name: "passwordError", Exprs: []expr.Expr{cli.passwordError}},
+	}
+	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
 	readRes, err := connector.ReadTo(ctx, exprs)
 	if err != nil {
 		return err
@@ -337,7 +341,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		return gerror.NewAuthException("cli auth user")
 	}
 
-	return err
+	return nil
 }
 
 func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI) (cmd.CmdRes, error) {

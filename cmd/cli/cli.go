@@ -38,7 +38,6 @@ func parseQuestions(input []string) []cmd.CmdOption {
 	for _, question := range input {
 		splitRes := strings.SplitN(question, ":::", 2)
 		if len(splitRes) == 2 {
-			fmt.Printf("splitRes %s\n", splitRes)
 			res = append(res, cmd.WithAnswers(cmd.NewAnswer(splitRes[0], splitRes[1])))
 		}
 	}
@@ -65,7 +64,6 @@ func main() {
 	jsonOut := flag.Bool("json", false, "Output in JSON")
 	deviceFiles := flag.String("dev-conf", "", "Path to yaml with device types")
 	flag.Parse()
-	fmt.Printf("question=%s\n", question)
 	logConfig := zap.NewProductionConfig()
 	if *debug {
 		logConfig = zap.NewDevelopmentConfig()
