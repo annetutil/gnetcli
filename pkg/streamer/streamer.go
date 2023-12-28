@@ -47,6 +47,7 @@ type ReadRes interface {
 	GetMatchedGroups() map[string][]byte
 	GetMatched() []byte
 	GetPatternNo() int
+	GetUnderlyingRes() ReadRes // may be nil
 }
 
 const readBufferSize = 1024
@@ -95,6 +96,7 @@ type ReadResImpl struct {
 	matchedGroups map[string][]byte
 	matched       []byte
 	patternNo     int
+	underlyingRes ReadRes
 }
 
 func (m ReadResImpl) GetBefore() []byte {
@@ -115,6 +117,21 @@ func (m ReadResImpl) GetMatched() []byte {
 
 func (m ReadResImpl) GetPatternNo() int {
 	return m.patternNo
+}
+
+func (m ReadResImpl) GetUnderlyingRes() ReadRes {
+	return m.underlyingRes
+}
+
+func NewReadResImplWithUnder(before, after []byte, matchedGroups map[string][]byte, matched []byte, patternNo int, underlying ReadRes) ReadResImpl {
+	return ReadResImpl{
+		before:        before,
+		after:         after,
+		matchedGroups: matchedGroups,
+		matched:       matched,
+		patternNo:     patternNo,
+		underlyingRes: underlying,
+	}
 }
 
 func NewReadResImpl(before, after []byte, matchedGroups map[string][]byte, matched []byte, patternNo int) ReadResImpl {
@@ -229,7 +246,11 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 			// check expr
 			mRes, ok := regExpr.Match(buffer)
 			if ok {
-				res := NewReadResImpl(buffer[:mRes.Start], buffer[mRes.End:], mRes.GroupDict, buffer[mRes.Start:mRes.End], mRes.PatternNo)
+				var underlyingRes ReadRes
+				if mRes.Underlying != nil {
+					underlyingRes = NewReadResImpl(buffer[:mRes.Underlying.Start], buffer[mRes.Underlying.End:], mRes.Underlying.GroupDict, buffer[mRes.Underlying.Start:mRes.End], mRes.Underlying.PatternNo)
+				}
+				res := NewReadResImplWithUnder(buffer[:mRes.Start], buffer[mRes.End:], mRes.GroupDict, buffer[mRes.Start:mRes.End], mRes.PatternNo, underlyingRes)
 				after := buffer[mRes.End:]
 				StopTimer(readIterTimeout)
 				StopTimer(maxDurationTimeout)

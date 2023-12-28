@@ -9,10 +9,11 @@ import (
 )
 
 type MatchRes struct {
-	Start     int
-	End       int
-	GroupDict map[string][]byte
-	PatternNo int
+	Start      int
+	End        int
+	GroupDict  map[string][]byte
+	PatternNo  int
+	Underlying *MatchRes // for result chaining
 }
 
 type Expr interface {
@@ -181,9 +182,16 @@ func (m SimpleExprList) Match(data []byte) (*MatchRes, bool) {
 		if expr == nil {
 			continue
 		}
-		if mRes, ok := expr.Match(data); ok {
-			mRes.PatternNo = i
-			return mRes, true
+		mRes, ok := expr.Match(data)
+		if ok {
+			res := &MatchRes{
+				Start:      mRes.Start,
+				End:        mRes.End,
+				GroupDict:  mRes.GroupDict,
+				PatternNo:  i,
+				Underlying: mRes,
+			}
+			return res, true
 		}
 	}
 	return nil, false
