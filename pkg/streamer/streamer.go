@@ -196,6 +196,20 @@ const (
 	EOF
 )
 
+func (m ReadXType) String() string {
+	switch m {
+	case Size:
+		return "size"
+	case Expr:
+		return "expr"
+	case Timeout:
+		return "timeout"
+	case EOF:
+		return "EOF"
+	}
+	return "unknown"
+}
+
 func NewReadXRes(retType ReadXType, bytesRes []byte, exprRes ReadRes, after []byte) *ReadXRes {
 	return &ReadXRes{
 		RetType:   retType,

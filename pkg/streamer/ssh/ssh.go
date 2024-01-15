@@ -457,27 +457,22 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	}
 	if creds.AgentEnabled() {
 		socket := os.Getenv("SSH_AUTH_SOCK")
-		if len(socket) > 0 {
-			var d net.Dialer
-			m.logger.Debug("connect to agent", zap.String("socket", socket))
-			conn, err := d.DialContext(ctx, "unix", socket)
-			if err != nil {
-				return nil, err
+		var d net.Dialer
+		conn, err := d.DialContext(ctx, "unix", socket)
+		if err != nil {
+			return nil, err
+		}
+		agentClient := agent.NewClient(conn)
+		agentSigners, err := agentClient.Signers()
+		if err != nil {
+			return nil, err
+		}
+		for _, s := range agentSigners {
+			if as, ok := s.(ssh.AlgorithmSigner); ok {
+				signers = append(signers, NewSSHSignersAlgorithmSignerLogger(as, m.logger))
+			} else {
+				signers = append(signers, NewSSHSignersLogger(s, m.logger))
 			}
-			agentClient := agent.NewClient(conn)
-			agentSigners, err := agentClient.Signers()
-			if err != nil {
-				return nil, err
-			}
-			for _, s := range agentSigners {
-				if as, ok := s.(ssh.AlgorithmSigner); ok {
-					signers = append(signers, NewSSHSignersAlgorithmSignerLogger(as, m.logger))
-				} else {
-					signers = append(signers, NewSSHSignersLogger(s, m.logger))
-				}
-			}
-		} else {
-			m.logger.Debug("SSH_AUTH_SOCK is not specified")
 		}
 	}
 	if len(signers) != 0 {
@@ -646,10 +641,8 @@ func (m *Streamer) Init(ctx context.Context) error {
 	if m.inited {
 		return fmt.Errorf("already inited")
 	}
-	if m.credentials == nil {
-		return fmt.Errorf("empty credentials")
-	}
 	m.inited = true
+	m.logger.Debug("open connection", zap.String("host", m.host))
 
 	conn, err := m.openConnect(ctx)
 	if err != nil {

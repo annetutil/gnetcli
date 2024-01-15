@@ -21,6 +21,9 @@ func TestPrompt(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\ndcx1-j1#"),
 		[]byte("\r\nhost-s2(config)#"),
+		[]byte("\r\nhost-s2(config-if)#"),
+		[]byte("\r\nhost-s2(config-if)#"),
+		[]byte("\r\nhost-s2(config-archive-log-cfg)#"),
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
