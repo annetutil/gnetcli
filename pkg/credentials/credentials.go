@@ -8,13 +8,14 @@ import (
 	"os"
 	"os/user"
 
+	"github.com/kevinburke/ssh_config"
 	"go.uber.org/zap"
 )
 
 type Credentials interface {
 	GetUsername() (string, error)
 	GetPasswords() []Secret
-	GetPrivateKey() []byte
+	GetPrivateKeys() [][]byte
 	GetPassphrase() Secret
 	AgentEnabled() bool
 }
@@ -22,7 +23,7 @@ type Credentials interface {
 type SimpleCredentials struct {
 	username   string
 	passwords  []Secret
-	privKey    []byte
+	privKeys   [][]byte
 	passphrase Secret
 	agent      bool
 	logger     *zap.Logger
@@ -70,7 +71,13 @@ func WithLogger(logger *zap.Logger) CredentialsOption {
 
 func WithPrivateKey(key []byte) CredentialsOption {
 	return func(h *SimpleCredentials) {
-		h.privKey = key
+		h.privKeys = [][]byte{key}
+	}
+}
+
+func WithPrivateKeys(key [][]byte) CredentialsOption {
+	return func(h *SimpleCredentials) {
+		h.privKeys = key
 	}
 }
 
@@ -105,8 +112,8 @@ func (m SimpleCredentials) GetPassphrase() Secret {
 	return m.passphrase
 }
 
-func (m SimpleCredentials) GetPrivateKey() []byte {
-	return m.privKey
+func (m SimpleCredentials) GetPrivateKeys() [][]byte {
+	return m.privKeys
 }
 
 func (m SimpleCredentials) AgentEnabled() bool {
@@ -137,4 +144,30 @@ func (Secret) MarshalText() ([]byte, error) {
 
 func (m Secret) Value() string {
 	return string(m)
+}
+
+func GetUsernameFromConfig(host string) string {
+	return ssh_config.Get(host, "User")
+}
+
+func GetAgentEnabledFromConfig(host string) bool {
+	return ssh_config.Get(host, "ForwardAgent") == "yes"
+}
+
+func GetPrivateKeysFromConfig(host string) ([][]byte, error) {
+	identityFiles := ssh_config.GetAll(host, "IdentityFile")
+	privKeys := make([][]byte, 0, len(identityFiles))
+	// todo: check escape characters processing:
+	// The file name may use the tilde syntax to refer to a user's home directory or one of
+	//          the following escape characters: ‘%d’ (local user's home directory), ‘%u’ (local
+	//          user name), ‘%l’ (local host name), ‘%h’ (remote host name) or ‘%r’ (remote user
+	//          name)
+	for _, v := range identityFiles {
+		content, err := os.ReadFile(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read identity file %s: %w", v, err)
+		}
+		privKeys = append(privKeys, content)
+	}
+	return privKeys, nil
 }

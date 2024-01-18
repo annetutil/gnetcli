@@ -441,13 +441,13 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	}
 
 	var signers []ssh.Signer
-	key := creds.GetPrivateKey()
-	if len(key) > 0 {
-		signer, err := ssh.ParsePrivateKey(key)
+	keys := creds.GetPrivateKeys()
+	for _, pk := range keys {
+		signer, err := ssh.ParsePrivateKey(pk)
 		if _, ok := err.(*ssh.PassphraseMissingError); ok {
 			passphrase := creds.GetPassphrase()
 			if len(passphrase) > 0 {
-				signer, err = ssh.ParsePrivateKeyWithPassphrase(key, []byte(passphrase))
+				signer, err = ssh.ParsePrivateKeyWithPassphrase(pk, []byte(passphrase))
 			}
 		}
 		if err != nil {
@@ -668,22 +668,30 @@ func (m *Streamer) WithCloseSessionCallback(fn func(*ssh.Session) error) {
 }
 
 func (m *Streamer) startForwarding(sess *ssh.Session) error {
-	privKey, err := ssh.ParseRawPrivateKey(m.credentials.GetPrivateKey())
-	if _, ok := err.(*ssh.PassphraseMissingError); ok {
-		passphrase := m.credentials.GetPassphrase()
-		if len(passphrase) > 0 {
-			privKey, err = ssh.ParseRawPrivateKeyWithPassphrase(m.credentials.GetPrivateKey(), []byte(passphrase))
-			if err != nil {
-				return err
-			}
-		}
-	} else if err != nil {
-		return fmt.Errorf("unable to parse private key: %s", err)
-	}
 	keyring := agent.NewKeyring()
-	if err := keyring.Add(agent.AddedKey{PrivateKey: privKey}); err != nil {
-		return fmt.Errorf("error adding private key: %s", err)
+
+	privKeysRaw := m.credentials.GetPrivateKeys()
+	if len(privKeysRaw) == 0 {
+		return errors.New("no private keys found")
 	}
+	for _, privKeyRaw := range privKeysRaw {
+		privKey, err := ssh.ParseRawPrivateKey(privKeyRaw)
+		if _, ok := err.(*ssh.PassphraseMissingError); ok {
+			passphrase := m.credentials.GetPassphrase()
+			if len(passphrase) > 0 {
+				privKey, err = ssh.ParseRawPrivateKeyWithPassphrase(privKeyRaw, []byte(passphrase))
+				if err != nil {
+					return err
+				}
+			}
+		} else if err != nil {
+			return fmt.Errorf("unable to parse private key: %s", err)
+		}
+		if err := keyring.Add(agent.AddedKey{PrivateKey: privKey}); err != nil {
+			return fmt.Errorf("error adding private key: %s", err)
+		}
+	}
+
 	if err := agent.RequestAgentForwarding(sess); err != nil {
 		return fmt.Errorf("error RequestAgentForwarding: %v", err)
 	}
@@ -691,6 +699,7 @@ func (m *Streamer) startForwarding(sess *ssh.Session) error {
 		return fmt.Errorf("error ForwardToAgent: %v", err)
 	}
 	m.forwardAgent = keyring
+
 	return nil
 }
 

@@ -59,8 +59,8 @@ func (m rosUsernameWrapper) GetPasswords() []credentials.Secret {
 	return m.creds.GetPasswords()
 }
 
-func (m rosUsernameWrapper) GetPrivateKey() []byte {
-	return m.creds.GetPrivateKey()
+func (m rosUsernameWrapper) GetPrivateKeys() [][]byte {
+	return m.creds.GetPrivateKeys()
 }
 
 func (m rosUsernameWrapper) GetPassphrase() credentials.Secret {
