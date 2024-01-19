@@ -123,10 +123,12 @@ func (m SimpleCredentials) GetAgentSocket() string {
 	return m.agentSocket
 }
 
+// GetDefaultAgentSocket returns default ssh authentication agent socket (read from SSH_AUTH_SOCK env)
 func GetDefaultAgentSocket() string {
 	return os.Getenv("SSH_AUTH_SOCK")
 }
 
+// GetLogin tries to get sudo user from env, falling back to current user
 func GetLogin() string {
 	login := os.Getenv("SUDO_USER")
 	if login == "" {
@@ -153,36 +155,42 @@ func (m Secret) Value() string {
 	return string(m)
 }
 
+// GetUsernameFromConfig extracts User keyword value for given host from default ssh config.
 func GetUsernameFromConfig(host string) string {
 	return ssh_config.Get(host, "User")
 }
 
-// todo:
-// IdentityAgent and IdentityFile accept the tokens %%, %d, %h, %l, %r, and %u.
-func GetAgentSocketFromConfig(host string) string {
-	identityAgent := ssh_config.Get(host, "IdentityAgent")
-	if identityAgent == "none" {
-		return ""
+// GetAgentSocketFromConfig computes SSH authentication agent socket path using default ssh config's IdentityAgent and ForwardAgent keywords.
+// IdentityAgent value supports tilde syntax, but it doesn't support %d, %h, %l and %r.
+func GetAgentSocketFromConfig(host string) (string, error) {
+	// todo:
+	// IdentityAgent and IdentityFile accept the tokens %%, %d, %h, %l, %r, and %u.
+	ia := ssh_config.Get(host, "IdentityAgent")
+	expandedIa, err := homedir.Expand(ia)
+	if err != nil {
+		return "", err
 	}
-	if identityAgent == "SSH_AUTH_SOCK" {
-		return GetDefaultAgentSocket()
+	if expandedIa == "none" {
+		return "", nil
 	}
-	if identityAgent == "" && ssh_config.Get(host, "ForwardAgent") == "yes" {
-		return GetDefaultAgentSocket()
+	if expandedIa == "SSH_AUTH_SOCK" {
+		return GetDefaultAgentSocket(), nil
+	}
+	if expandedIa == "" && ssh_config.Get(host, "ForwardAgent") == "yes" {
+		return GetDefaultAgentSocket(), nil
 	}
 
-	return identityAgent
+	return expandedIa, nil
 }
 
+// GetPrivateKeysFromConfig tries to extract PrivateKeys from default config's IdentityFiles specifed for provided host.
+// IdentityFile value supports tilde syntax, but it doesn't support %d, %u, %l, %h and %r.
 func GetPrivateKeysFromConfig(host string) ([][]byte, error) {
 	identityFiles := ssh_config.GetAll(host, "IdentityFile")
 	privKeys := make([][]byte, 0, len(identityFiles))
 	for _, v := range identityFiles {
-		// todo: check escape characters processing:
-		// The file name may use the tilde syntax to refer to a user's home directory or one of
-		//          the following escape characters: ‘%d’ (local user's home directory), ‘%u’ (local
-		//          user name), ‘%l’ (local host name), ‘%h’ (remote host name) or ‘%r’ (remote user
-		//          name)
+		// todo:
+		// IdentityAgent and IdentityFile accept the tokens %%, %d, %h, %l, %r, and %u.
 		expandedPath, err := homedir.Expand(v)
 		if err != nil {
 			return nil, fmt.Errorf("failed to expand path of identity file %s: %w", v, err)
@@ -199,8 +207,8 @@ func GetPrivateKeysFromConfig(host string) ([][]byte, error) {
 	return privKeys, nil
 }
 
-// when IdentityFile is not set in ssh config,
-// ssh_config lib makes up a default value `~/.ssh/identity`, which may result in not exist error
+// isSSHConfigMadeUpDefaultFileError checks if given error occured because
+// ssh_config lib made up a default value for IdentityFile due to it's absence in config
 func isSSHConfigMadeUpDefaultFileError(identityFiles []string, err error) bool {
 	if len(identityFiles) == 1 && identityFiles[0] == "~/.ssh/identity" && errors.Is(err, fs.ErrNotExist) {
 		return true

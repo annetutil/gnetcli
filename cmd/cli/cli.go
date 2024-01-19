@@ -225,7 +225,10 @@ func buildCredsFromSSHConfig(login, password, host, sshConfigPassphrase string, 
 	if configLogin != "" {
 		login = configLogin
 	}
-	agentSocket := gcred.GetAgentSocketFromConfig(host)
+	agentSocket, err := gcred.GetAgentSocketFromConfig(host)
+	if err != nil {
+		return nil, err
+	}
 
 	opts := []gcred.CredentialsOption{
 		gcred.WithUsername(login),
