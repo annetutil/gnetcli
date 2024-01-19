@@ -4,11 +4,14 @@ Package credentials describes credentials.
 package credentials
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/user"
 
 	"github.com/kevinburke/ssh_config"
+	"github.com/mitchellh/go-homedir"
 	"go.uber.org/zap"
 )
 
@@ -155,19 +158,38 @@ func GetAgentEnabledFromConfig(host string) bool {
 }
 
 func GetPrivateKeysFromConfig(host string) ([][]byte, error) {
-	identityFiles := ssh_config.GetAll(host, "IdentityFile")
+	identityFiles, err := ssh_config.GetAllStrict(host, "IdentityFile")
+	if err != nil {
+		return nil, err
+	}
 	privKeys := make([][]byte, 0, len(identityFiles))
-	// todo: check escape characters processing:
-	// The file name may use the tilde syntax to refer to a user's home directory or one of
-	//          the following escape characters: ‘%d’ (local user's home directory), ‘%u’ (local
-	//          user name), ‘%l’ (local host name), ‘%h’ (remote host name) or ‘%r’ (remote user
-	//          name)
 	for _, v := range identityFiles {
-		content, err := os.ReadFile(v)
+		// todo: check escape characters processing:
+		// The file name may use the tilde syntax to refer to a user's home directory or one of
+		//          the following escape characters: ‘%d’ (local user's home directory), ‘%u’ (local
+		//          user name), ‘%l’ (local host name), ‘%h’ (remote host name) or ‘%r’ (remote user
+		//          name)
+		expandedPath, err := homedir.Expand(v)
+		if err != nil {
+			return nil, fmt.Errorf("failed to expand path of identity file %s: %w", v, err)
+		}
+		content, err := os.ReadFile(expandedPath)
+		if err != nil && isSSHConfigMadeUpDefaultFileError(identityFiles, err) {
+			return nil, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to read identity file %s: %w", v, err)
 		}
 		privKeys = append(privKeys, content)
 	}
 	return privKeys, nil
+}
+
+// when IdentityFile is not set in ssh config,
+// ssh_config lib makes up a default value `~/.ssh/identity`, which may result in not exist error
+func isSSHConfigMadeUpDefaultFileError(identityFiles []string, err error) bool {
+	if len(identityFiles) == 1 && identityFiles[0] == "~/.ssh/identity" && errors.Is(err, fs.ErrNotExist) {
+		return true
+	}
+	return false
 }
