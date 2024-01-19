@@ -46,4 +46,8 @@ Usage of cli:
     	Password
   -port int
     	Port (default 22)
+  -use-ssh-config
+      Use default ssh config ($HOME/.ssh/config, falling back to /etc/ssh/ssh_config) to search for options for provided hostname. Supported keywords: User, IdentityAgent, ForwardAgent, IdentityFile. If option is specified in config, it will override options from other sources (e.g. User will override -login if specified)
+  -ssh-config-passphrase string
+      Passphrase for IdentityFiles specified in ssh config.
 ```

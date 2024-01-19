@@ -462,7 +462,7 @@ func BuildCreds(login, password string, enableAgent bool, logger *zap.Logger) cr
 		opts = append(opts, credentials.WithLogger(logger))
 	}
 	if enableAgent {
-		opts = append(opts, credentials.WithSSHAgent())
+		opts = append(opts, credentials.WithSSHAgentSocket(credentials.GetDefaultAgentSocket()))
 	}
 	if len(password) > 0 {
 		opts = append(opts, credentials.WithPassword(credentials.Secret(password)))

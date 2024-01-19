@@ -59,6 +59,8 @@ func main() {
 	devType := flag.String("devtype", "", fmt.Sprintf("Device type from dev-conf file or from predifined: %s", dt))
 	login := flag.String("login", "", "Login")
 	password := flag.String("password", "", "Password")
+	useSSHConfig := flag.Bool("use-ssh-config", false, "Use default ssh config")
+	sshConfigPassphrase := flag.String("ssh-config-passphrase", "", "Passphrase for ssh config's identity file")
 	debug := flag.Bool("debug", false, "Set debug log level")
 	test := flag.Bool("test", false, "Run tests on config")
 	jsonOut := flag.Bool("json", false, "Output in JSON")
@@ -120,7 +122,10 @@ func main() {
 		panic("empty command")
 	}
 	commands := strings.Split(*command, "\n")
-	creds := buildCreds(*login, *password, logger)
+	creds, err := buildCreds(*login, *password, *hostname, *sshConfigPassphrase, *useSSHConfig, logger)
+	if err != nil {
+		panic(err)
+	}
 	sshOpts := []ssh.StreamerOption{ssh.WithLogger(logger)}
 	if port != nil {
 		sshOpts = append(sshOpts, ssh.WithPort(*port))
@@ -187,22 +192,60 @@ func formatJSON(command []string, inputs []cmd.CmdRes) (string, error) {
 	return string(res), err
 }
 
-func buildCreds(login, password string, logger *zap.Logger) gcred.Credentials {
+func buildCreds(login, password, host, sshConfigPassphrase string, useSSHConfig bool, logger *zap.Logger) (gcred.Credentials, error) {
 	if len(login) == 0 {
 		newLogin := gcred.GetLogin()
 		login = newLogin
 	}
 
+	if useSSHConfig {
+		return buildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, logger)
+	}
+	return buildBasicCreds(login, password, logger), nil
+}
+
+func buildBasicCreds(login, password string, logger *zap.Logger) gcred.Credentials {
 	opts := []gcred.CredentialsOption{
 		gcred.WithUsername(login),
-		gcred.WithSSHAgent(),
+		gcred.WithSSHAgentSocket(gcred.GetDefaultAgentSocket()),
 		gcred.WithLogger(logger),
 	}
 	if len(password) > 0 {
 		opts = append(opts, gcred.WithPassword(gcred.Secret(password)))
 	}
-	creds := gcred.NewSimpleCredentials(opts...)
-	return creds
+	return gcred.NewSimpleCredentials(opts...)
+}
+
+func buildCredsFromSSHConfig(login, password, host, sshConfigPassphrase string, logger *zap.Logger) (gcred.Credentials, error) {
+	privateKeys, err := gcred.GetPrivateKeysFromConfig(host)
+	if err != nil {
+		return nil, err
+	}
+	configLogin := gcred.GetUsernameFromConfig(host)
+	if configLogin != "" {
+		login = configLogin
+	}
+	agentSocket, err := gcred.GetAgentSocketFromConfig(host)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := []gcred.CredentialsOption{
+		gcred.WithUsername(login),
+		gcred.WithLogger(logger),
+		gcred.WithSSHAgentSocket(agentSocket),
+	}
+	if len(password) > 0 {
+		opts = append(opts, gcred.WithPassword(gcred.Secret(password)))
+	}
+	if len(privateKeys) > 0 {
+		opts = append(opts, gcred.WithPrivateKeys(privateKeys))
+	}
+	if len(sshConfigPassphrase) > 0 {
+		opts = append(opts, gcred.WithPassphrase(gcred.Secret(sshConfigPassphrase)))
+	}
+
+	return gcred.NewSimpleCredentials(opts...), nil
 }
 
 func exec(ctx context.Context, dev device.Device, commands []string, cmdopts []cmd.CmdOption, logger *zap.Logger) ([]cmd.CmdRes, error) {
