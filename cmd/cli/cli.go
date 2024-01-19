@@ -60,6 +60,7 @@ func main() {
 	login := flag.String("login", "", "Login")
 	password := flag.String("password", "", "Password")
 	useSSHConfig := flag.Bool("use-ssh-config", false, "Use default ssh config")
+	sshConfigPassphrase := flag.String("ssh-config-passphrase", "", "Passphrase for ssh config's identity file access (if needed)")
 	debug := flag.Bool("debug", false, "Set debug log level")
 	test := flag.Bool("test", false, "Run tests on config")
 	jsonOut := flag.Bool("json", false, "Output in JSON")
@@ -121,7 +122,7 @@ func main() {
 		panic("empty command")
 	}
 	commands := strings.Split(*command, "\n")
-	creds, err := buildCreds(*login, *password, *hostname, *useSSHConfig, logger)
+	creds, err := buildCreds(*login, *password, *hostname, *sshConfigPassphrase, *useSSHConfig, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -191,14 +192,14 @@ func formatJSON(command []string, inputs []cmd.CmdRes) (string, error) {
 	return string(res), err
 }
 
-func buildCreds(login, password, host string, useSSHConfig bool, logger *zap.Logger) (gcred.Credentials, error) {
+func buildCreds(login, password, host, sshConfigPassphrase string, useSSHConfig bool, logger *zap.Logger) (gcred.Credentials, error) {
 	if len(login) == 0 {
 		newLogin := gcred.GetLogin()
 		login = newLogin
 	}
 
 	if useSSHConfig {
-		return buildCredsFromSshConfig(login, password, host, logger)
+		return buildCredsFromSshConfig(login, password, host, sshConfigPassphrase, logger)
 	}
 	return buildBasicCreds(login, password, logger), nil
 }
@@ -215,7 +216,7 @@ func buildBasicCreds(login, password string, logger *zap.Logger) gcred.Credentia
 	return gcred.NewSimpleCredentials(opts...)
 }
 
-func buildCredsFromSshConfig(login, password, host string, logger *zap.Logger) (gcred.Credentials, error) {
+func buildCredsFromSshConfig(login, password, host, sshConfigPassphrase string, logger *zap.Logger) (gcred.Credentials, error) {
 	privateKeys, err := gcred.GetPrivateKeysFromConfig(host)
 	if err != nil {
 		return nil, err
@@ -237,6 +238,9 @@ func buildCredsFromSshConfig(login, password, host string, logger *zap.Logger) (
 	}
 	if len(privateKeys) != 0 {
 		opts = append(opts, gcred.WithPrivateKeys(privateKeys))
+	}
+	if len(sshConfigPassphrase) > 0 {
+		opts = append(opts, gcred.WithPassphrase(gcred.Secret(sshConfigPassphrase)))
 	}
 
 	return gcred.NewSimpleCredentials(opts...), nil
