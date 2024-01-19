@@ -60,7 +60,7 @@ func main() {
 	login := flag.String("login", "", "Login")
 	password := flag.String("password", "", "Password")
 	useSSHConfig := flag.Bool("use-ssh-config", false, "Use default ssh config")
-	sshConfigPassphrase := flag.String("ssh-config-passphrase", "", "Passphrase for ssh config's identity file access (if needed)")
+	sshConfigPassphrase := flag.String("ssh-config-passphrase", "", "Passphrase for ssh config's identity file")
 	debug := flag.Bool("debug", false, "Set debug log level")
 	test := flag.Bool("test", false, "Run tests on config")
 	jsonOut := flag.Bool("json", false, "Output in JSON")
@@ -199,7 +199,7 @@ func buildCreds(login, password, host, sshConfigPassphrase string, useSSHConfig 
 	}
 
 	if useSSHConfig {
-		return buildCredsFromSshConfig(login, password, host, sshConfigPassphrase, logger)
+		return buildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, logger)
 	}
 	return buildBasicCreds(login, password, logger), nil
 }
@@ -216,7 +216,7 @@ func buildBasicCreds(login, password string, logger *zap.Logger) gcred.Credentia
 	return gcred.NewSimpleCredentials(opts...)
 }
 
-func buildCredsFromSshConfig(login, password, host, sshConfigPassphrase string, logger *zap.Logger) (gcred.Credentials, error) {
+func buildCredsFromSSHConfig(login, password, host, sshConfigPassphrase string, logger *zap.Logger) (gcred.Credentials, error) {
 	privateKeys, err := gcred.GetPrivateKeysFromConfig(host)
 	if err != nil {
 		return nil, err
@@ -235,7 +235,7 @@ func buildCredsFromSshConfig(login, password, host, sshConfigPassphrase string, 
 	if len(password) > 0 {
 		opts = append(opts, gcred.WithPassword(gcred.Secret(password)))
 	}
-	if len(privateKeys) != 0 {
+	if len(privateKeys) > 0 {
 		opts = append(opts, gcred.WithPrivateKeys(privateKeys))
 	}
 	if len(sshConfigPassphrase) > 0 {

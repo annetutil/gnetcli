@@ -53,7 +53,7 @@ func main() {
 
 	creds := dcreds.NewSimpleCredentials(
 		dcreds.WithUsername(dcreds.GetLogin()),
-		dcreds.WithSSHAgent(), // try pubkey auth using agent
+		dcreds.WithSSHAgentSocket(dcreds.GetDefaultAgentSocket()), // try pubkey auth using agent
 		dcreds.WithPassword(dcreds.Secret(password)), // and password
 		dcreds.WithLogger(logger),
 	)

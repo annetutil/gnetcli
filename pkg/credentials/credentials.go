@@ -175,10 +175,7 @@ func GetAgentSocketFromConfig(host string) string {
 }
 
 func GetPrivateKeysFromConfig(host string) ([][]byte, error) {
-	identityFiles, err := ssh_config.GetAllStrict(host, "IdentityFile")
-	if err != nil {
-		return nil, err
-	}
+	identityFiles := ssh_config.GetAll(host, "IdentityFile")
 	privKeys := make([][]byte, 0, len(identityFiles))
 	for _, v := range identityFiles {
 		// todo: check escape characters processing:
