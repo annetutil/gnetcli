@@ -207,7 +207,7 @@ func buildCreds(login, password, host, sshConfigPassphrase string, useSSHConfig 
 func buildBasicCreds(login, password string, logger *zap.Logger) gcred.Credentials {
 	opts := []gcred.CredentialsOption{
 		gcred.WithUsername(login),
-		gcred.WithSSHAgent(),
+		gcred.WithSSHAgentSocket(gcred.GetDefaultAgentSocket()),
 		gcred.WithLogger(logger),
 	}
 	if len(password) > 0 {
@@ -225,16 +225,15 @@ func buildCredsFromSshConfig(login, password, host, sshConfigPassphrase string, 
 	if configLogin != "" {
 		login = configLogin
 	}
+	agentSocket := gcred.GetAgentSocketFromConfig(host)
 
 	opts := []gcred.CredentialsOption{
 		gcred.WithUsername(login),
 		gcred.WithLogger(logger),
+		gcred.WithSSHAgentSocket(agentSocket),
 	}
 	if len(password) > 0 {
 		opts = append(opts, gcred.WithPassword(gcred.Secret(password)))
-	}
-	if gcred.GetAgentEnabledFromConfig(host) {
-		opts = append(opts, gcred.WithSSHAgent())
 	}
 	if len(privateKeys) != 0 {
 		opts = append(opts, gcred.WithPrivateKeys(privateKeys))

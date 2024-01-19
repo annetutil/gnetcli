@@ -22,7 +22,7 @@ func main() {
 	creds := credentials.NewSimpleCredentials(
 		credentials.WithUsername(credentials.GetLogin()),
 		credentials.WithPassword(credentials.Secret("mypassword")),
-		credentials.WithSSHAgent(),
+		credentials.WithSSHAgentSocket(credentials.GetDefaultAgentSocket()),
 		credentials.WithLogger(logger),
 	)
 

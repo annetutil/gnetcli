@@ -20,27 +20,27 @@ type Credentials interface {
 	GetPasswords() []Secret
 	GetPrivateKeys() [][]byte
 	GetPassphrase() Secret
-	AgentEnabled() bool
+	GetAgentSocket() string
 }
 
 type SimpleCredentials struct {
-	username   string
-	passwords  []Secret
-	privKeys   [][]byte
-	passphrase Secret
-	agent      bool
-	logger     *zap.Logger
+	username    string
+	passwords   []Secret
+	privKeys    [][]byte
+	passphrase  Secret
+	agentSocket string
+	logger      *zap.Logger
 }
 
 type CredentialsOption func(*SimpleCredentials)
 
 func NewSimpleCredentials(opts ...CredentialsOption) *SimpleCredentials {
 	cred := &SimpleCredentials{
-		username:   "",
-		passwords:  []Secret{},
-		passphrase: "",
-		agent:      false,
-		logger:     zap.NewNop(),
+		username:    "",
+		passwords:   []Secret{},
+		passphrase:  "",
+		agentSocket: "",
+		logger:      zap.NewNop(),
 	}
 	for _, opt := range opts {
 		opt(cred)
@@ -90,9 +90,9 @@ func WithPassphrase(passphrase Secret) CredentialsOption {
 	}
 }
 
-func WithSSHAgent() CredentialsOption {
+func WithSSHAgentSocket(agentSocket string) CredentialsOption {
 	return func(h *SimpleCredentials) {
-		h.agent = true
+		h.agentSocket = agentSocket
 	}
 }
 
@@ -119,8 +119,12 @@ func (m SimpleCredentials) GetPrivateKeys() [][]byte {
 	return m.privKeys
 }
 
-func (m SimpleCredentials) AgentEnabled() bool {
-	return m.agent
+func (m SimpleCredentials) GetAgentSocket() string {
+	return m.agentSocket
+}
+
+func GetDefaultAgentSocket() string {
+	return os.Getenv("SSH_AUTH_SOCK")
 }
 
 func GetLogin() string {
@@ -153,8 +157,21 @@ func GetUsernameFromConfig(host string) string {
 	return ssh_config.Get(host, "User")
 }
 
-func GetAgentEnabledFromConfig(host string) bool {
-	return ssh_config.Get(host, "ForwardAgent") == "yes"
+// todo:
+// IdentityAgent and IdentityFile accept the tokens %%, %d, %h, %l, %r, and %u.
+func GetAgentSocketFromConfig(host string) string {
+	identityAgent := ssh_config.Get(host, "IdentityAgent")
+	if identityAgent == "none" {
+		return ""
+	}
+	if identityAgent == "SSH_AUTH_SOCK" {
+		return GetDefaultAgentSocket()
+	}
+	if identityAgent == "" && ssh_config.Get(host, "ForwardAgent") == "yes" {
+		return GetDefaultAgentSocket()
+	}
+
+	return identityAgent
 }
 
 func GetPrivateKeysFromConfig(host string) ([][]byte, error) {

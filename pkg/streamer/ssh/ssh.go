@@ -455,10 +455,9 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		}
 		signers = append(signers, NewSSHSignersLogger(signer, m.logger))
 	}
-	if creds.AgentEnabled() {
-		socket := os.Getenv("SSH_AUTH_SOCK")
+	if agentSocket := creds.GetAgentSocket(); len(agentSocket) != 0 {
 		var d net.Dialer
-		conn, err := d.DialContext(ctx, "unix", socket)
+		conn, err := d.DialContext(ctx, "unix", agentSocket)
 		if err != nil {
 			return nil, err
 		}

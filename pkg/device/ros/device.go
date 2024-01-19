@@ -67,8 +67,8 @@ func (m rosUsernameWrapper) GetPassphrase() credentials.Secret {
 	return m.creds.GetPassphrase()
 }
 
-func (m rosUsernameWrapper) AgentEnabled() bool {
-	return m.creds.AgentEnabled()
+func (m rosUsernameWrapper) GetAgentSocket() string {
+	return m.creds.GetAgentSocket()
 }
 
 func newRosUsernameWrapper(creds credentials.Credentials) rosUsernameWrapper {
