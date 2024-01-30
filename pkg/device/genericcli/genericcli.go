@@ -33,6 +33,7 @@ type GenericCLI struct {
 	prompt           expr.Expr
 	login            expr.Expr
 	password         expr.Expr
+	authfail         expr.Expr
 	error            expr.Expr
 	question         expr.Expr
 	passwordError    expr.Expr
@@ -54,6 +55,13 @@ func WithLoginExprs(login, password, passwordError expr.Expr) GenericCLIOption {
 		h.login = login
 		h.password = password
 		h.passwordError = passwordError
+	}
+}
+
+// temp function for migration to WithLoginExprs
+func WithAuthFail(authFail expr.Expr) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.authfail = authFail
 	}
 }
 
@@ -122,6 +130,7 @@ func MakeGenericCLI(prompt, error expr.Expr, opts ...GenericCLIOption) GenericCL
 		prompt:           prompt,
 		login:            nil,
 		password:         nil,
+		authfail:         nil,
 		error:            error,
 		question:         nil,
 		passwordError:    nil,
@@ -264,6 +273,29 @@ func (m *GenericDevice) ExecuteBulk(commands []cmd.Cmd) ([]cmd.CmdRes, error) {
 
 func (m *GenericDevice) Close() {
 	m.connector.Close()
+}
+
+type GetAllRegex interface {
+	GetLogin() expr.Expr
+	GetPassword() expr.Expr
+	GetAuth() expr.Expr
+	GetPrompt() expr.Expr
+}
+
+func (m *GenericDevice) GetLogin() expr.Expr {
+	return m.cli.login
+}
+
+func (m *GenericDevice) GetPassword() expr.Expr {
+	return m.cli.password
+}
+
+func (m *GenericDevice) GetAuth() expr.Expr {
+	return m.cli.authfail
+}
+
+func (m *GenericDevice) GetPrompt() expr.Expr {
+	return m.cli.prompt
 }
 
 func MakeGenericDevice(cli GenericCLI, connector streamer.Connector, opts ...GenericDeviceOption) GenericDevice {
