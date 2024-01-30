@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -915,6 +916,10 @@ func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) 
 	}
 	defer stop()
 	for filePath, fileData := range filePaths {
+		err := sc.MkdirAll(filepath.Dir(filePath))
+		if err != nil {
+			return fmt.Errorf("unable to create dir %q %w", filepath.Dir(filePath), err)
+		}
 		f, err := sc.Create(filePath)
 		if err != nil {
 			return fmt.Errorf("unable to create %q %w", filePath, err)
