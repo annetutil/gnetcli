@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	promptExpression = `(\r\n({master}|{master:\d}))?\r\n(?P<prompt>[\w\-]+@[\w\-]+>) $`
+	promptExpression = `(\r\n({master}|{master:\d}|\[edit\]))?\r\n(?P<prompt>[\w\-]+@[\w\-]+[>#]) $`
 	errorExpression  = `\n(syntax error\.|syntax error, expecting <command>.|unknown command\.)\r\n`
 	pagerExpression  = `\n---\(more( \d+%)?\)---$`
 )
