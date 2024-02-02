@@ -10,6 +10,7 @@ func TestPrompt(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nloginlog@lab-xdc-d1> "),
 		[]byte("\r\n{master}\r\nloginlog@xdc-13f3> "),
+		[]byte("\r\n[edit]\r\nlogin-login@host-dc-1d# "),
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
