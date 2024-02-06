@@ -50,6 +50,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			expr.NewSimpleExprLast200(questionExpression),
 		),
 		genericcli.WithSFTPEnabled(),
+		genericcli.WithTerminalParams(400, 0),
 	)
 	return genericcli.MakeGenericDevice(cli, connector, opts...)
 }

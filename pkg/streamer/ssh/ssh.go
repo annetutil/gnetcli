@@ -36,10 +36,12 @@ import (
 )
 
 const (
-	defaultPort        = 22
-	defaultReadTimeout = 20 * time.Second
-	defaultReadSize    = 4096
-	sftpServerPaths    = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
+	defaultPort           = 22
+	defaultReadTimeout    = 20 * time.Second
+	defaultReadSize       = 4096
+	sftpServerPaths       = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
+	defaultTerminalWidth  = 200
+	defaultTerminalHeight = 0
 )
 
 var _ streamer.Connector = (*Streamer)(nil)
@@ -75,6 +77,11 @@ func newSSHSession(stdin io.WriteCloser, stdout, stderr io.Reader, session *ssh.
 	}
 }
 
+type terminalParams struct {
+	w int
+	h int
+}
+
 type Streamer struct {
 	host                   string
 	port                   int
@@ -84,6 +91,7 @@ type Streamer struct {
 	program                string // session params
 	programData            string
 	env                    map[string]string
+	terminalParams         terminalParams
 	tunnel                 Tunnel
 	credentialsInterceptor func(credentials.Credentials) credentials.Credentials
 	session                *sshSession
@@ -120,6 +128,11 @@ func (m *Streamer) SetCredentialsInterceptor(inter func(credentials.Credentials)
 	m.credentialsInterceptor = inter
 }
 
+func (m *Streamer) SetTerminalSize(w, h int) {
+	m.terminalParams.h = h
+	m.terminalParams.w = w
+}
+
 func NewStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	h := &Streamer{
 		host:                   host,
@@ -130,6 +143,7 @@ func NewStreamer(host string, credentials credentials.Credentials, opts ...Strea
 		program:                "shell",
 		programData:            "",
 		env:                    map[string]string{},
+		terminalParams:         terminalParams{w: defaultTerminalWidth, h: defaultTerminalHeight},
 		tunnel:                 nil,
 		credentialsInterceptor: nil,
 		session:                nil,
@@ -608,12 +622,7 @@ func (m *Streamer) openSession() (*sshSession, error) {
 	m.logger.Debug("request", zap.String("program", m.program), zap.String("program_data", m.programData))
 	switch m.program {
 	case "shell":
-		modes := ssh.TerminalModes{
-			ssh.ECHO:          0,     // disable echoing
-			ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
-			ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
-		}
-		if err := session.RequestPty("xterm", 0, 200, modes); err != nil {
+		if err := m.requestPty(session); err != nil {
 			return nil, fmt.Errorf("RequestPty error %w", err)
 		}
 		err := session.Shell()
@@ -631,6 +640,15 @@ func (m *Streamer) openSession() (*sshSession, error) {
 
 	sess := newSSHSession(stdin, stdout, stderr, session, m.logger)
 	return sess, nil
+}
+
+func (m *Streamer) requestPty(session *ssh.Session) error {
+	modes := ssh.TerminalModes{
+		ssh.ECHO:          0,     // disable echoing
+		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
+		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
+	}
+	return session.RequestPty("xterm", m.terminalParams.h, m.terminalParams.w, modes)
 }
 
 func (m *Streamer) GetCredentials() credentials.Credentials {

@@ -45,6 +45,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 		genericcli.WithQuestion(
 			expr.NewSimpleExprLast200(questionExpression)),
 		genericcli.WithAutoCommands(autoCommands),
+		genericcli.WithTerminalParams(400, 0),
 	)
 	return genericcli.MakeGenericDevice(cli, connector, opts...)
 }

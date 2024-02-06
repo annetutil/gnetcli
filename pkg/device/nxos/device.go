@@ -34,6 +34,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			return expr.NewSimpleExpr(fmt.Sprintf(`%s\r\r\n`, regexp.QuoteMeta(string(c.Value()))))
 		}),
 		genericcli.WithAutoCommands(autoCommands),
+		genericcli.WithTerminalParams(400, 0),
 	)
 	return genericcli.MakeGenericDevice(cli, connector, opts...)
 }
