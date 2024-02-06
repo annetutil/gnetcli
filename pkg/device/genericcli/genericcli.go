@@ -29,6 +29,11 @@ const DefaultCLIConnectTimeout = 15 * time.Second
 
 var defaultWriteNewLine = []byte("\n") // const
 
+type terminalParams struct {
+	w int
+	h int
+}
+
 type GenericCLI struct {
 	prompt           expr.Expr
 	login            expr.Expr
@@ -45,6 +50,7 @@ type GenericCLI struct {
 	forceManualAuth  bool
 	sftpEnabled      bool
 	defaultAnswers   []cmd.Answer
+	terminalParams   *terminalParams
 }
 
 type GenericCLIOption func(*GenericCLI)
@@ -119,6 +125,16 @@ func WithCredentialInterceptor(inter func(credentials.Credentials) credentials.C
 	}
 }
 
+func WithTerminalParams(width, height int) GenericCLIOption {
+	return func(h *GenericCLI) {
+		if h.terminalParams == nil {
+			h.terminalParams = &terminalParams{w: width, h: height}
+		} else {
+			h.terminalParams.h = height
+			h.terminalParams.w = width
+		}
+	}
+}
 func WithWriteNewLine(newline []byte) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.writeNewline = newline
@@ -142,6 +158,7 @@ func MakeGenericCLI(prompt, error expr.Expr, opts ...GenericCLIOption) GenericCL
 		forceManualAuth:  false,
 		sftpEnabled:      false,
 		defaultAnswers:   nil,
+		terminalParams:   &terminalParams{w: 400, h: 0},
 	}
 	for _, opt := range opts {
 		opt(&res)
@@ -170,6 +187,10 @@ func (m *GenericDevice) GetAux() map[string]any {
 	return nil
 }
 
+type SetTerminalSize interface {
+	SetTerminalSize(w int, h int)
+}
+
 func (m *GenericDevice) Connect(ctx context.Context) (err error) {
 	m.connector.SetCredentialsInterceptor(m.cli.credsInterceptor)
 	if m.cli.sftpEnabled {
@@ -177,6 +198,13 @@ func (m *GenericDevice) Connect(ctx context.Context) (err error) {
 			sftpSupported.EnableSFTP()
 		}
 	}
+
+	if m.cli.terminalParams != nil {
+		if v, ok := m.connector.(SetTerminalSize); ok {
+			v.SetTerminalSize(m.cli.terminalParams.w, m.cli.terminalParams.h)
+		}
+	}
+
 	err = m.connector.Init(ctx)
 	m.cliConnected = false
 	// We postpone CLI initialization to first Execute call because we don't have to do this for Download/Upload.
