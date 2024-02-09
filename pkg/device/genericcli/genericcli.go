@@ -507,8 +507,6 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			err = connector.Write([]byte("\n"))
 			if err != nil {
 				return nil, fmt.Errorf("write error %v", err)
-			} else {
-				return nil, device.ThrowQuestionException(question)
 			}
 		} else if matchName == "cb" { // ExprCallback
 			if cbLimit == 0 { // reset cbLimit in other cases
