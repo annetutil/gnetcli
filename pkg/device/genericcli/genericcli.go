@@ -503,10 +503,10 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				if err != nil {
 					return nil, fmt.Errorf("write error %v", err)
 				}
-				err = connector.Write([]byte("\n"))
-				if err != nil {
-					return nil, fmt.Errorf("write error %v", err)
-				}
+			}
+			err = connector.Write([]byte("\n"))
+			if err != nil {
+				return nil, fmt.Errorf("write error %v", err)
 			} else {
 				return nil, device.ThrowQuestionException(question)
 			}
