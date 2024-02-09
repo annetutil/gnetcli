@@ -381,7 +381,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 
 	questions := []expr.Expr{cli.question}
 	if len(cmdQuestions) > 0 {
-		questions = append(questions, cmdQuestions...)
+		questions = append(cmdQuestions, questions...)
 	}
 	checkExprs := []expr.NamedExpr{
 		{Name: "echo", Exprs: []expr.Expr{expCmdEcho}},

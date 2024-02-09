@@ -14,8 +14,12 @@ import (
 	"github.com/annetutil/gnetcli/pkg/streamer"
 )
 
-func newDevice(connector streamer.Connector, logger *zap.Logger) GenericDevice {
-	questionExpression := `(\r\n|^)Are you sure\? \[Y/N\]:$`
+const (
+	fullQuestion    = `(\r\n|^)Are you sure\? \[Y/N\]:$`
+	croppedQuestion = `\[Y/N\]:$`
+)
+
+func newDevice(questionExpression string, connector streamer.Connector, logger *zap.Logger) GenericDevice {
 	promptExpression := `(\r\n|^)(?P<prompt>(<\w+>))$`
 	errorExpression := `(\r\n|^)Error: .+$`
 	cli := MakeGenericCLI(
@@ -47,7 +51,7 @@ func TestQuestionWithoutAnswer(t *testing.T) {
 	actions := gmock.ConcatMultipleSlices(dialog)
 	expErr := device.ThrowQuestionException([]byte("Are you sure? [Y/N]:"))
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
-		dev := newDevice(connector, logger)
+		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
 	}, actions, []cmd.Cmd{cmd.NewCmd("ack")}, logger)
 
@@ -78,7 +82,7 @@ func TestQuestionCmdOverlap(t *testing.T) {
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
-		dev := newDevice(connector, logger)
+		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
 	}, actions, cmds, logger)
 	require.NoError(t, err)
@@ -109,7 +113,36 @@ func TestQuestionWithAnswer(t *testing.T) {
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
-		dev := newDevice(connector, logger)
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, actions, cmds, logger)
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, resErr)
+	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil)})
+}
+
+func TestQuestionCmdAnswerDontMatchDeviceQuestion(t *testing.T) {
+	logger := zap.Must(zap.NewDevelopmentConfig().Build())
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("ack\n"),
+			gmock.SendEcho("ack\r\n"),
+			gmock.Send("Are you sure? [Y/N]:"),
+			gmock.Expect("Y\n"),
+			gmock.Send("<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmds := []cmd.Cmd{
+		cmd.NewCmd("ack", cmd.WithAnswers(cmd.NewAnswer("/Are.+\\? \\[Y/N\\]:/", "Y"))),
+	}
+
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(croppedQuestion, connector, logger)
 		return &dev
 	}, actions, cmds, logger)
 	require.NoError(t, err)
