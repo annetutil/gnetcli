@@ -27,6 +27,8 @@ func TestHuaweiPrompt(t *testing.T) {
 		[]byte("\r\n[~host-name]"),
 		[]byte("\r\n[*host-name-aaa]"),
 		[]byte("\r\n[~hostname-1-100GE11/0/25]"),
+		[]byte("[*host-100GE1/1/1:1]"),
+		[]byte("[~host-auto-mmm-100GE3/3/3.111]"),
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }

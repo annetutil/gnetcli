@@ -13,7 +13,7 @@ import (
 const (
 	loginExpression    = `.*Username:$`
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(\r\n|^)(?P<prompt>(<[\w\-]+>|\[[~*]?[/\w\-]+\]))$`
+	promptExpression   = `(\r\n|^)(?P<prompt>(<[\w\-]+>|\[[~*]?[/\w\-.:]+\]))$`
 	authFailExpression = `.*Authentication fail(\x00\r\n)?$`
 	errorExpression    = `(` +
 		`\^\r\nError: (?P<error>.+) at '\^' position\.` +
