@@ -234,7 +234,7 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 					answered = true
 					err := m.connector.Write(ans)
 					if err != nil {
-						return fmt.Errorf("write error %v", err)
+						return fmt.Errorf("write error %w", err)
 					}
 					break
 				}
@@ -490,23 +490,23 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			err = connector.Write([]byte(` `))
 			if err != nil {
-				return nil, fmt.Errorf("write error %v", err)
+				return nil, fmt.Errorf("write error %w", err)
 			}
 		} else if matchName == "question" { // question
 			question := match.GetMatched()
 			answer, err := command.QuestionHandler(question)
 			if err != nil {
-				return nil, fmt.Errorf("QuestionHandler error %v", err)
+				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
 			if len(answer) > 0 {
 				err := connector.Write(answer)
 				if err != nil {
-					return nil, fmt.Errorf("write error %v", err)
+					return nil, fmt.Errorf("write error %w", err)
 				}
 			}
 			err = connector.Write([]byte("\n"))
 			if err != nil {
-				return nil, fmt.Errorf("write error %v", err)
+				return nil, fmt.Errorf("write error %w", err)
 			}
 		} else if matchName == "cb" { // ExprCallback
 			if cbLimit == 0 { // reset cbLimit in other cases
@@ -516,7 +516,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			wr := exprsAddMap[exprsAdd[match.GetPatternNo()-3]]
 			err := connector.Write([]byte(wr))
 			if err != nil {
-				return nil, fmt.Errorf("write error %v", err)
+				return nil, fmt.Errorf("write error %w", err)
 			}
 		} else {
 			panic("unknown option")

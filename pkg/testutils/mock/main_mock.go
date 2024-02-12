@@ -173,7 +173,7 @@ func RunCmd(devMaker deviceMaker, dialog []Action, commands []cmd.Cmd, logger *z
 
 	err = dev.Connect(connCtx)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to connect to device: %v", err)
+		return nil, nil, nil, fmt.Errorf("failed to connect to device: %w", err)
 	}
 	cmdRes = []cmd.CmdRes{}
 	for _, command := range commands {
