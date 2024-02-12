@@ -711,10 +711,10 @@ func (m *Streamer) startForwarding(sess *ssh.Session) error {
 	}
 
 	if err := agent.RequestAgentForwarding(sess); err != nil {
-		return fmt.Errorf("error RequestAgentForwarding: %v", err)
+		return fmt.Errorf("error RequestAgentForwarding: %w", err)
 	}
 	if err := agent.ForwardToAgent(m.conn, keyring); err != nil {
-		return fmt.Errorf("error ForwardToAgent: %v", err)
+		return fmt.Errorf("error ForwardToAgent: %w", err)
 	}
 	m.forwardAgent = keyring
 
