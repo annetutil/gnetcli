@@ -14,7 +14,6 @@ const (
 	loginExpression    = `.*Username:$`
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
 	promptExpression   = `(\r\n|^)(?P<prompt>(<[\w\-]+>|\[[~*]?[/\w\-.:]+\]))$`
-	authFailExpression = `.*Authentication fail(\x00\r\n)?$`
 	errorExpression    = `(` +
 		`\^\r\nError: (?P<error>.+) at '\^' position\.` +
 		`|Error: You do not have permission to run the command or the command is incomplete` +
@@ -23,7 +22,7 @@ const (
 		`|Error(?:\[\d+\])?:\s*(?P<msg>.+?)` +
 		`)`
 	passwordExpression      = `.*Password:$`
-	passwordErrorExpression = `.*Error: Username or password error\.\r\n$`
+	passwordErrorExpression = `.*Error: Username or password error\.\r\n$|.*Authentication fail(\x00\r\n)?$`
 	pagerExpression         = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
 
@@ -41,7 +40,6 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			expr.NewSimpleExprLast200(passwordExpression),
 			expr.NewSimpleExprLast200(passwordErrorExpression),
 		),
-		genericcli.WithAuthFail(expr.NewSimpleExprLast200(authFailExpression)),
 		genericcli.WithPager(
 			expr.NewSimpleExprLast200(pagerExpression),
 		),
