@@ -138,7 +138,6 @@ func MakeGenericCLI(prompt, error expr.Expr, opts ...GenericCLIOption) GenericCL
 		prompt:           prompt,
 		login:            nil,
 		password:         nil,
-		authfail:         nil,
 		error:            error,
 		question:         nil,
 		passwordError:    nil,
@@ -311,7 +310,7 @@ func (m *GenericDevice) GetPassword() expr.Expr {
 }
 
 func (m *GenericDevice) GetAuthError() expr.Expr {
-	return m.cli.passwordErrorExpression
+	return m.cli.passwordError
 }
 
 func (m *GenericDevice) GetPrompt() expr.Expr {
