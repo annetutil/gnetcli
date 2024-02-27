@@ -38,7 +38,6 @@ type GenericCLI struct {
 	prompt           expr.Expr
 	login            expr.Expr
 	password         expr.Expr
-	authfail         expr.Expr
 	error            expr.Expr
 	question         expr.Expr
 	passwordError    expr.Expr
@@ -61,13 +60,6 @@ func WithLoginExprs(login, password, passwordError expr.Expr) GenericCLIOption {
 		h.login = login
 		h.password = password
 		h.passwordError = passwordError
-	}
-}
-
-// temp function for migration to WithLoginExprs
-func WithAuthFail(authFail expr.Expr) GenericCLIOption {
-	return func(h *GenericCLI) {
-		h.authfail = authFail
 	}
 }
 
@@ -146,7 +138,6 @@ func MakeGenericCLI(prompt, error expr.Expr, opts ...GenericCLIOption) GenericCL
 		prompt:           prompt,
 		login:            nil,
 		password:         nil,
-		authfail:         nil,
 		error:            error,
 		question:         nil,
 		passwordError:    nil,
@@ -306,7 +297,7 @@ func (m *GenericDevice) Close() {
 type GetAllRegex interface {
 	GetLogin() expr.Expr
 	GetPassword() expr.Expr
-	GetAuth() expr.Expr
+	GetAuthError() expr.Expr
 	GetPrompt() expr.Expr
 }
 
@@ -318,8 +309,8 @@ func (m *GenericDevice) GetPassword() expr.Expr {
 	return m.cli.password
 }
 
-func (m *GenericDevice) GetAuth() expr.Expr {
-	return m.cli.authfail
+func (m *GenericDevice) GetAuthError() expr.Expr {
+	return m.cli.passwordError
 }
 
 func (m *GenericDevice) GetPrompt() expr.Expr {
