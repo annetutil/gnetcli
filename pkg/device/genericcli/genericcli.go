@@ -43,6 +43,7 @@ type GenericCLI struct {
 	passwordError    expr.Expr
 	pager            expr.Expr
 	autoCommands     []cmd.Cmd
+	initWait         time.Duration
 	echoExprFormat   func(cmd.Cmd) expr.Expr
 	credsInterceptor func(credentials.Credentials) credentials.Credentials
 	writeNewline     []byte
@@ -87,6 +88,13 @@ func WithPager(pager expr.Expr) GenericCLIOption {
 func WithAutoCommands(commands []cmd.Cmd) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.autoCommands = commands
+	}
+}
+
+// WithInitialWait sets sleep duration before first reading after login
+func WithInitialWait(duration time.Duration) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.initWait = duration
 	}
 }
 
@@ -143,6 +151,7 @@ func MakeGenericCLI(prompt, error expr.Expr, opts ...GenericCLIOption) GenericCL
 		passwordError:    nil,
 		pager:            nil,
 		autoCommands:     nil,
+		initWait:         0,
 		echoExprFormat:   nil,
 		credsInterceptor: nil,
 		writeNewline:     defaultWriteNewLine,
@@ -246,6 +255,10 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
+	}
+	// TODO: fix case with question or manual login
+	if m.cli.initWait > 0 {
+		time.Sleep(m.cli.initWait)
 	}
 	_, err = m.ExecuteBulk(m.cli.autoCommands)
 	if err != nil {
