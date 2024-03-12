@@ -165,7 +165,12 @@ func (m *SimpleExprList) Add(name string, expr Expr) {
 
 func (m *SimpleExprList) Delete(name string) {
 	newList := SimpleExprList{exprs: []Expr{}, exprsName: map[int]string{}}
+	// order of map iteration is not determined, so we keep order with this slice
+	tmpExprs := make([]string, len(m.exprsName))
 	for k, v := range m.exprsName {
+		tmpExprs[k] = v
+	}
+	for k, v := range tmpExprs {
 		if v != name {
 			newList.Add(v, m.exprs[k])
 		}
