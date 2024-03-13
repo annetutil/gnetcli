@@ -18,6 +18,7 @@ func TestErrors(t *testing.T) {
 	cases := [][]byte{
 		[]byte("                   ^\r\n% Invalid command at '^' marker."),
 		[]byte("                              ^\r\n% Incomplete command at '^' marker."),
+		[]byte("                                              ^\r\nInvalid range at '^' marker."),
 	}
 	testutils.ExprTester(t, cases, errorExpression)
 }
