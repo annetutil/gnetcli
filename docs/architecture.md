@@ -380,7 +380,7 @@ To create such a scenario, you need to study in detail the process of sending da
 particularly the special characters \r, \n and others. You can see raw data in the debug output of the gnetcli package.
 
 It makes sense to test both valid and interactions with an error.
-Valid scenario include executing existing commands and use the `RunDialog` function. 
+Valid scenario include executing existing commands and use the `RunDialogWithDefaultCreds` function. 
 Scenario with an error includes commands with a typo or a command for which the user does not have 
 enough privileges and use the `RunErrorDialog` function instead.
 

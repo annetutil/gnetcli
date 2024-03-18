@@ -841,7 +841,7 @@ func TestNetconf11Command(t *testing.T) {
 		"</vni-instances>\n    </nvo3>\n  </data>\n</rpc-reply>"
 	command := `<get><filter type="subtree"><nvo3 xmlns="urn:huawei:yang:huawei-nvo3"><vni-instances></vni-instances></nvo3></filter></get>`
 	actions := m.ConcatMultipleSlices(dialog)
-	m.RunDialog(t, func(connector streamer.Connector) device.Device {
+	m.RunDialogWithDefaultCreds(t, func(connector streamer.Connector) device.Device {
 		return NewDevice(connector)
 	}, actions, command, expected)
 }
@@ -878,7 +878,7 @@ func TestNetconf11CommandSimple(t *testing.T) {
 	expected := "<rpc-reply message-id=\"1\"\n     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n  <data><olo>11111</olo></data>\n</rpc-reply>"
 	command := "<get></get>"
 	actions := m.ConcatMultipleSlices(dialog)
-	m.RunDialog(t, func(connector streamer.Connector) device.Device {
+	m.RunDialogWithDefaultCreds(t, func(connector streamer.Connector) device.Device {
 		return NewDevice(connector)
 	}, actions, command, expected)
 }

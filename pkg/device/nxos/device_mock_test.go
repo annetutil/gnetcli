@@ -65,7 +65,7 @@ func TestValidCommands(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
-			m.RunDialog(t, func(connector streamer.Connector) device.Device {
+			m.RunDialogWithDefaultCreds(t, func(connector streamer.Connector) device.Device {
 				dev := NewDevice(connector)
 				return &dev
 			}, tc.dialog, tc.command, tc.result)

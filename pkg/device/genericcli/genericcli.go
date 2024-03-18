@@ -353,25 +353,25 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		return errors.New("empty password")
 	}
 
-	for i, _ := range passwords {
+	for i := range passwords {
 		checkExprsLogin := []expr.NamedExpr{
 			{Name: "login", Exprs: []expr.Expr{cli.login}},
 			{Name: "password", Exprs: []expr.Expr{cli.password}},
 		}
-	
+
 		exprsLogin := expr.NewSimpleExprListNamedOrdered(checkExprsLogin)
 		readResLogin, err := connector.ReadTo(ctx, exprsLogin)
 		if err != nil {
 			return err
 		}
-	
+
 		matchedExprNameLogin := exprsLogin.GetName(readResLogin.GetPatternNo())
 		if matchedExprNameLogin == "login" {
 			username, err := connector.GetCredentials().GetUsername()
 			if err != nil {
 				return err
 			}
-	
+
 			err = connector.Write([]byte(username))
 			if err != nil {
 				return err
@@ -388,12 +388,12 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 				return err
 			}
 		}
-	
+
 		err = connector.Write([]byte(passwords[i].Value()))
 		if err != nil {
 			return err
 		}
-	
+
 		newline := cli.writeNewline
 		if len(newline) > 0 {
 			err := connector.Write(newline)
@@ -401,7 +401,6 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 				return fmt.Errorf("write error %w", err)
 			}
 		}
-		fmt.Println("jkfrrrrnejonrfoernf")
 		checkExprs := []expr.NamedExpr{
 			{Name: "prompt", Exprs: []expr.Expr{cli.prompt}},
 			{Name: "passwordError", Exprs: []expr.Expr{cli.passwordError}},
@@ -411,7 +410,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		if err != nil {
 			return err
 		}
-	
+
 		matchedExprName := exprs.GetName(readRes.GetPatternNo())
 		if matchedExprName == "prompt" {
 			return nil
@@ -419,7 +418,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	}
 
 	return gerror.NewAuthException("cli auth user")
-	
+
 }
 
 func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI) (cmd.CmdRes, error) {

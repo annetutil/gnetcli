@@ -149,7 +149,7 @@ func TestHuaweiValidDisplayCommands(t *testing.T) {
 		tc := testCases[i]
 		t.Run(tc.name, func(t *testing.T) {
 			actions := m.ConcatMultipleSlices(tc.dialog)
-			m.RunDialog(t, func(connector streamer.Connector) device.Device {
+			m.RunDialogWithDefaultCreds(t, func(connector streamer.Connector) device.Device {
 				dev := NewDevice(connector)
 				return &dev
 			}, actions, tc.command, tc.result)
