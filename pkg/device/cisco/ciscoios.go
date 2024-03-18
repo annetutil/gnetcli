@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	loginExpression    = `.*Username:$`
+	loginExpression    = `.*Username:\s?$`
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
 	promptExpression   = `(?P<prompt>[\w\-]+(\(config(-\w+)*\))?)[>|#]$`
 	errorExpression    = `(` +
@@ -25,7 +25,7 @@ const (
 		`|^% Invalid input` +
 		`|Permission denied.+\[Errno \d+\] Permission denied` +
 		`)`
-	passwordExpression      = `.*Password:$`
+	passwordExpression      = `.*Password:\s?$`
 	passwordErrorExpression = `\^\r\n\% Authentication failed\n`
 	pagerExpression         = `\r\n --More-- $`
 )
