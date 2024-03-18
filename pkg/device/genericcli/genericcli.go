@@ -347,31 +347,40 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	if cli.login == nil {
 		return errors.New("login Expr is not set but required for login procedure")
 	}
-	_, err = connector.ReadTo(ctx, cli.login)
+
+	checkExprsLogin := []expr.NamedExpr{
+		{Name: "login", Exprs: []expr.Expr{cli.login}},
+		{Name: "password", Exprs: []expr.Expr{cli.password}},
+	}
+
+	exprsLogin := expr.NewSimpleExprListNamedOrdered(checkExprsLogin)
+	readResLogin, err := connector.ReadTo(ctx, exprsLogin)
 	if err != nil {
 		return err
 	}
 
-	username, err := connector.GetCredentials().GetUsername()
-	if err != nil {
-		return err
-	}
-
-	err = connector.Write([]byte(username))
-	if err != nil {
-		return err
-	}
-	newline := cli.writeNewline
-	if len(newline) > 0 {
-		err := connector.Write(newline)
+	matchedExprNameLogin := exprsLogin.GetName(readResLogin.GetPatternNo())
+	if matchedExprNameLogin == "login" {
+		username, err := connector.GetCredentials().GetUsername()
 		if err != nil {
-			return fmt.Errorf("write error %w", err)
+			return err
 		}
-	}
 
-	_, err = connector.ReadTo(ctx, cli.password)
-	if err != nil {
-		return err
+		err = connector.Write([]byte(username))
+		if err != nil {
+			return err
+		}
+		newline := cli.writeNewline
+		if len(newline) > 0 {
+			err := connector.Write(newline)
+			if err != nil {
+				return fmt.Errorf("write error %w", err)
+			}
+		}
+		_, err = connector.ReadTo(ctx, cli.password)
+		if err != nil {
+			return err
+		}
 	}
 
 	passwords := connector.GetCredentials().GetPasswords()
@@ -383,6 +392,8 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	if err != nil {
 		return err
 	}
+
+	newline := cli.writeNewline
 	if len(newline) > 0 {
 		err := connector.Write(newline)
 		if err != nil {
