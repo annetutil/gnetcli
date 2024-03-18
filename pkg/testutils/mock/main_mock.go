@@ -37,8 +37,8 @@ func ConcatMultipleSlices[T any](slices [][]T) []T {
 
 type deviceMaker func(streamer.Connector) device.Device
 
-func RunDialogWithDefaultCreds(t *testing.T, devMaker deviceMaker, dialog []Action, command, expected string){
-	RunDialog(t, devMaker, dialog , command, expected, credentials.NewSimpleCredentials())
+func RunDialogWithDefaultCreds(t *testing.T, devMaker deviceMaker, dialog []Action, command, expected string) {
+	RunDialog(t, devMaker, dialog, command, expected, credentials.NewSimpleCredentials())
 }
 
 func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, expected string, creds credentials.Credentials) {
@@ -56,7 +56,6 @@ func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, exp
 
 	connector := ssh.NewStreamer(host, creds, ssh.WithPort(port))
 	dev := devMaker(connector)
-
 	connCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 

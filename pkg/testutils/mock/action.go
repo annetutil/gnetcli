@@ -3,6 +3,7 @@ package mock
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"golang.org/x/exp/slices"
 )
@@ -38,6 +39,20 @@ func (a ExpectAction) Exec(c io.ReadWriteCloser) error {
 		return fmt.Errorf("read data content mismatch: expected %#v, got %#v", a.data, string(buf))
 	}
 
+	return nil
+}
+
+// Sleep action
+type SleepAction struct {
+	count int
+}
+
+func Sleep(count int) SleepAction {
+	return SleepAction{count}
+}
+
+func (a SleepAction) Exec(c io.ReadWriteCloser) error {
+	time.Sleep(time.Duration(a.count) * time.Second)
 	return nil
 }
 

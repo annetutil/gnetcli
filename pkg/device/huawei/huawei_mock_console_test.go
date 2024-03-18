@@ -31,6 +31,7 @@ func TestPasswRetry(t *testing.T) {
 					m.Expect("password1\n"),
 					m.Send("\r\n"),
 					m.Send("Authentication fail\u0000\r\n"),
+					m.Sleep(1),
 					m.Send("\r\nUsername:"),
 					m.Expect("admin\n"),
 					m.Send("\r\nPassword:"),
