@@ -22,7 +22,7 @@ const (
 		`|Error(?:\[\d+\])?:\s*(?P<msg>.+?)` +
 		`)`
 	passwordExpression      = `.*Password:$`
-	passwordErrorExpression = `.*Error: Username or password error\.\r\n$|.*Authentication fail(\x00\r\n)?$`
+	passwordErrorExpression = `.*Error: Username or password error\.\r\n$|.*Authentication fail(\x00\r\n)?$|Error: The password is invalid.\r\n$`
 	pagerExpression         = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
 

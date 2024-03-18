@@ -348,28 +348,52 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		return errors.New("login Expr is not set but required for login procedure")
 	}
 
-	checkExprsLogin := []expr.NamedExpr{
-		{Name: "login", Exprs: []expr.Expr{cli.login}},
-		{Name: "password", Exprs: []expr.Expr{cli.password}},
+	passwords := connector.GetCredentials().GetPasswords()
+	if len(passwords) == 0 {
+		return errors.New("empty password")
 	}
 
-	exprsLogin := expr.NewSimpleExprListNamedOrdered(checkExprsLogin)
-	readResLogin, err := connector.ReadTo(ctx, exprsLogin)
-	if err != nil {
-		return err
-	}
-
-	matchedExprNameLogin := exprsLogin.GetName(readResLogin.GetPatternNo())
-	if matchedExprNameLogin == "login" {
-		username, err := connector.GetCredentials().GetUsername()
+	for i, _ := range passwords {
+		checkExprsLogin := []expr.NamedExpr{
+			{Name: "login", Exprs: []expr.Expr{cli.login}},
+			{Name: "password", Exprs: []expr.Expr{cli.password}},
+		}
+	
+		exprsLogin := expr.NewSimpleExprListNamedOrdered(checkExprsLogin)
+		readResLogin, err := connector.ReadTo(ctx, exprsLogin)
 		if err != nil {
 			return err
 		}
-
-		err = connector.Write([]byte(username))
+	
+		matchedExprNameLogin := exprsLogin.GetName(readResLogin.GetPatternNo())
+		if matchedExprNameLogin == "login" {
+			username, err := connector.GetCredentials().GetUsername()
+			if err != nil {
+				return err
+			}
+	
+			err = connector.Write([]byte(username))
+			if err != nil {
+				return err
+			}
+			newline := cli.writeNewline
+			if len(newline) > 0 {
+				err := connector.Write(newline)
+				if err != nil {
+					return fmt.Errorf("write error %w", err)
+				}
+			}
+			_, err = connector.ReadTo(ctx, cli.password)
+			if err != nil {
+				return err
+			}
+		}
+	
+		err = connector.Write([]byte(passwords[i].Value()))
 		if err != nil {
 			return err
 		}
+	
 		newline := cli.writeNewline
 		if len(newline) > 0 {
 			err := connector.Write(newline)
@@ -377,46 +401,25 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 				return fmt.Errorf("write error %w", err)
 			}
 		}
-		_, err = connector.ReadTo(ctx, cli.password)
+		fmt.Println("jkfrrrrnejonrfoernf")
+		checkExprs := []expr.NamedExpr{
+			{Name: "prompt", Exprs: []expr.Expr{cli.prompt}},
+			{Name: "passwordError", Exprs: []expr.Expr{cli.passwordError}},
+		}
+		exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
+		readRes, err := connector.ReadTo(ctx, exprs)
 		if err != nil {
 			return err
 		}
-	}
-
-	passwords := connector.GetCredentials().GetPasswords()
-	if len(passwords) == 0 {
-		return errors.New("empty password")
-	}
-	// TODO: add multiple password support
-	err = connector.Write([]byte(passwords[0].Value()))
-	if err != nil {
-		return err
-	}
-
-	newline := cli.writeNewline
-	if len(newline) > 0 {
-		err := connector.Write(newline)
-		if err != nil {
-			return fmt.Errorf("write error %w", err)
+	
+		matchedExprName := exprs.GetName(readRes.GetPatternNo())
+		if matchedExprName == "prompt" {
+			return nil
 		}
 	}
 
-	checkExprs := []expr.NamedExpr{
-		{Name: "prompt", Exprs: []expr.Expr{cli.prompt}},
-		{Name: "passwordError", Exprs: []expr.Expr{cli.passwordError}},
-	}
-	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
-	readRes, err := connector.ReadTo(ctx, exprs)
-	if err != nil {
-		return err
-	}
-
-	matchedExprName := exprs.GetName(readRes.GetPatternNo())
-	if matchedExprName == "passwordError" {
-		return gerror.NewAuthException("cli auth user")
-	}
-
-	return nil
+	return gerror.NewAuthException("cli auth user")
+	
 }
 
 func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI) (cmd.CmdRes, error) {
