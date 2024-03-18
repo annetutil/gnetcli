@@ -28,6 +28,20 @@ func TestPrompt(t *testing.T) {
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
 
+func TestLogin(t *testing.T) {
+	errorCases := [][]byte{
+		[]byte("\r\n\r\nUser Access Verification\r\n\r\nUsername: "),
+	}
+	testutils.ExprTester(t, errorCases, loginExpression)
+}
+
+func TestPassword(t *testing.T) {
+	errorCases := [][]byte{
+		[]byte("\r\nPassword: "),
+	}
+	testutils.ExprTester(t, errorCases, passwordExpression)
+}
+
 func TestQuestion(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nWarning: The current configuration will be written to the device. Continue? [Y/N]:"),
