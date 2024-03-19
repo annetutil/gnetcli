@@ -403,6 +403,8 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		}
 		checkExprs := []expr.NamedExpr{
 			{Name: "prompt", Exprs: []expr.Expr{cli.prompt}},
+			{Name: "login", Exprs: []expr.Expr{cli.login}},
+			{Name: "password", Exprs: []expr.Expr{cli.password}},
 			{Name: "passwordError", Exprs: []expr.Expr{cli.passwordError}},
 		}
 		exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
@@ -414,9 +416,25 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		matchedExprName := exprs.GetName(readRes.GetPatternNo())
 		if matchedExprName == "prompt" {
 			return nil
+		} else if matchedExprName == "login" {
+			username, err := connector.GetCredentials().GetUsername()
+			if err != nil {
+				return err
+			}
+
+			err = connector.Write([]byte(username))
+			if err != nil {
+				return err
+			}
+			newline := cli.writeNewline
+			if len(newline) > 0 {
+				err := connector.Write(newline)
+				if err != nil {
+					return fmt.Errorf("write error %w", err)
+				}
+			}
 		}
 	}
-
 	return gerror.NewAuthException("cli auth user")
 
 }

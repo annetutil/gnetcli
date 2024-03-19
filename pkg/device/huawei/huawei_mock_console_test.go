@@ -19,7 +19,73 @@ func TestPasswRetry(t *testing.T) {
 		dialog  [][]m.Action
 	}{
 		{
-			name:    "Test password retry",
+			name:    "Test password from the first try",
+			command: "dis clock",
+			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
+			dialog: [][]m.Action{
+				{
+					// Password part
+					m.Send("\r\nPassword:"),
+					m.Expect("password1\n"),
+					m.Send("\r\n"),
+					// Common Huawei Cloud Engine greeting
+					m.Send("\r\n"),
+					m.Send("Info: The max number of VTY users is 8, the number of current VTY users online is 2, and total number of terminal users is 2.\r\n"),
+					m.Send("      The current login time is 2022-10-31 14:14:23+02:00.\r\n"),
+					m.Send("      The last login time is 2022-10-28 17:33:49+02:00 from 2001:DB8:1234:1234::1:23 through SSH.\r\n"),
+					m.Send("<some-device>"),
+					// autocommands
+					m.Expect("screen-length 0 temporary\n"),
+					m.SendEcho("screen-length 0 temporary\r\n"),
+					m.Send("Info: The configuration takes effect on the current user terminal interface only.\r\n"),
+					m.Send("\r\n"),
+					m.Send("<some-device>"),
+					m.Expect("terminal echo-mode line\n"),
+					m.SendEcho("terminal echo-mode line\r\n"),
+					m.Send("\r\n"),
+					m.Send("<some-device>"),
+					m.Expect("dis clock\n"),
+					m.SendEcho("dis clock\r\n"),
+					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
+				},
+				everyDayHuaweiByeBye,
+			},
+		}, {
+			name:    "Test login and password from the first try",
+			command: "dis clock",
+			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
+			dialog: [][]m.Action{
+				{
+					// Login part
+					m.Send("\r\n\r\nUsername:"),
+					m.Expect("admin\n"),
+					m.Send("\r\nPassword:"),
+					m.Expect("password1\n"),
+					m.Send("\r\n"),
+					// Common Huawei Cloud Engine greeting
+					m.Send("\r\n"),
+					m.Send("Info: The max number of VTY users is 8, the number of current VTY users online is 2, and total number of terminal users is 2.\r\n"),
+					m.Send("      The current login time is 2022-10-31 14:14:23+02:00.\r\n"),
+					m.Send("      The last login time is 2022-10-28 17:33:49+02:00 from 2001:DB8:1234:1234::1:23 through SSH.\r\n"),
+					m.Send("<some-device>"),
+					// autocommands
+					m.Expect("screen-length 0 temporary\n"),
+					m.SendEcho("screen-length 0 temporary\r\n"),
+					m.Send("Info: The configuration takes effect on the current user terminal interface only.\r\n"),
+					m.Send("\r\n"),
+					m.Send("<some-device>"),
+					m.Expect("terminal echo-mode line\n"),
+					m.SendEcho("terminal echo-mode line\r\n"),
+					m.Send("\r\n"),
+					m.Send("<some-device>"),
+					m.Expect("dis clock\n"),
+					m.SendEcho("dis clock\r\n"),
+					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
+				},
+				everyDayHuaweiByeBye,
+			},
+		}, {
+			name:    "Test login and password retry",
 			command: "dis clock",
 			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
 			dialog: [][]m.Action{
@@ -31,9 +97,45 @@ func TestPasswRetry(t *testing.T) {
 					m.Expect("password1\n"),
 					m.Send("\r\n"),
 					m.Send("Authentication fail\u0000\r\n"),
-					m.Sleep(1),
+					// m.Sleep(1),
 					m.Send("\r\nUsername:"),
 					m.Expect("admin\n"),
+					m.Send("\r\nPassword:"),
+					m.Expect("password2\n"),
+					// Common Huawei Cloud Engine greeting
+					m.Send("\r\n"),
+					m.Send("Info: The max number of VTY users is 8, the number of current VTY users online is 2, and total number of terminal users is 2.\r\n"),
+					m.Send("      The current login time is 2022-10-31 14:14:23+02:00.\r\n"),
+					m.Send("      The last login time is 2022-10-28 17:33:49+02:00 from 2001:DB8:1234:1234::1:23 through SSH.\r\n"),
+					m.Send("<some-device>"),
+					// autocommands
+					m.Expect("screen-length 0 temporary\n"),
+					m.SendEcho("screen-length 0 temporary\r\n"),
+					m.Send("Info: The configuration takes effect on the current user terminal interface only.\r\n"),
+					m.Send("\r\n"),
+					m.Send("<some-device>"),
+					m.Expect("terminal echo-mode line\n"),
+					m.SendEcho("terminal echo-mode line\r\n"),
+					m.Send("\r\n"),
+					m.Send("<some-device>"),
+					m.Expect("dis clock\n"),
+					m.SendEcho("dis clock\r\n"),
+					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
+				},
+				everyDayHuaweiByeBye,
+			},
+		}, {
+			name:    "Test password retry only",
+			command: "dis clock",
+			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
+			dialog: [][]m.Action{
+				{
+					// Login part
+					m.Send("\r\nPassword:"),
+					m.Expect("password1\n"),
+					m.Send("\r\n"),
+					m.Send("Authentication fail\u0000\r\n"),
+					// m.Sleep(1),
 					m.Send("\r\nPassword:"),
 					m.Expect("password2\n"),
 					// Common Huawei Cloud Engine greeting
