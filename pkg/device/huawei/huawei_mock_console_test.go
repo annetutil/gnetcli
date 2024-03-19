@@ -28,22 +28,9 @@ func TestPasswRetry(t *testing.T) {
 					m.Send("\r\nPassword:"),
 					m.Expect("password1\n"),
 					m.Send("\r\n"),
-					// Common Huawei Cloud Engine greeting
-					m.Send("\r\n"),
-					m.Send("Info: The max number of VTY users is 8, the number of current VTY users online is 2, and total number of terminal users is 2.\r\n"),
-					m.Send("      The current login time is 2022-10-31 14:14:23+02:00.\r\n"),
-					m.Send("      The last login time is 2022-10-28 17:33:49+02:00 from 2001:DB8:1234:1234::1:23 through SSH.\r\n"),
-					m.Send("<some-device>"),
-					// autocommands
-					m.Expect("screen-length 0 temporary\n"),
-					m.SendEcho("screen-length 0 temporary\r\n"),
-					m.Send("Info: The configuration takes effect on the current user terminal interface only.\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
-					m.Expect("terminal echo-mode line\n"),
-					m.SendEcho("terminal echo-mode line\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
+				},
+				everyDayHuaweiHello,
+				{
 					m.Expect("dis clock\n"),
 					m.SendEcho("dis clock\r\n"),
 					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
@@ -62,22 +49,9 @@ func TestPasswRetry(t *testing.T) {
 					m.Send("\r\nPassword:"),
 					m.Expect("password1\n"),
 					m.Send("\r\n"),
-					// Common Huawei Cloud Engine greeting
-					m.Send("\r\n"),
-					m.Send("Info: The max number of VTY users is 8, the number of current VTY users online is 2, and total number of terminal users is 2.\r\n"),
-					m.Send("      The current login time is 2022-10-31 14:14:23+02:00.\r\n"),
-					m.Send("      The last login time is 2022-10-28 17:33:49+02:00 from 2001:DB8:1234:1234::1:23 through SSH.\r\n"),
-					m.Send("<some-device>"),
-					// autocommands
-					m.Expect("screen-length 0 temporary\n"),
-					m.SendEcho("screen-length 0 temporary\r\n"),
-					m.Send("Info: The configuration takes effect on the current user terminal interface only.\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
-					m.Expect("terminal echo-mode line\n"),
-					m.SendEcho("terminal echo-mode line\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
+				},
+				everyDayHuaweiHello,
+				{
 					m.Expect("dis clock\n"),
 					m.SendEcho("dis clock\r\n"),
 					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
@@ -102,22 +76,9 @@ func TestPasswRetry(t *testing.T) {
 					m.Expect("admin\n"),
 					m.Send("\r\nPassword:"),
 					m.Expect("password2\n"),
-					// Common Huawei Cloud Engine greeting
-					m.Send("\r\n"),
-					m.Send("Info: The max number of VTY users is 8, the number of current VTY users online is 2, and total number of terminal users is 2.\r\n"),
-					m.Send("      The current login time is 2022-10-31 14:14:23+02:00.\r\n"),
-					m.Send("      The last login time is 2022-10-28 17:33:49+02:00 from 2001:DB8:1234:1234::1:23 through SSH.\r\n"),
-					m.Send("<some-device>"),
-					// autocommands
-					m.Expect("screen-length 0 temporary\n"),
-					m.SendEcho("screen-length 0 temporary\r\n"),
-					m.Send("Info: The configuration takes effect on the current user terminal interface only.\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
-					m.Expect("terminal echo-mode line\n"),
-					m.SendEcho("terminal echo-mode line\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
+				},
+				everyDayHuaweiHello,
+				{
 					m.Expect("dis clock\n"),
 					m.SendEcho("dis clock\r\n"),
 					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
@@ -138,22 +99,32 @@ func TestPasswRetry(t *testing.T) {
 					// m.Sleep(1),
 					m.Send("\r\nPassword:"),
 					m.Expect("password2\n"),
-					// Common Huawei Cloud Engine greeting
+				},
+				everyDayHuaweiHello,
+				{
+					m.Expect("dis clock\n"),
+					m.SendEcho("dis clock\r\n"),
+					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
+				},
+				everyDayHuaweiByeBye,
+			},
+		}, {
+			name:    "Test password retry only with sleep",
+			command: "dis clock",
+			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
+			dialog: [][]m.Action{
+				{
+					// Login part
+					m.Send("\r\nPassword:"),
+					m.Expect("password1\n"),
 					m.Send("\r\n"),
-					m.Send("Info: The max number of VTY users is 8, the number of current VTY users online is 2, and total number of terminal users is 2.\r\n"),
-					m.Send("      The current login time is 2022-10-31 14:14:23+02:00.\r\n"),
-					m.Send("      The last login time is 2022-10-28 17:33:49+02:00 from 2001:DB8:1234:1234::1:23 through SSH.\r\n"),
-					m.Send("<some-device>"),
-					// autocommands
-					m.Expect("screen-length 0 temporary\n"),
-					m.SendEcho("screen-length 0 temporary\r\n"),
-					m.Send("Info: The configuration takes effect on the current user terminal interface only.\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
-					m.Expect("terminal echo-mode line\n"),
-					m.SendEcho("terminal echo-mode line\r\n"),
-					m.Send("\r\n"),
-					m.Send("<some-device>"),
+					m.Send("Authentication fail\u0000\r\n"),
+					m.Sleep(5),
+					m.Send("\r\nPassword:"),
+					m.Expect("password2\n"),
+				},
+				everyDayHuaweiHello,
+				{
 					m.Expect("dis clock\n"),
 					m.SendEcho("dis clock\r\n"),
 					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
@@ -169,14 +140,14 @@ func TestPasswRetry(t *testing.T) {
 			actions := m.ConcatMultipleSlices(tc.dialog)
 			creds := credentials.NewSimpleCredentials(credentials.WithUsername("admin"), credentials.WithPasswords([]credentials.Secret{"password1", "password2"}))
 			m.RunDialog(t, func(connector streamer.Connector) device.Device {
-				dev := NewConsoleDevice(connector)
+				dev := newConsoleDevice(connector)
 				return &dev
 			}, actions, tc.command, tc.result, creds)
 		})
 	}
 }
 
-func NewConsoleDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
+func newConsoleDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
 	cli := genericcli.MakeGenericCLI(
 		expr.NewSimpleExprLast200(promptExpression),
 		expr.NewSimpleExprLast200(errorExpression),
