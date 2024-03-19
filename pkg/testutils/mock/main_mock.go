@@ -37,9 +37,13 @@ func ConcatMultipleSlices[T any](slices [][]T) []T {
 
 type deviceMaker func(streamer.Connector) device.Device
 
-func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, expected string) {
+func RunDialogWithDefaultCreds(t *testing.T, devMaker deviceMaker, dialog []Action, command, expected string) {
+	RunDialog(t, devMaker, dialog, command, expected, credentials.NewSimpleCredentials())
+}
+
+func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, expected string, creds credentials.Credentials) {
 	// Mock SSH server setup
-	sshServer, err := NewMockSSHServer(dialog)
+	sshServer, err := NewMockSSHServer(dialog, WithLogger(zap.Must(zap.NewDevelopmentConfig().Build())))
 	require.NoError(t, err, "failed to start mock ssh server: %s", err)
 	ctx := context.Background()
 	g := new(errgroup.Group)
@@ -50,9 +54,8 @@ func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, exp
 	// Test device connection setup
 	host, port := sshServer.GetAddress()
 
-	connector := ssh.NewStreamer(host, credentials.NewSimpleCredentials(), ssh.WithPort(port))
+	connector := ssh.NewStreamer(host, creds, ssh.WithPort(port), ssh.WithLogger(zap.Must(zap.NewDevelopmentConfig().Build())))
 	dev := devMaker(connector)
-
 	connCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
