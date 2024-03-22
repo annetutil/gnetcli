@@ -21,7 +21,7 @@ const (
 		`|^Error:\s*(?P<msg>(No|You do not have) permission.*)` +
 		`|Error(?:\[\d+\])?:\s*(?P<msg>.+?)` +
 		`)`
-	passwordExpression      = `.*Password:$`
+	passwordExpression      = `(\r\n|^)Password:$`
 	passwordErrorExpression = `.*Error: Username or password error\.\r\n$|.*Authentication fail(\x00\r\n)?$|Error: The password is invalid.\r\n$`
 	pagerExpression         = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
