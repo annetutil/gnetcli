@@ -365,6 +365,7 @@ func WithEnv(key, value string) StreamerOption {
 }
 
 func (m *Streamer) Close() {
+	m.forwardAgent = nil
 	if m.session != nil && m.session.session != nil {
 		err := m.onSessionClose(m.session.session)
 		if err != nil {
@@ -687,6 +688,7 @@ func (m *Streamer) WithCloseSessionCallback(fn func(*ssh.Session) error) {
 
 func (m *Streamer) startForwarding(sess *ssh.Session) error {
 	if m.forwardAgent != nil {
+		m.forwardAgent.Unlock(nil)
 		return nil
 	}
 	keyring := agent.NewKeyring()
@@ -726,7 +728,7 @@ func (m *Streamer) startForwarding(sess *ssh.Session) error {
 
 func (m *Streamer) stopForwarding(sess *ssh.Session) error {
 	if m.forwardAgent != nil {
-		return m.forwardAgent.RemoveAll()
+		m.forwardAgent.Lock(nil)
 	}
 	return nil
 }
