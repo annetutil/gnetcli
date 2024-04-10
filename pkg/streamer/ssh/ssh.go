@@ -686,6 +686,9 @@ func (m *Streamer) WithCloseSessionCallback(fn func(*ssh.Session) error) {
 }
 
 func (m *Streamer) startForwarding(sess *ssh.Session) error {
+	if m.forwardAgent != nil {
+		return nil
+	}
 	keyring := agent.NewKeyring()
 
 	privKeysRaw := m.credentials.GetPrivateKeys()
