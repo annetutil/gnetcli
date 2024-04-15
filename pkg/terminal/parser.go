@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+
+	"golang.org/x/exp/slices"
 )
 
 // https://xfree86.org/4.8.0/ctlseqs.html
@@ -32,7 +34,9 @@ type Parser struct {
 	data []byte
 }
 
+// Parse evaluates ANSI escape sequences
 func Parse(data []byte) ([]byte, error) {
+	data = slices.Clone(data)
 	parser := Parser{
 		pos:  -1, // The first call to consume will set pos to 0 character of the string
 		data: data,
