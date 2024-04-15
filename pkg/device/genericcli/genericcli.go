@@ -510,6 +510,9 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			if exprs.GetName(mres.PatternNo) != "echo" {
 				return nil, device.ThrowEchoReadException(mbefore)
 			}
+			if mres.End > len(termParsedEcho) {
+				return nil, errors.New("termParsedEcho len less than mres.End")
+			}
 			seenEcho = true
 			exprs.Delete("echo")
 			mbefore = termParsedEcho[mres.End:]
