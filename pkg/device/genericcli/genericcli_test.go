@@ -217,3 +217,33 @@ func TestEscTermInEcho(t *testing.T) {
 	require.NoError(t, serverErr)
 	require.NoError(t, err)
 }
+
+func TestEscTermInEchoEmptyCmd(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("ip community-filter basic TEST index 10 permit 10000:999\n"),
+			gmock.SendEcho("ip community-filter basic TEST index 10 permit 10000 \u001b[1D:999\r\n"),
+			gmock.Send("<device>"),
+			gmock.Expect("quit\n"),
+			gmock.Send("quit\n"),
+			gmock.Send("<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, actions, []cmd.Cmd{cmd.NewCmd("ip community-filter basic TEST index 10 permit 10000:999"), cmd.NewCmd("quit")}, logger)
+
+	require.NoError(t, resErr)
+	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil), cmd.NewCmdRes(nil)})
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, err)
+}

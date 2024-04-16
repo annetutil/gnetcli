@@ -498,13 +498,28 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		mbefore := match.GetBefore()
 		if !seenEcho {
 			// case where we caught prompt before echo because of term codes in echo
+			if len(mbefore) < 2 || matchName != "prompt" { // don't bother to do complex logic
+				return nil, device.ThrowEchoReadException(mbefore)
+			}
+
 			termParsedEcho, err := terminal.Parse(mbefore)
 			if err != nil {
 				return nil, fmt.Errorf("echo terminal parse error %w", err)
 			}
 			mres, ok := exprs.Match(termParsedEcho)
 			if !ok {
-				return nil, device.ThrowEchoReadException(mbefore)
+				// prompt expression may consume newline from echo, but it must be presented in echo
+				if mbefore[len(mbefore)-1] != '\n' {
+					mbefore = append(mbefore, '\n')
+				}
+				termParsedEcho, err = terminal.Parse(mbefore)
+				if err != nil {
+					return nil, fmt.Errorf("echo terminal parse error %w", err)
+				}
+				mres, ok = exprs.Match(termParsedEcho)
+				if !ok {
+					return nil, device.ThrowEchoReadException(mbefore)
+				}
 			}
 			// assuring that it is echo
 			if exprs.GetName(mres.PatternNo) != "echo" {
