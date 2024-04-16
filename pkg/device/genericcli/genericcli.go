@@ -487,21 +487,56 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			return nil, err
 		}
-		matchName := exprs.GetName(match.GetPatternNo())
+		matchId := match.GetPatternNo()
+		matchName := exprs.GetName(matchId)
 
 		if matchName == "echo" {
 			seenEcho = true
 			exprs.Delete("echo")
 			continue
 		}
+		mbefore := match.GetBefore()
 		if !seenEcho {
-			return nil, device.ThrowEchoReadException(match.GetBefore())
+			// case where we caught prompt before echo because of term codes in echo
+			if len(mbefore) < 2 || matchName != "prompt" { // don't bother to do complex logic
+				return nil, device.ThrowEchoReadException(mbefore)
+			}
+
+			termParsedEcho, err := terminal.Parse(mbefore)
+			if err != nil {
+				return nil, fmt.Errorf("echo terminal parse error %w", err)
+			}
+			mres, ok := exprs.Match(termParsedEcho)
+			if !ok {
+				// prompt expression may consume newline from echo, but it must be presented in echo
+				if mbefore[len(mbefore)-1] != '\n' {
+					mbefore = append(mbefore, '\n')
+				}
+				termParsedEcho, err = terminal.Parse(mbefore)
+				if err != nil {
+					return nil, fmt.Errorf("echo terminal parse error %w", err)
+				}
+				mres, ok = exprs.Match(termParsedEcho)
+				if !ok {
+					return nil, device.ThrowEchoReadException(mbefore)
+				}
+			}
+			// assuring that it is echo
+			if exprs.GetName(mres.PatternNo) != "echo" {
+				return nil, device.ThrowEchoReadException(mbefore)
+			}
+			if mres.End > len(termParsedEcho) {
+				return nil, errors.New("termParsedEcho len less than mres.End")
+			}
+			seenEcho = true
+			exprs.Delete("echo")
+			mbefore = termParsedEcho[mres.End:]
 		}
 		if matchName == "prompt" {
-			buffer.Write(match.GetBefore())
+			buffer.Write(mbefore)
 			break
 		} else if matchName == "pager" { // next page
-			buffer.Write(match.GetBefore())
+			buffer.Write(mbefore)
 			if store, ok := match.GetMatchedGroups()["store"]; ok {
 				buffer.Write(store)
 			}
@@ -530,7 +565,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				return nil, fmt.Errorf("callback limit")
 			}
 			cbLimit--
-			wr := exprsAddMap[exprsAdd[match.GetPatternNo()-3]]
+			wr := exprsAddMap[exprsAdd[matchId-3]]
 			err := connector.Write([]byte(wr))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
