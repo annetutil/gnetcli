@@ -20,6 +20,8 @@ func TestError(t *testing.T) {
 		[]byte("\r\n                          ^\r\nsyntax error, expecting <command>.\r\n"),
 		[]byte("\r\n                      ^\r\nunknown command.\r\n"),
 		[]byte("\r\n                           ^\r\nsyntax error.\r\n\r\n"),
+		[]byte("configure exclusive error: configuration database modified\r\n"),
+		[]byte("error: configuration database modified\r\n"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }
