@@ -34,12 +34,12 @@ import (
 	"github.com/annetutil/gnetcli/pkg/trace"
 )
 
-type TcpNetwork string
+type Network string
 
 const (
-	DefaultTCP TcpNetwork = "tcp"
-	V4TCP      TcpNetwork = "tcp4"
-	V6TCP      TcpNetwork = "tcp6"
+	DefaultTCP Network = "tcp"
+	V4TCP      Network = "tcp4"
+	V6TCP      Network = "tcp6"
 )
 
 const (
@@ -90,24 +90,24 @@ type terminalParams struct {
 }
 
 type Endpoint struct {
-	fqdn       string
-	port       int
-	tcpNetwork TcpNetwork
+	FQDN    string
+	Port    int
+	Network Network
 }
 
 func (endpoint Endpoint) String() string {
-	return fmt.Sprintf("fqdn: %s, port: %d, network: %s", endpoint.fqdn, endpoint.port, endpoint.tcpNetwork)
+	return fmt.Sprintf("fqdn: %s, port: %d, network: %s", endpoint.FQDN, endpoint.Port, endpoint.Network)
 }
 
 func (endpoint *Endpoint) Addr() string {
-	return fmt.Sprintf("%s:%d", endpoint.fqdn, endpoint.port)
+	return fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port)
 }
 
 func NewEndpoint(fqdn string, options ...EndpointOption) Endpoint {
 	res := Endpoint{
-		fqdn:       fqdn,
-		port:       defaultPort,
-		tcpNetwork: DefaultTCP,
+		FQDN:    fqdn,
+		Port:    defaultPort,
+		Network: DefaultTCP,
 	}
 	for _, v := range options {
 		v(&res)
@@ -119,13 +119,13 @@ type EndpointOption func(*Endpoint)
 
 func WithPort(port int) EndpointOption {
 	return func(h *Endpoint) {
-		h.port = port
+		h.Port = port
 	}
 }
 
-func WithIpVersion(version TcpNetwork) EndpointOption {
+func WithNetwork(network Network) EndpointOption {
 	return func(h *Endpoint) {
-		h.tcpNetwork = version
+		h.Network = network
 	}
 }
 
@@ -586,7 +586,7 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 	var err error
 	for _, host := range m.hosts {
 		m.logger.Debug("opening tunnel for host", zap.String("endpoint", host.String()))
-		tunConn, err := m.tunnel.StartForward(string(host.tcpNetwork), host.Addr())
+		tunConn, err := m.tunnel.StartForward(string(host.Network), host.Addr())
 		if err != nil {
 			continue
 		}
@@ -1022,7 +1022,7 @@ func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig) (*
 	var err error
 	var conn net.Conn
 	for _, host := range hosts {
-		conn, err = streamer.TCPDialCtx(ctx, string(host.tcpNetwork), host.Addr())
+		conn, err = streamer.TCPDialCtx(ctx, string(host.Network), host.Addr())
 		if err != nil {
 			continue
 		}
