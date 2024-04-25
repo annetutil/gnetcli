@@ -70,7 +70,7 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 
 	m.Config = conf
 
-	serverConn, err := DialCtx(ctx, []Endpoint{m.Server}, m.Config)
+	serverConn, err := DialCtx(ctx, []Endpoint{m.Server}, m.Config, m.logger)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			m.logger.Error(err.Error())

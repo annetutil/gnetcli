@@ -569,7 +569,7 @@ func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
 	if m.tunnel != nil {
 		conn, err = m.dialTunnel(ctx, conf)
 	} else {
-		conn, err = DialCtx(ctx, m.hosts, conf)
+		conn, err = DialCtx(ctx, m.hosts, conf, m.logger)
 	}
 
 	return conn, err
@@ -1017,19 +1017,21 @@ func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) 
 }
 
 // DialCtx ssh.Dial version with context arg
-func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig) (*ssh.Client, error) {
+func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig, logger *zap.Logger) (*ssh.Client, error) {
 	var res *ssh.Client
 	var err error
 	var conn net.Conn
 	for _, host := range hosts {
 		conn, err = streamer.TCPDialCtx(ctx, string(host.Network), host.Addr())
 		if err != nil {
+			logger.Debug("dial failed for endpoint", zap.Stringer("endpoint", host), zap.Error(err))
 			continue
 		}
 		res, err = DialConnCtx(ctx, conn, host.Addr(), config)
 		if err == nil {
 			return res, nil
 		}
+		logger.Debug("connection failed for endpoint", zap.Stringer("endpoint", host), zap.Error(err))
 	}
 	return res, err
 }
