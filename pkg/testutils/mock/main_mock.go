@@ -141,10 +141,10 @@ func RunInvalidDialogWithException(t *testing.T, devMaker deviceMaker, dialog []
 	require.NoError(t, err, "dialog failed: %s", err)
 }
 
-func RunCmd(devMaker deviceMaker, dialog []Action, commands []cmd.Cmd, logger *zap.Logger) (cmdRes []cmd.CmdRes, resErr, serverErr, err error) {
+func RunCmd(devMaker deviceMaker, dialog []Action, commands []cmd.Cmd, logger *zap.Logger, serverNetwork, clientNetwork string) (cmdRes []cmd.CmdRes, resErr, serverErr, err error) {
 	// Mock SSH server setup
 
-	sshServer, err := NewMockSSHServer(dialog, WithLogger(logger))
+	sshServer, err := NewMockSSHServer(dialog, WithLogger(logger), WithNetwork(serverNetwork))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -156,7 +156,9 @@ func RunCmd(devMaker deviceMaker, dialog []Action, commands []cmd.Cmd, logger *z
 		return err
 	})
 
-	connector := ssh.NewStreamer([]ssh.Endpoint{sshServer.GetAddress()}, credentials.NewSimpleCredentials(), ssh.WithLogger(logger))
+	endpoint := sshServer.GetAddress()
+	endpoint.Network = ssh.Network(clientNetwork)
+	connector := ssh.NewStreamer([]ssh.Endpoint{endpoint}, credentials.NewSimpleCredentials(), ssh.WithLogger(logger))
 	dev := devMaker(connector)
 
 	connCtx, cancel := context.WithTimeout(ctx, 1*time.Second)

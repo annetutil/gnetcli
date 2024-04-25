@@ -21,6 +21,7 @@ type MockSSHServer struct {
 	username   string
 	password   string
 	privateKey []byte
+	network    string
 	log        *zap.Logger
 }
 
@@ -31,6 +32,7 @@ func NewMockSSHServer(dialog []Action, opts ...MockSSHServerOption) (*MockSSHSer
 		config:     nil,
 		username:   "",
 		password:   "",
+		network:    "tcp",
 		privateKey: defaultPrivateKey,
 		log:        zap.NewNop(),
 	}
@@ -60,7 +62,7 @@ func NewMockSSHServer(dialog []Action, opts ...MockSSHServerOption) (*MockSSHSer
 
 	config.AddHostKey(private)
 
-	listener, err := net.Listen("tcp", "localhost:0")
+	listener, err := net.Listen(server.network, "localhost:0")
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen for connection: %w", err)
 	}
@@ -76,13 +78,13 @@ func (m *MockSSHServer) GetAddress() streamer_ssh.Endpoint {
 	if v6EndIdx := strings.Index(m.listener.Addr().String(), "]"); v6EndIdx != -1 {
 		address := m.listener.Addr().String()[0 : v6EndIdx+1]
 		portNum, _ := strconv.Atoi(m.listener.Addr().String()[v6EndIdx+2:])
-		return streamer_ssh.NewEndpoint(address, streamer_ssh.WithPort(portNum))
+		return streamer_ssh.NewEndpoint(address, streamer_ssh.WithPort(portNum), streamer_ssh.WithNetwork(streamer_ssh.Network(m.network)))
 	}
 
 	parts := strings.Split(m.listener.Addr().String(), ":")
 	address := parts[0]
 	portNum, _ := strconv.Atoi(parts[1])
-	return streamer_ssh.NewEndpoint(address, streamer_ssh.WithPort(portNum))
+	return streamer_ssh.NewEndpoint(address, streamer_ssh.WithPort(portNum), streamer_ssh.WithNetwork(streamer_ssh.Network(m.network)))
 }
 
 func (m *MockSSHServer) Run(ctx context.Context) error {

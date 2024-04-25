@@ -1,6 +1,7 @@
 package genericcli
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -53,13 +54,12 @@ func TestQuestionWithoutAnswer(t *testing.T) {
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
 		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
-	}, actions, []cmd.Cmd{cmd.NewCmd("ack")}, logger)
+	}, actions, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp", "tcp")
 
 	require.ErrorAs(t, resErr, &expErr)
 	require.Empty(t, cmdRes)
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
-	require.NoError(t, err)
 }
 
 func TestQuestionCmdOverlap(t *testing.T) {
@@ -84,7 +84,7 @@ func TestQuestionCmdOverlap(t *testing.T) {
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
 		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
-	}, actions, cmds, logger)
+	}, actions, cmds, logger, "tcp", "tcp")
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
 	require.NoError(t, resErr)
@@ -115,7 +115,7 @@ func TestQuestionWithAnswer(t *testing.T) {
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
 		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
-	}, actions, cmds, logger)
+	}, actions, cmds, logger, "tcp", "tcp")
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
 	require.NoError(t, resErr)
@@ -151,7 +151,7 @@ func TestMultipleQuestionsWithAnswer(t *testing.T) {
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
 		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
-	}, actions, cmds, logger)
+	}, actions, cmds, logger, "tcp", "tcp")
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
 	require.NoError(t, resErr)
@@ -180,7 +180,7 @@ func TestQuestionCmdAnswerDontMatchDeviceQuestion(t *testing.T) {
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
 		dev := newDevice(croppedQuestion, connector, logger)
 		return &dev
-	}, actions, cmds, logger)
+	}, actions, cmds, logger, "tcp", "tcp")
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
 	require.NoError(t, resErr)
@@ -209,13 +209,12 @@ func TestEscTermInEcho(t *testing.T) {
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
 		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
-	}, actions, []cmd.Cmd{cmd.NewCmd("ip community-filter basic TEST index 10 permit 10000:999"), cmd.NewCmd("quit")}, logger)
+	}, actions, []cmd.Cmd{cmd.NewCmd("ip community-filter basic TEST index 10 permit 10000:999"), cmd.NewCmd("quit")}, logger, "tcp", "tcp")
 
 	require.NoError(t, resErr)
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes([]byte("olo")), cmd.NewCmdRes(nil)})
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
-	require.NoError(t, err)
 }
 
 func TestEscTermInEchoEmptyCmd(t *testing.T) {
@@ -239,11 +238,96 @@ func TestEscTermInEchoEmptyCmd(t *testing.T) {
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
 		dev := newDevice(fullQuestion, connector, logger)
 		return &dev
-	}, actions, []cmd.Cmd{cmd.NewCmd("ip community-filter basic TEST index 10 permit 10000:999"), cmd.NewCmd("quit")}, logger)
+	}, actions, []cmd.Cmd{cmd.NewCmd("ip community-filter basic TEST index 10 permit 10000:999"), cmd.NewCmd("quit")}, logger, "tcp", "tcp")
 
 	require.NoError(t, resErr)
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil), cmd.NewCmdRes(nil)})
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
+}
+
+func TestNetworkServerV4ToClientV4(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	cmdRes, _, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp4", "tcp4")
+
+	require.Empty(t, cmdRes)
 	require.NoError(t, err)
+	require.NoError(t, serverErr)
+}
+
+func TestNetworkServerV4ToClientV6(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	cmdRes, _, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp4", "tcp6")
+
+	require.Empty(t, cmdRes)
+	expectedErr := errors.New("failed to connect to device")
+	require.ErrorAs(t, err, &expectedErr)
+	require.NoError(t, serverErr)
+}
+
+func TestNetworkServerV4ToClientDefault(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	cmdRes, _, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp4", "tcp")
+
+	require.Empty(t, cmdRes)
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+}
+
+func TestNetworkServerV6ToClientV4(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	cmdRes, _, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp6", "tcp4")
+
+	require.Empty(t, cmdRes)
+	expectedErr := errors.New("failed to connect to device")
+	require.ErrorAs(t, err, &expectedErr)
+	require.NoError(t, serverErr)
+}
+
+func TestNetworkServerV6ToClientV6(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	cmdRes, _, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp6", "tcp6")
+
+	require.Empty(t, cmdRes)
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+}
+
+func TestNetworkServerV6ToClientDefault(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	cmdRes, _, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp6", "tcp")
+
+	require.Empty(t, cmdRes)
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
 }
