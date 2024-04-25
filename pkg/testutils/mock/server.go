@@ -88,7 +88,7 @@ func (m *MockSSHServer) GetAddress() streamer_ssh.Endpoint {
 }
 
 func (m *MockSSHServer) Run(ctx context.Context) error {
-	m.log.Debug("Listening", zap.Stringer("address", m.GetAddress()))
+	m.log.Debug("Listening", zap.String("address", m.GetAddress().String()))
 
 	tcpConn, err := m.listener.Accept()
 	if err != nil {
