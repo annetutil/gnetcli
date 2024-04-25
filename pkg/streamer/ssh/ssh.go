@@ -1020,8 +1020,9 @@ func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) 
 func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig) (*ssh.Client, error) {
 	var res *ssh.Client
 	var err error
+	var conn net.Conn
 	for _, host := range hosts {
-		conn, err := streamer.TCPDialCtx(ctx, string(host.tcpNetwork), host.Addr())
+		conn, err = streamer.TCPDialCtx(ctx, string(host.tcpNetwork), host.Addr())
 		if err != nil {
 			continue
 		}
