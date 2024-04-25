@@ -68,9 +68,3 @@ func WithPrivateKey(privateKey []byte) MockSSHServerOption {
 		m.privateKey = privateKey
 	}
 }
-
-func WithNetwork(network string) MockSSHServerOption {
-	return func(m *MockSSHServer) {
-		m.network = network
-	}
-}
