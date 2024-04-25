@@ -1,7 +1,6 @@
 package genericcli
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -270,8 +269,7 @@ func TestNetworkServerV4ToClientV6(t *testing.T) {
 	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp4", "tcp6")
 
 	require.Empty(t, cmdRes)
-	expectedErr := errors.New("failed to connect to device")
-	require.ErrorAs(t, err, &expectedErr)
+	require.ErrorContains(t, err, "failed to connect to device")
 	require.NoError(t, serverErr)
 }
 
@@ -299,8 +297,7 @@ func TestNetworkServerV6ToClientV4(t *testing.T) {
 	}, nil, []cmd.Cmd{cmd.NewCmd("ack")}, logger, "tcp6", "tcp4")
 
 	require.Empty(t, cmdRes)
-	expectedErr := errors.New("failed to connect to device")
-	require.ErrorAs(t, err, &expectedErr)
+	require.ErrorContains(t, err, "failed to connect to device")
 	require.NoError(t, serverErr)
 }
 
