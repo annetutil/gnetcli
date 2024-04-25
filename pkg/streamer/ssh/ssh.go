@@ -588,10 +588,12 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 		m.logger.Debug("opening tunnel for host", zap.String("endpoint", host.String()))
 		tunConn, err := m.tunnel.StartForward(string(host.Network), host.Addr())
 		if err != nil {
+			m.logger.Debug("opening tunnel for host failed", zap.String("endpoint", host.String()), zap.Error(err))
 			continue
 		}
 		res, err = DialConnCtx(ctx, tunConn, host.Addr(), conf)
 		if err == nil {
+			m.logger.Debug("connecting tunnel for host failed", zap.String("endpoint", host.String()), zap.Error(err))
 			return res, nil
 		}
 		m.logger.Debug("closing tunnel for host", zap.String("address", host.String()))
@@ -1024,14 +1026,14 @@ func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig, lo
 	for _, host := range hosts {
 		conn, err = streamer.TCPDialCtx(ctx, string(host.Network), host.Addr())
 		if err != nil {
-			logger.Debug("dial failed for endpoint", zap.Stringer("endpoint", host), zap.Error(err))
+			logger.Debug("dial failed for endpoint", zap.String("endpoint", host.String()), zap.Error(err))
 			continue
 		}
 		res, err = DialConnCtx(ctx, conn, host.Addr(), config)
 		if err == nil {
 			return res, nil
 		}
-		logger.Debug("connection failed for endpoint", zap.Stringer("endpoint", host), zap.Error(err))
+		logger.Debug("connection failed for endpoint", zap.String("endpoint", host.String()), zap.Error(err))
 	}
 	return res, err
 }
