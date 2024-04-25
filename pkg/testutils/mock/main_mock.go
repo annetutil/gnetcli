@@ -51,10 +51,7 @@ func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, exp
 		return sshServer.Run(ctx)
 	})
 
-	// Test device connection setup
-	host, port := sshServer.GetAddress()
-
-	connector := ssh.NewStreamer(host, creds, ssh.WithPort(port), ssh.WithLogger(zap.Must(zap.NewDevelopmentConfig().Build())))
+	connector := ssh.NewStreamer([]ssh.Endpoint{sshServer.GetAddress()}, creds, ssh.WithLogger(zap.Must(zap.NewDevelopmentConfig().Build())))
 	dev := devMaker(connector)
 	connCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -88,10 +85,7 @@ func RunInvalidDialog(t *testing.T, devMaker deviceMaker, dialog []Action, comma
 		return err
 	})
 
-	// Test device connection setup
-	host, port := sshServer.GetAddress()
-
-	connector := ssh.NewStreamer(host, credentials.NewSimpleCredentials(), ssh.WithPort(port))
+	connector := ssh.NewStreamer([]ssh.Endpoint{sshServer.GetAddress()}, credentials.NewSimpleCredentials())
 	dev := devMaker(connector)
 
 	connCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
@@ -127,10 +121,7 @@ func RunInvalidDialogWithException(t *testing.T, devMaker deviceMaker, dialog []
 		return err
 	})
 
-	// Test device connection setup
-	host, port := sshServer.GetAddress()
-
-	connector := ssh.NewStreamer(host, credentials.NewSimpleCredentials(), ssh.WithPort(port))
+	connector := ssh.NewStreamer([]ssh.Endpoint{sshServer.GetAddress()}, credentials.NewSimpleCredentials())
 	dev := devMaker(connector)
 
 	connCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
@@ -165,10 +156,7 @@ func RunCmd(devMaker deviceMaker, dialog []Action, commands []cmd.Cmd, logger *z
 		return err
 	})
 
-	// Test device connection setup
-	host, port := sshServer.GetAddress()
-
-	connector := ssh.NewStreamer(host, credentials.NewSimpleCredentials(), ssh.WithPort(port), ssh.WithLogger(logger))
+	connector := ssh.NewStreamer([]ssh.Endpoint{sshServer.GetAddress()}, credentials.NewSimpleCredentials(), ssh.WithLogger(logger))
 	dev := devMaker(connector)
 
 	connCtx, cancel := context.WithTimeout(ctx, 1*time.Second)

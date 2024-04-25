@@ -127,10 +127,11 @@ func main() {
 		panic(err)
 	}
 	sshOpts := []ssh.StreamerOption{ssh.WithLogger(logger)}
+	endpointOpts := []ssh.EndpointOption{}
 	if port != nil {
-		sshOpts = append(sshOpts, ssh.WithPort(*port))
+		endpointOpts = append(endpointOpts, ssh.WithPort(*port))
 	}
-	connector := ssh.NewStreamer(*hostname, creds, sshOpts...)
+	connector := ssh.NewStreamer([]ssh.Endpoint{ssh.NewEndpoint(*hostname, endpointOpts...)}, creds, sshOpts...)
 	devFn, ok := deviceMaps[*devType]
 	if !ok {
 		panic(fmt.Errorf("unknown device %s", *devType))

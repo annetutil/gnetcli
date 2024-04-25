@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	streamer_ssh "github.com/annetutil/gnetcli/pkg/streamer/ssh"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/semaphore"
@@ -70,17 +71,15 @@ func NewMockSSHServer(dialog []Action, opts ...MockSSHServerOption) (*MockSSHSer
 	return server, nil
 }
 
-func (m *MockSSHServer) GetAddress() (string, int) {
+func (m *MockSSHServer) GetAddress() streamer_ssh.Endpoint {
 	address := strings.Split(m.listener.Addr().String(), ":")
-
 	portNum, _ := strconv.Atoi(address[1])
 
-	return address[0], portNum
+	return streamer_ssh.NewEndpoint(address[0], streamer_ssh.WithPort(portNum))
 }
 
 func (m *MockSSHServer) Run(ctx context.Context) error {
-	host, port := m.GetAddress()
-	m.log.Debug("Listening", zap.String("host", host), zap.Int("port", port))
+	m.log.Debug("Listening", zap.Stringer("address", m.GetAddress()))
 
 	tcpConn, err := m.listener.Accept()
 	if err != nil {

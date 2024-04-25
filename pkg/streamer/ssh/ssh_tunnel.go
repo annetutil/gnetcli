@@ -3,12 +3,9 @@ package ssh
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -23,11 +20,11 @@ type Tunnel interface {
 	Close()
 	IsConnected() bool
 	CreateConnect(context.Context) error
-	StartForward(addr string) (net.Conn, error)
+	StartForward(network, addr string) (net.Conn, error)
 }
 
 type SSHTunnel struct {
-	Server      *Endpoint
+	Server      Endpoint
 	Config      *ssh.ClientConfig
 	svrConn     *ssh.Client
 	isOpen      bool
@@ -36,12 +33,7 @@ type SSHTunnel struct {
 	mu          sync.Mutex
 }
 
-func NewSSHTunnel(tunnel string, credentials credentials.Credentials, opts ...SSHTunnelOption) *SSHTunnel {
-	server := NewEndpoint(tunnel)
-	if server.Port == 0 {
-		server.Port = defaultPort
-	}
-
+func NewSSHTunnel(server Endpoint, credentials credentials.Credentials, opts ...SSHTunnelOption) *SSHTunnel {
 	h := &SSHTunnel{
 		Server:      server,
 		Config:      nil,
@@ -69,7 +61,7 @@ func SSHTunnelWithLogger(log *zap.Logger) SSHTunnelOption {
 func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	connector := NewStreamer(m.Server.Host, m.credentials, WithLogger(m.logger))
+	connector := NewStreamer([]Endpoint{m.Server}, m.credentials, WithLogger(m.logger))
 	conf, err := connector.GetConfig(ctx)
 	if err != nil {
 		m.logger.Error(err.Error())
@@ -78,7 +70,7 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 
 	m.Config = conf
 
-	serverConn, err := DialCtx(ctx, "tcp", m.Server.String(), m.Config)
+	serverConn, err := DialCtx(ctx, []Endpoint{m.Server}, m.Config)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			m.logger.Error(err.Error())
@@ -91,7 +83,7 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	return nil
 }
 
-func (m *SSHTunnel) StartForward(remoteAddr string) (net.Conn, error) {
+func (m *SSHTunnel) StartForward(network, remoteAddr string) (net.Conn, error) {
 	if !m.isOpen {
 		return nil, errors.New("connection is closed")
 	}
@@ -99,7 +91,7 @@ func (m *SSHTunnel) StartForward(remoteAddr string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	remoteConn, err := m.svrConn.Dial("tcp", remoteAddr)
+	remoteConn, err := m.svrConn.Dial(network, remoteAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -174,34 +166,4 @@ func (m *SSHTunnel) makeSocketFromSocketPair() (net.Conn, net.Conn, error) {
 	}
 
 	return c0, c1, nil
-}
-
-type Endpoint struct {
-	Host string
-	Port int
-	User string
-}
-
-func NewEndpoint(s string) *Endpoint {
-	endpoint := &Endpoint{
-		Host: s,
-		Port: 0,
-		User: "",
-	}
-
-	if parts := strings.Split(endpoint.Host, "@"); len(parts) > 1 {
-		endpoint.User = parts[0]
-		endpoint.Host = parts[1]
-	}
-
-	if parts := strings.Split(endpoint.Host, ":"); len(parts) > 1 {
-		endpoint.Host = parts[0]
-		endpoint.Port, _ = strconv.Atoi(parts[1])
-	}
-
-	return endpoint
-}
-
-func (endpoint *Endpoint) String() string {
-	return fmt.Sprintf("%s:%d", endpoint.Host, endpoint.Port)
 }
