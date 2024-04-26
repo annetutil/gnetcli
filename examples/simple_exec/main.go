@@ -49,7 +49,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	connector := ssh.NewStreamer([]ssh.Endpoint{ssh.NewEndpoint(*host)}, creds, ssh.WithLogger(logger))
+	connector := ssh.NewStreamer(ssh.NewEndpoint(*host), creds, ssh.WithLogger(logger))
 	var dev device.Device
 	deva := cisco.NewDevice(connector)
 	dev = &deva

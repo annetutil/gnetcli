@@ -179,8 +179,13 @@ func (m *Streamer) SetTerminalSize(w, h int) {
 	m.terminalParams.w = w
 }
 
-// NewStreamer returns a streamer that will dial each of passed endpoints, connecting to the first one that is dialed succesfully
-func NewStreamer(endpoints []Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
+// NewStreamer is a sugar around NewMultihostStreamer with single endpoint
+func NewStreamer(endpoint Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
+	return NewMultihostStreamer([]Endpoint{endpoint}, credentials, opts...)
+}
+
+// NewMultihostStreamer returns a streamer that will dial each of passed endpoints, connecting to the first one that is dialed succesfully
+func NewMultihostStreamer(endpoints []Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	h := &Streamer{
 		endpoints:              endpoints,
 		credentials:            credentials,
@@ -211,9 +216,14 @@ func NewStreamer(endpoints []Endpoint, credentials credentials.Credentials, opts
 	return h
 }
 
-func NewNetconfStreamer(endpoints []Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
+func NewNetconfStreamer(endpoint Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	opts = append(opts, WithSSHNetconf())
-	return NewStreamer(endpoints, credentials, opts...)
+	return NewStreamer(endpoint, credentials, opts...)
+}
+
+func NewNetconfMultihostStreamer(endpoints []Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
+	opts = append(opts, WithSSHNetconf())
+	return NewMultihostStreamer(endpoints, credentials, opts...)
 }
 
 func (m *Streamer) Write(text []byte) error {
@@ -592,7 +602,6 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 			break
 		}
 		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", endpoint.String()))
-		m.tunnel.Close()
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.endpoints, err)

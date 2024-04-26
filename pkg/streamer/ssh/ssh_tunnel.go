@@ -61,7 +61,7 @@ func SSHTunnelWithLogger(log *zap.Logger) SSHTunnelOption {
 func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	connector := NewStreamer([]Endpoint{m.Server}, m.credentials, WithLogger(m.logger))
+	connector := NewStreamer(m.Server, m.credentials, WithLogger(m.logger))
 	conf, err := connector.GetConfig(ctx)
 	if err != nil {
 		m.logger.Error(err.Error())

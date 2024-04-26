@@ -108,7 +108,7 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 		hostOpts = append(hostOpts, ssh.WithPort(port))
 	}
 	host := ssh.NewEndpoint(hostname, hostOpts...)
-	connector := ssh.NewStreamer([]ssh.Endpoint{host}, c, streamerOpts...)
+	connector := ssh.NewStreamer(host, c, streamerOpts...)
 
 	devFab, ok := m.deviceMaps[deviceType]
 	if !ok {
