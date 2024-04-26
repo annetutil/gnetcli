@@ -582,22 +582,24 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 			return nil, err
 		}
 	}
-	var res *ssh.Client
+	var tunConn net.Conn
 	var err error
+	var addr string
 	for _, host := range m.hosts {
-		m.logger.Debug("opening tunnel for host", zap.String("endpoint", host.String()))
-		tunConn, err := m.tunnel.StartForward(string(host.Network), host.Addr())
-		if err != nil {
-			m.logger.Debug("opening tunnel for host failed", zap.String("endpoint", host.String()), zap.Error(err))
-			continue
-		}
-		res, err = DialConnCtx(ctx, tunConn, host.Addr(), conf)
+		addr = host.Addr()
+		tunConn, err = m.tunnel.StartForward(string(host.Network), addr)
 		if err == nil {
-			m.logger.Debug("connecting tunnel for host failed", zap.String("endpoint", host.String()), zap.Error(err))
-			return res, nil
+			break
 		}
-		m.logger.Debug("closing tunnel for host", zap.String("address", host.String()))
+		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", host.String()))
 		m.tunnel.Close()
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.hosts, err)
+	}
+	res, err := DialConnCtx(ctx, tunConn, addr, conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to host %s: %w", addr, err)
 	}
 	return res, err
 }
@@ -1020,20 +1022,24 @@ func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) 
 
 // DialCtx ssh.Dial version with context arg
 func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig, logger *zap.Logger) (*ssh.Client, error) {
-	var res *ssh.Client
 	var err error
 	var conn net.Conn
+	var addr string
 	for _, host := range hosts {
-		conn, err = streamer.TCPDialCtx(ctx, string(host.Network), host.Addr())
-		if err != nil {
-			logger.Debug("dial failed for endpoint", zap.String("endpoint", host.String()), zap.Error(err))
-			continue
-		}
-		res, err = DialConnCtx(ctx, conn, host.Addr(), config)
+		addr = host.Addr()
+		conn, err = streamer.TCPDialCtx(ctx, string(host.Network), addr)
 		if err == nil {
-			return res, nil
+			break
 		}
-		logger.Debug("connection failed for endpoint", zap.String("endpoint", host.String()), zap.Error(err))
+		// always continue attempts to connect in case of dial failure
+		logger.Debug("dial failed for endpoint", zap.String("endpoint", host.String()), zap.Error(err))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial any of given endpoints: %v, last error: %w", hosts, err)
+	}
+	res, err := DialConnCtx(ctx, conn, addr, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to host %s: %w", addr, err)
 	}
 	return res, err
 }
