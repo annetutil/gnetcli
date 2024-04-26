@@ -20,7 +20,7 @@ type Tunnel interface {
 	Close()
 	IsConnected() bool
 	CreateConnect(context.Context) error
-	StartForward(network, addr string) (net.Conn, error)
+	StartForward(network Network, addr string) (net.Conn, error)
 }
 
 type SSHTunnel struct {
@@ -95,7 +95,7 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	return nil
 }
 
-func (m *SSHTunnel) StartForward(network, remoteAddr string) (net.Conn, error) {
+func (m *SSHTunnel) StartForward(network Network, remoteAddr string) (net.Conn, error) {
 	if !m.isOpen {
 		return nil, errors.New("connection is closed")
 	}
@@ -103,7 +103,7 @@ func (m *SSHTunnel) StartForward(network, remoteAddr string) (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	remoteConn, err := m.svrConn.Dial(network, remoteAddr)
+	remoteConn, err := m.svrConn.Dial(string(network), remoteAddr)
 	if err != nil {
 		return nil, err
 	}

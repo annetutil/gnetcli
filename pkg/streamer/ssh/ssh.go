@@ -610,7 +610,7 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 	endpoints := append([]Endpoint{m.endpoint}, m.additionalEndpoints...)
 	for _, endpoint := range endpoints {
 		connectedEndpoint = endpoint
-		tunConn, err = m.tunnel.StartForward(string(endpoint.Network), endpoint.Addr())
+		tunConn, err = m.tunnel.StartForward(endpoint.Network, endpoint.Addr())
 		if err == nil {
 			break
 		}
