@@ -96,7 +96,7 @@ type Endpoint struct {
 }
 
 func (endpoint Endpoint) String() string {
-	return fmt.Sprintf("fqdn: %s, port: %d, network: %s", endpoint.FQDN, endpoint.Port, endpoint.Network)
+	return fmt.Sprintf("{fqdn: %s, port: %d, network: %s}", endpoint.FQDN, endpoint.Port, endpoint.Network)
 }
 
 func (endpoint *Endpoint) Addr() string {
@@ -584,10 +584,10 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 	}
 	var tunConn net.Conn
 	var err error
-	var addr string
+	var connectedHost Endpoint
 	for _, host := range m.hosts {
-		addr = host.Addr()
-		tunConn, err = m.tunnel.StartForward(string(host.Network), addr)
+		connectedHost = host
+		tunConn, err = m.tunnel.StartForward(string(host.Network), host.Addr())
 		if err == nil {
 			break
 		}
@@ -597,9 +597,9 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.hosts, err)
 	}
-	res, err := DialConnCtx(ctx, tunConn, addr, conf)
+	res, err := DialConnCtx(ctx, tunConn, connectedHost.Addr(), conf)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to host %s: %w", addr, err)
+		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedHost.String(), err)
 	}
 	return res, err
 }
@@ -1024,10 +1024,10 @@ func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) 
 func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig, logger *zap.Logger) (*ssh.Client, error) {
 	var err error
 	var conn net.Conn
-	var addr string
+	var connectedHost Endpoint
 	for _, host := range hosts {
-		addr = host.Addr()
-		conn, err = streamer.TCPDialCtx(ctx, string(host.Network), addr)
+		connectedHost = host
+		conn, err = streamer.TCPDialCtx(ctx, string(host.Network), host.Addr())
 		if err == nil {
 			break
 		}
@@ -1037,9 +1037,9 @@ func DialCtx(ctx context.Context, hosts []Endpoint, config *ssh.ClientConfig, lo
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial any of given endpoints: %v, last error: %w", hosts, err)
 	}
-	res, err := DialConnCtx(ctx, conn, addr, config)
+	res, err := DialConnCtx(ctx, conn, connectedHost.Addr(), config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to host %s: %w", addr, err)
+		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedHost.String(), err)
 	}
 	return res, err
 }
