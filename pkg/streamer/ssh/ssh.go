@@ -42,6 +42,7 @@ const (
 	sftpServerPaths       = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
 	defaultTerminalWidth  = 200
 	defaultTerminalHeight = 0
+	NoStatusResult        = -1000
 )
 
 var _ streamer.Connector = (*Streamer)(nil)
@@ -414,8 +415,10 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 	}
 
 	defer session.Close()
-
+	var ctxCanceErr error
 	cancel := streamer.CloserCTX(ctx, func() {
+		ctxCanceErr = ctx.Err()
+		session.Signal(ssh.SIGKILL)
 		_ = session.Close()
 	})
 	err = session.Run(cmd)
@@ -425,18 +428,29 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 		m.logger.Error("onSessionCloseCallbacks error %w", zap.Error(err))
 	}
 	status := 0
+	isStatusGettingOk := false
 	if err != nil {
 		var errCode *ssh.ExitError
 		if errors.As(err, &errCode) {
 			status = errCode.ExitStatus()
-		} else {
-			return nil, err
+			isStatusGettingOk = true
 		}
 	}
 
 	stdoutBytes := stdout.Bytes()
 	stderrBytes := stderr.Bytes()
-	res := gcmd.NewCmdResFull(stdoutBytes, stderrBytes, status, nil)
+	var res gcmd.CmdRes
+	if isStatusGettingOk {
+		res = gcmd.NewCmdResFull(stdoutBytes, stderrBytes, status, nil)
+	} else {
+		res = gcmd.NewCmdResFull(stdoutBytes, stderrBytes, NoStatusResult, nil)
+	}
+
+	if ctxCanceErr != nil {
+		return nil, fmt.Errorf("context timeout status=%d out=%s err=%s", res.Status(), res.Output(), res.Error())
+	} else if err != nil {
+		return nil, fmt.Errorf("session %w status=%d out=%s err=%s", err, res.Status(), res.Output(), res.Error())
+	}
 	return res, nil
 }
 
