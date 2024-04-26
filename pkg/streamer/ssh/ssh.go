@@ -435,6 +435,8 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 			status = errCode.ExitStatus()
 			isStatusGettingOk = true
 		}
+	} else {
+		isStatusGettingOk = true
 	}
 
 	stdoutBytes := stdout.Bytes()
