@@ -43,7 +43,7 @@ const (
 )
 
 const (
-	defaultPort           = 22
+	DefaultPort           = 22
 	defaultReadTimeout    = 20 * time.Second
 	defaultReadSize       = 4096
 	sftpServerPaths       = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
@@ -90,47 +90,31 @@ type terminalParams struct {
 }
 
 type Endpoint struct {
-	FQDN    string
+	Host    string
 	Port    int
 	Network Network
 }
 
 func (endpoint Endpoint) String() string {
-	return fmt.Sprintf("{fqdn: %s, port: %d, network: %s}", endpoint.FQDN, endpoint.Port, endpoint.Network)
+	return fmt.Sprintf("{host: %s, port: %d, network: %s}", endpoint.Host, endpoint.Port, endpoint.Network)
 }
 
 func (endpoint *Endpoint) Addr() string {
-	return fmt.Sprintf("%s:%d", endpoint.FQDN, endpoint.Port)
+	return fmt.Sprintf("%s:%d", endpoint.Host, endpoint.Port)
 }
 
-func NewEndpoint(fqdn string, options ...EndpointOption) Endpoint {
+func NewEndpoint(host string, port int, network Network) Endpoint {
 	res := Endpoint{
-		FQDN:    fqdn,
-		Port:    defaultPort,
-		Network: TCP,
-	}
-	for _, v := range options {
-		v(&res)
+		Host:    host,
+		Port:    port,
+		Network: network,
 	}
 	return res
 }
 
-type EndpointOption func(*Endpoint)
-
-func WithPort(port int) EndpointOption {
-	return func(h *Endpoint) {
-		h.Port = port
-	}
-}
-
-func WithNetwork(network Network) EndpointOption {
-	return func(h *Endpoint) {
-		h.Network = network
-	}
-}
-
 type Streamer struct {
-	endpoints              []Endpoint
+	endpoint               Endpoint
+	additionalEndpoints    []Endpoint
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
 	conn                   *ssh.Client
@@ -179,15 +163,9 @@ func (m *Streamer) SetTerminalSize(w, h int) {
 	m.terminalParams.w = w
 }
 
-// NewStreamer is a sugar around NewMultihostStreamer with single endpoint
-func NewStreamer(endpoint Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
-	return NewMultihostStreamer([]Endpoint{endpoint}, credentials, opts...)
-}
-
-// NewMultihostStreamer returns a streamer that will dial each of passed endpoints, connecting to the first one that is dialed succesfully
-func NewMultihostStreamer(endpoints []Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
+func NewStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	h := &Streamer{
-		endpoints:              endpoints,
+		endpoint:               NewEndpoint(host, DefaultPort, TCP),
 		credentials:            credentials,
 		logger:                 nil,
 		conn:                   nil,
@@ -216,14 +194,9 @@ func NewMultihostStreamer(endpoints []Endpoint, credentials credentials.Credenti
 	return h
 }
 
-func NewNetconfStreamer(endpoint Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
+func NewNetconfStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	opts = append(opts, WithSSHNetconf())
-	return NewStreamer(endpoint, credentials, opts...)
-}
-
-func NewNetconfMultihostStreamer(endpoints []Endpoint, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
-	opts = append(opts, WithSSHNetconf())
-	return NewMultihostStreamer(endpoints, credentials, opts...)
+	return NewStreamer(host, credentials, opts...)
 }
 
 func (m *Streamer) Write(text []byte) error {
@@ -395,6 +368,20 @@ func WithLogger(log *zap.Logger) StreamerOption {
 	}
 }
 
+// WithPort sets port for default endpoint
+func WithPort(port int) StreamerOption {
+	return func(h *Streamer) {
+		h.endpoint.Port = port
+	}
+}
+
+// WithNetwork sets network for default endpoint
+func WithNetwork(network Network) StreamerOption {
+	return func(h *Streamer) {
+		h.endpoint.Network = network
+	}
+}
+
 // WithSSHTunnel sets tunnel as ssh proxy. We do not close after usage because it can be shared with other connections.
 func WithSSHTunnel(tunnel Tunnel) StreamerOption {
 	return func(h *Streamer) {
@@ -411,6 +398,14 @@ func WithTrace(trace trace.CB) StreamerOption {
 func WithEnv(key, value string) StreamerOption {
 	return func(h *Streamer) {
 		h.env[key] = value
+	}
+}
+
+// WithAdditionalEndpoints adds slice of endpoints that Streamer will sequentially try to connect to untill success of dial,
+// if original host dial fails
+func WithAdditionalEndpoints(endpoints []Endpoint) StreamerOption {
+	return func(h *Streamer) {
+		h.additionalEndpoints = endpoints
 	}
 }
 
@@ -579,7 +574,7 @@ func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
 	if m.tunnel != nil {
 		conn, err = m.dialTunnel(ctx, conf)
 	} else {
-		conn, err = DialCtx(ctx, m.endpoints, conf, m.logger)
+		conn, err = DialCtx(ctx, m.endpoint, m.additionalEndpoints, conf, m.logger)
 	}
 
 	return conn, err
@@ -595,7 +590,8 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 	var tunConn net.Conn
 	var err error
 	var connectedEndpoint Endpoint
-	for _, endpoint := range m.endpoints {
+	endpoints := append([]Endpoint{m.endpoint}, m.additionalEndpoints...)
+	for _, endpoint := range endpoints {
 		connectedEndpoint = endpoint
 		tunConn, err = m.tunnel.StartForward(string(endpoint.Network), endpoint.Addr())
 		if err == nil {
@@ -604,7 +600,7 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", endpoint.String()))
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.endpoints, err)
+		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.endpoint, err)
 	}
 	res, err := DialConnCtx(ctx, tunConn, connectedEndpoint.Addr(), conf)
 	if err != nil {
@@ -722,7 +718,7 @@ func (m *Streamer) Init(ctx context.Context) error {
 		return fmt.Errorf("already inited")
 	}
 	m.inited = true
-	m.logger.Debug("open connection", zap.Stringers("endpoints", m.endpoints))
+	m.logger.Debug("open connection", zap.Stringer("endpoint", m.endpoint), zap.Stringers("additional endpoints", m.additionalEndpoints))
 
 	conn, err := m.openConnect(ctx)
 	if err != nil {
@@ -1030,11 +1026,12 @@ func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) 
 }
 
 // DialCtx ssh.Dial version with context arg
-func DialCtx(ctx context.Context, endpoint []Endpoint, config *ssh.ClientConfig, logger *zap.Logger) (*ssh.Client, error) {
+func DialCtx(ctx context.Context, endpoint Endpoint, additionalEndpoints []Endpoint, config *ssh.ClientConfig, logger *zap.Logger) (*ssh.Client, error) {
 	var err error
 	var conn net.Conn
 	var connectedEndpoint Endpoint
-	for _, endpoint := range endpoint {
+	endpoints := append([]Endpoint{endpoint}, additionalEndpoints...)
+	for _, endpoint := range endpoints {
 		connectedEndpoint = endpoint
 		conn, err = streamer.TCPDialCtx(ctx, string(endpoint.Network), endpoint.Addr())
 		if err == nil {

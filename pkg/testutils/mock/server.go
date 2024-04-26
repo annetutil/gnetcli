@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	streamer_ssh "github.com/annetutil/gnetcli/pkg/streamer/ssh"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/sync/semaphore"
@@ -71,22 +70,23 @@ func NewMockSSHServer(dialog []Action, opts ...MockSSHServerOption) (*MockSSHSer
 	return server, nil
 }
 
-func (m *MockSSHServer) GetAddress() streamer_ssh.Endpoint {
+func (m *MockSSHServer) GetAddress() (string, int) {
 	// ipv6 case
 	if v6EndIdx := strings.Index(m.listener.Addr().String(), "]"); v6EndIdx != -1 {
 		address := m.listener.Addr().String()[0 : v6EndIdx+1]
 		portNum, _ := strconv.Atoi(m.listener.Addr().String()[v6EndIdx+2:])
-		return streamer_ssh.NewEndpoint(address, streamer_ssh.WithPort(portNum))
+		return address, portNum
 	}
 
 	parts := strings.Split(m.listener.Addr().String(), ":")
 	address := parts[0]
 	portNum, _ := strconv.Atoi(parts[1])
-	return streamer_ssh.NewEndpoint(address, streamer_ssh.WithPort(portNum))
+	return address, portNum
 }
 
 func (m *MockSSHServer) Run(ctx context.Context) error {
-	m.log.Debug("Listening", zap.String("address", m.GetAddress().String()))
+	address, port := m.GetAddress()
+	m.log.Debug("Listening", zap.String("address", fmt.Sprintf("%s:%d", address, port)))
 
 	tcpConn, err := m.listener.Accept()
 	if err != nil {

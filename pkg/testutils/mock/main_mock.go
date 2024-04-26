@@ -51,7 +51,8 @@ func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, exp
 		return sshServer.Run(ctx)
 	})
 
-	connector := ssh.NewStreamer(sshServer.GetAddress(), creds, ssh.WithLogger(zap.Must(zap.NewDevelopmentConfig().Build())))
+	addr, port := sshServer.GetAddress()
+	connector := ssh.NewStreamer(addr, creds, ssh.WithLogger(zap.Must(zap.NewDevelopmentConfig().Build())), ssh.WithPort(port))
 	dev := devMaker(connector)
 	connCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -85,7 +86,8 @@ func RunInvalidDialog(t *testing.T, devMaker deviceMaker, dialog []Action, comma
 		return err
 	})
 
-	connector := ssh.NewStreamer(sshServer.GetAddress(), credentials.NewSimpleCredentials())
+	addr, port := sshServer.GetAddress()
+	connector := ssh.NewStreamer(addr, credentials.NewSimpleCredentials(), ssh.WithPort(port))
 	dev := devMaker(connector)
 
 	connCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
@@ -121,7 +123,8 @@ func RunInvalidDialogWithException(t *testing.T, devMaker deviceMaker, dialog []
 		return err
 	})
 
-	connector := ssh.NewStreamer(sshServer.GetAddress(), credentials.NewSimpleCredentials())
+	addr, port := sshServer.GetAddress()
+	connector := ssh.NewStreamer(addr, credentials.NewSimpleCredentials(), ssh.WithPort(port))
 	dev := devMaker(connector)
 
 	connCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
@@ -156,7 +159,8 @@ func RunCmd(devMaker deviceMaker, dialog []Action, commands []cmd.Cmd, logger *z
 		return err
 	})
 
-	connector := ssh.NewStreamer(sshServer.GetAddress(), credentials.NewSimpleCredentials(), ssh.WithLogger(logger))
+	addr, port := sshServer.GetAddress()
+	connector := ssh.NewStreamer(addr, credentials.NewSimpleCredentials(), ssh.WithLogger(logger), ssh.WithPort(port))
 	dev := devMaker(connector)
 
 	connCtx, cancel := context.WithTimeout(ctx, 1*time.Second)

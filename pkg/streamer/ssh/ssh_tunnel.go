@@ -61,7 +61,7 @@ func SSHTunnelWithLogger(log *zap.Logger) SSHTunnelOption {
 func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	connector := NewStreamer(m.Server, m.credentials, WithLogger(m.logger))
+	connector := NewStreamer(m.Server.Host, m.credentials, WithLogger(m.logger))
 	conf, err := connector.GetConfig(ctx)
 	if err != nil {
 		m.logger.Error(err.Error())
@@ -70,7 +70,7 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 
 	m.Config = conf
 
-	serverConn, err := DialCtx(ctx, []Endpoint{m.Server}, m.Config, m.logger)
+	serverConn, err := DialCtx(ctx, m.Server, nil, m.Config, m.logger)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			m.logger.Error(err.Error())

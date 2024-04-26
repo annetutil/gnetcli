@@ -102,13 +102,11 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 	}
 	deviceType := params.GetDevice()
 	streamerOpts := []ssh.StreamerOption{ssh.WithLogger(logger), ssh.WithTrace(add)}
-	hostOpts := []ssh.EndpointOption{}
 	port := params.GetPort()
 	if port > 0 {
-		hostOpts = append(hostOpts, ssh.WithPort(port))
+		streamerOpts = append(streamerOpts, ssh.WithPort(port))
 	}
-	host := ssh.NewEndpoint(hostname, hostOpts...)
-	connector := ssh.NewStreamer(host, c, streamerOpts...)
+	connector := ssh.NewStreamer(hostname, c, streamerOpts...)
 
 	devFab, ok := m.deviceMaps[deviceType]
 	if !ok {
