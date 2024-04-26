@@ -33,9 +33,9 @@ type SSHTunnel struct {
 	mu          sync.Mutex
 }
 
-func NewSSHTunnel(server Endpoint, credentials credentials.Credentials, opts ...SSHTunnelOption) *SSHTunnel {
+func NewSSHTunnel(host string, credentials credentials.Credentials, opts ...SSHTunnelOption) *SSHTunnel {
 	h := &SSHTunnel{
-		Server:      server,
+		Server:      NewEndpoint(host, defaultPort, TCP),
 		Config:      nil,
 		svrConn:     nil,
 		isOpen:      false,
@@ -55,6 +55,18 @@ type SSHTunnelOption func(m *SSHTunnel)
 func SSHTunnelWithLogger(log *zap.Logger) SSHTunnelOption {
 	return func(h *SSHTunnel) {
 		h.logger = log
+	}
+}
+
+func SSHTunnelWithNetwork(network Network) SSHTunnelOption {
+	return func(h *SSHTunnel) {
+		h.Server.Network = network
+	}
+}
+
+func SSHTunnelWitPort(port int) SSHTunnelOption {
+	return func(h *SSHTunnel) {
+		h.Server.Port = port
 	}
 }
 
