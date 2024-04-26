@@ -166,6 +166,7 @@ func (m *Streamer) SetTerminalSize(w, h int) {
 func NewStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	h := &Streamer{
 		endpoint:               NewEndpoint(host, defaultPort, TCP),
+		additionalEndpoints:    []Endpoint{},
 		credentials:            credentials,
 		logger:                 nil,
 		conn:                   nil,
