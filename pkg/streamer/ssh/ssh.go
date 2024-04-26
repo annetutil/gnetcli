@@ -37,9 +37,9 @@ import (
 type Network string
 
 const (
-	DefaultTCP Network = "tcp"
-	V4TCP      Network = "tcp4"
-	V6TCP      Network = "tcp6"
+	TCP   Network = "tcp"
+	TCPv4 Network = "tcp4"
+	TCPv6 Network = "tcp6"
 )
 
 const (
@@ -107,7 +107,7 @@ func NewEndpoint(fqdn string, options ...EndpointOption) Endpoint {
 	res := Endpoint{
 		FQDN:    fqdn,
 		Port:    defaultPort,
-		Network: DefaultTCP,
+		Network: TCP,
 	}
 	for _, v := range options {
 		v(&res)
