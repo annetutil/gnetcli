@@ -71,11 +71,17 @@ func NewMockSSHServer(dialog []Action, opts ...MockSSHServerOption) (*MockSSHSer
 }
 
 func (m *MockSSHServer) GetAddress() (string, int) {
-	address := strings.Split(m.listener.Addr().String(), ":")
+	// ipv6 case
+	if v6EndIdx := strings.Index(m.listener.Addr().String(), "]"); v6EndIdx != -1 {
+		address := m.listener.Addr().String()[0 : v6EndIdx+1]
+		portNum, _ := strconv.Atoi(m.listener.Addr().String()[v6EndIdx+2:])
+		return address, portNum
+	}
 
-	portNum, _ := strconv.Atoi(address[1])
-
-	return address[0], portNum
+	parts := strings.Split(m.listener.Addr().String(), ":")
+	address := parts[0]
+	portNum, _ := strconv.Atoi(parts[1])
+	return address, portNum
 }
 
 func (m *MockSSHServer) Run(ctx context.Context) error {

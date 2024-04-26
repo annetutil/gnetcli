@@ -59,7 +59,6 @@ func TestQuestionWithoutAnswer(t *testing.T) {
 	require.Empty(t, cmdRes)
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
-	require.NoError(t, err)
 }
 
 func TestQuestionCmdOverlap(t *testing.T) {
@@ -215,7 +214,6 @@ func TestEscTermInEcho(t *testing.T) {
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes([]byte("olo")), cmd.NewCmdRes(nil)})
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
-	require.NoError(t, err)
 }
 
 func TestEscTermInEchoEmptyCmd(t *testing.T) {
@@ -245,5 +243,4 @@ func TestEscTermInEchoEmptyCmd(t *testing.T) {
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil), cmd.NewCmdRes(nil)})
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
-	require.NoError(t, err)
 }

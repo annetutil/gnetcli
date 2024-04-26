@@ -13,7 +13,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +32,14 @@ import (
 	"github.com/annetutil/gnetcli/pkg/gerror"
 	"github.com/annetutil/gnetcli/pkg/streamer"
 	"github.com/annetutil/gnetcli/pkg/trace"
+)
+
+type Network string
+
+const (
+	TCP   Network = "tcp"
+	TCPv4 Network = "tcp4"
+	TCPv6 Network = "tcp6"
 )
 
 const (
@@ -83,9 +90,32 @@ type terminalParams struct {
 	h int
 }
 
+type Endpoint struct {
+	Host    string
+	Port    int
+	Network Network
+}
+
+func (endpoint Endpoint) String() string {
+	return fmt.Sprintf("{host: %s, port: %d, network: %s}", endpoint.Host, endpoint.Port, endpoint.Network)
+}
+
+func (endpoint *Endpoint) Addr() string {
+	return fmt.Sprintf("%s:%d", endpoint.Host, endpoint.Port)
+}
+
+func NewEndpoint(host string, port int, network Network) Endpoint {
+	res := Endpoint{
+		Host:    host,
+		Port:    port,
+		Network: network,
+	}
+	return res
+}
+
 type Streamer struct {
-	host                   string
-	port                   int
+	endpoint               Endpoint
+	additionalEndpoints    []Endpoint
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
 	conn                   *ssh.Client
@@ -136,8 +166,8 @@ func (m *Streamer) SetTerminalSize(w, h int) {
 
 func NewStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	h := &Streamer{
-		host:                   host,
-		port:                   defaultPort,
+		endpoint:               NewEndpoint(host, defaultPort, TCP),
+		additionalEndpoints:    []Endpoint{},
 		credentials:            credentials,
 		logger:                 nil,
 		conn:                   nil,
@@ -340,9 +370,17 @@ func WithLogger(log *zap.Logger) StreamerOption {
 	}
 }
 
+// WithPort sets port for default endpoint
 func WithPort(port int) StreamerOption {
 	return func(h *Streamer) {
-		h.port = port
+		h.endpoint.Port = port
+	}
+}
+
+// WithNetwork sets network for default endpoint
+func WithNetwork(network Network) StreamerOption {
+	return func(h *Streamer) {
+		h.endpoint.Network = network
 	}
 }
 
@@ -362,6 +400,14 @@ func WithTrace(trace trace.CB) StreamerOption {
 func WithEnv(key, value string) StreamerOption {
 	return func(h *Streamer) {
 		h.env[key] = value
+	}
+}
+
+// WithAdditionalEndpoints adds slice of endpoints that Streamer will sequentially try to connect to untill success of dial,
+// if original host dial fails
+func WithAdditionalEndpoints(endpoints []Endpoint) StreamerOption {
+	return func(h *Streamer) {
+		h.additionalEndpoints = endpoints
 	}
 }
 
@@ -541,31 +587,43 @@ func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	remote := m.host + ":" + strconv.Itoa(m.port)
-	m.logger.Debug("open connection", zap.String("remote", remote))
 	var conn *ssh.Client
 	if m.tunnel != nil {
-		if !m.tunnel.IsConnected() {
-			err := m.tunnel.CreateConnect(ctx)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		tunConn, err := m.tunnel.StartForward(remote)
-		if err != nil {
-			return nil, err
-		}
-
-		conn, err = DialConnCtx(ctx, tunConn, remote, conf)
-		if err != nil {
-			return nil, err
-		}
+		conn, err = m.dialTunnel(ctx, conf)
 	} else {
-		conn, err = DialCtx(ctx, "tcp", remote, conf)
+		conn, err = DialCtx(ctx, m.endpoint, m.additionalEndpoints, conf, m.logger)
 	}
 
 	return conn, err
+}
+
+func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh.Client, error) {
+	if !m.tunnel.IsConnected() {
+		err := m.tunnel.CreateConnect(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var tunConn net.Conn
+	var err error
+	var connectedEndpoint Endpoint
+	endpoints := append([]Endpoint{m.endpoint}, m.additionalEndpoints...)
+	for _, endpoint := range endpoints {
+		connectedEndpoint = endpoint
+		tunConn, err = m.tunnel.StartForward(string(endpoint.Network), endpoint.Addr())
+		if err == nil {
+			break
+		}
+		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", endpoint.String()))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.endpoint, err)
+	}
+	res, err := DialConnCtx(ctx, tunConn, connectedEndpoint.Addr(), conf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedEndpoint.String(), err)
+	}
+	return res, err
 }
 
 func (m *Streamer) onSessionOpen(sess *ssh.Session) error {
@@ -677,7 +735,7 @@ func (m *Streamer) Init(ctx context.Context) error {
 		return fmt.Errorf("already inited")
 	}
 	m.inited = true
-	m.logger.Debug("open connection", zap.String("host", m.host))
+	m.logger.Debug("open connection", zap.Stringer("endpoint", m.endpoint), zap.Stringers("additional endpoints", m.additionalEndpoints))
 
 	conn, err := m.openConnect(ctx)
 	if err != nil {
@@ -985,12 +1043,28 @@ func (m *Streamer) uploadSftp(filePaths map[string]streamer.File, useSudo bool) 
 }
 
 // DialCtx ssh.Dial version with context arg
-func DialCtx(ctx context.Context, network, addr string, config *ssh.ClientConfig) (*ssh.Client, error) {
-	conn, err := streamer.TCPDialCtx(ctx, network, addr)
-	if err != nil {
-		return nil, err
+func DialCtx(ctx context.Context, endpoint Endpoint, additionalEndpoints []Endpoint, config *ssh.ClientConfig, logger *zap.Logger) (*ssh.Client, error) {
+	var err error
+	var conn net.Conn
+	var connectedEndpoint Endpoint
+	endpoints := append([]Endpoint{endpoint}, additionalEndpoints...)
+	for _, endpoint := range endpoints {
+		connectedEndpoint = endpoint
+		conn, err = streamer.TCPDialCtx(ctx, string(endpoint.Network), endpoint.Addr())
+		if err == nil {
+			break
+		}
+		// always continue attempts to connect in case of dial failure
+		logger.Debug("dial failed for endpoint", zap.String("endpoint", endpoint.String()), zap.Error(err))
 	}
-	return DialConnCtx(ctx, conn, addr, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to dial any of given endpoints: %v, last error: %w", endpoint, err)
+	}
+	res, err := DialConnCtx(ctx, conn, connectedEndpoint.Addr(), config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedEndpoint.String(), err)
+	}
+	return res, err
 }
 
 func DialConnCtx(ctx context.Context, conn net.Conn, addr string, config *ssh.ClientConfig) (*ssh.Client, error) {
