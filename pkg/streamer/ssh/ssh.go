@@ -43,7 +43,7 @@ const (
 )
 
 const (
-	DefaultPort           = 22
+	defaultPort           = 22
 	defaultReadTimeout    = 20 * time.Second
 	defaultReadSize       = 4096
 	sftpServerPaths       = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
@@ -165,7 +165,7 @@ func (m *Streamer) SetTerminalSize(w, h int) {
 
 func NewStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	h := &Streamer{
-		endpoint:               NewEndpoint(host, DefaultPort, TCP),
+		endpoint:               NewEndpoint(host, defaultPort, TCP),
 		credentials:            credentials,
 		logger:                 nil,
 		conn:                   nil,

@@ -85,8 +85,8 @@ func (m *MockSSHServer) GetAddress() (string, int) {
 }
 
 func (m *MockSSHServer) Run(ctx context.Context) error {
-	address, port := m.GetAddress()
-	m.log.Debug("Listening", zap.String("address", fmt.Sprintf("%s:%d", address, port)))
+	host, port := m.GetAddress()
+	m.log.Debug("Listening", zap.String("host", host), zap.Int("port", port))
 
 	tcpConn, err := m.listener.Accept()
 	if err != nil {
