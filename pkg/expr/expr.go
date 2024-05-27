@@ -65,6 +65,26 @@ func NewSimpleExprFirst(pattern string, first int) Expr {
 	return &simpleExpr{exprs: []*regexp.Regexp{regexp.MustCompile(pattern)}, last: 0, first: first}
 }
 
+func NewSimpleExprFromRegexLast200(pattern *regexp.Regexp) Expr {
+	return NewSimpleExprFromRegexLast(pattern, 200)
+}
+
+func NewSimpleExprFromRegexFirst200(pattern *regexp.Regexp) Expr {
+	return NewSimpleExprFromRegexFirst(pattern, 200)
+}
+
+func NewSimpleExprFromRegexLast20(pattern *regexp.Regexp) Expr {
+	return NewSimpleExprFromRegexLast(pattern, 20)
+}
+
+func NewSimpleExprFromRegexLast(pattern *regexp.Regexp, last int) Expr {
+	return &simpleExpr{exprs: []*regexp.Regexp{pattern}, last: last, first: 0}
+}
+
+func NewSimpleExprFromRegexFirst(pattern *regexp.Regexp, first int) Expr {
+	return &simpleExpr{exprs: []*regexp.Regexp{pattern}, last: 0, first: first}
+}
+
 func (m simpleExpr) Repr() string {
 	resList := []string{}
 	for _, expr := range m.exprs {
