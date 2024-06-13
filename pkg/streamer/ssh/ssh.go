@@ -475,11 +475,14 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 	}
 	status := 0
 	isStatusGettingOk := false
+	var execErr error
 	if err != nil {
 		var errCode *ssh.ExitError
 		if errors.As(err, &errCode) {
 			status = errCode.ExitStatus()
 			isStatusGettingOk = true
+		} else {
+			execErr = err
 		}
 	} else {
 		isStatusGettingOk = true
@@ -496,7 +499,7 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 
 	if ctxCanceErr != nil {
 		return nil, fmt.Errorf("context timeout status=%d out=%s err=%s", res.Status(), res.Output(), res.Error())
-	} else if err != nil {
+	} else if execErr != nil {
 		return nil, fmt.Errorf("session %w status=%d out=%s err=%s", err, res.Status(), res.Output(), res.Error())
 	}
 	return res, nil
