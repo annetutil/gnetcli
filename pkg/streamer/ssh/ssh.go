@@ -499,7 +499,8 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 
 	if ctxCanceErr != nil {
 		return nil, fmt.Errorf("context timeout status=%d out=%s err=%s", res.Status(), res.Output(), res.Error())
-	} else if execErr != nil {
+	}
+	if execErr != nil {
 		return nil, fmt.Errorf("session %w status=%d out=%s err=%s", err, res.Status(), res.Output(), res.Error())
 	}
 	return res, nil
