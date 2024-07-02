@@ -4,6 +4,7 @@ Package credentials describes credentials.
 package credentials
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,7 +18,7 @@ import (
 
 type Credentials interface {
 	GetUsername() (string, error)
-	GetPasswords() []Secret
+	GetPasswords(ctx context.Context) []Secret
 	GetPrivateKeys() [][]byte
 	GetPassphrase() Secret
 	GetAgentSocket() string
