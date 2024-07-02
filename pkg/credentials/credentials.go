@@ -108,7 +108,7 @@ func (m SimpleCredentials) GetUsername() (string, error) {
 	return "", fmt.Errorf("unable to get username")
 }
 
-func (m SimpleCredentials) GetPasswords() []Secret {
+func (m SimpleCredentials) GetPasswords(ctx context.Context) []Secret {
 	return m.passwords
 }
 
