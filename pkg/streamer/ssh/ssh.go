@@ -516,7 +516,7 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	passwords := creds.GetPasswords()
+	passwords := creds.GetPasswords(ctx)
 	if len(passwords) > 0 {
 		auths = append(auths, ssh.RetryableAuthMethod(ssh.PasswordCallback(m.passwordCallbackWrapper(passwords)), len(passwords)))
 		auths = append(auths, ssh.RetryableAuthMethod(ssh.KeyboardInteractive(m.passwordKICallbackWrapper(passwords)), len(passwords)))

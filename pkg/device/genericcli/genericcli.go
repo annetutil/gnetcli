@@ -348,7 +348,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		return errors.New("login Expr is not set but required for login procedure")
 	}
 
-	passwords := connector.GetCredentials().GetPasswords()
+	passwords := connector.GetCredentials().GetPasswords(ctx)
 	if len(passwords) == 0 {
 		return errors.New("empty password")
 	}

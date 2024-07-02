@@ -4,6 +4,7 @@ Package ros implements RouterOS CLI using genericcli.
 package ros
 
 import (
+	"context"
 	"strings"
 
 	"github.com/annetutil/gnetcli/pkg/credentials"
@@ -55,8 +56,8 @@ func (m rosUsernameWrapper) GetUsername() (string, error) {
 	return username, err
 }
 
-func (m rosUsernameWrapper) GetPasswords() []credentials.Secret {
-	return m.creds.GetPasswords()
+func (m rosUsernameWrapper) GetPasswords(ctx context.Context) []credentials.Secret {
+	return m.creds.GetPasswords(ctx)
 }
 
 func (m rosUsernameWrapper) GetPrivateKeys() [][]byte {
