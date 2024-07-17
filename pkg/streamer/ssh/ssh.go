@@ -535,7 +535,7 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-		signers = append(signers, NewSSHSignersLogger(signer, m.logger))
+		signers = append(signers, wrapSigner(signer, m.logger))
 	}
 	if agentSocket := creds.GetAgentSocket(); len(agentSocket) != 0 {
 		var d net.Dialer
@@ -549,11 +549,7 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 			return nil, err
 		}
 		for _, s := range agentSigners {
-			if as, ok := s.(ssh.AlgorithmSigner); ok {
-				signers = append(signers, NewSSHSignersAlgorithmSignerLogger(as, m.logger))
-			} else {
-				signers = append(signers, NewSSHSignersLogger(s, m.logger))
-			}
+			signers = append(signers, wrapSigner(s, m.logger))
 		}
 	}
 	if len(signers) != 0 {
@@ -584,6 +580,16 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	}
 
 	return conf, err
+}
+
+func wrapSigner(signer ssh.Signer, logger *zap.Logger) ssh.Signer {
+	switch v := signer.(type) {
+	case ssh.MultiAlgorithmSigner:
+		return NewSSHMultiSignersAlgorithmSignerLogger(v, logger)
+	case ssh.AlgorithmSigner:
+		return NewSSHSignersAlgorithmSignerLogger(v, logger)
+	}
+	return NewSSHSignersLogger(signer, logger)
 }
 
 func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
@@ -1135,4 +1141,32 @@ func NewSSHSignersAlgorithmSignerLogger(s ssh.AlgorithmSigner, logger *zap.Logge
 		s:   s,
 		log: logger,
 	}
+}
+
+type SSHMultiSignersLoggerAlgorithmSigner struct {
+	s   ssh.MultiAlgorithmSigner
+	log *zap.Logger
+}
+
+func (m SSHMultiSignersLoggerAlgorithmSigner) PublicKey() ssh.PublicKey {
+	m.log.Debug("check", zap.Any("pubkey", m.s.PublicKey()))
+	return m.s.PublicKey()
+}
+
+func (m SSHMultiSignersLoggerAlgorithmSigner) Sign(rand io.Reader, data []byte) (*ssh.Signature, error) {
+	m.log.Debug("sign", zap.Any("pubkey", m.s.PublicKey()))
+	return m.s.Sign(rand, data)
+}
+
+func (m SSHMultiSignersLoggerAlgorithmSigner) SignWithAlgorithm(rand io.Reader, data []byte, algorithm string) (*ssh.Signature, error) {
+	m.log.Debug("sign", zap.Any("pubkey", m.s.PublicKey()))
+	return m.s.SignWithAlgorithm(rand, data, algorithm)
+}
+
+func (m *SSHMultiSignersLoggerAlgorithmSigner) Algorithms() []string {
+	return m.s.Algorithms()
+}
+
+func NewSSHMultiSignersAlgorithmSignerLogger(s ssh.MultiAlgorithmSigner, logger *zap.Logger) *SSHMultiSignersLoggerAlgorithmSigner {
+	return &SSHMultiSignersLoggerAlgorithmSigner{s: s, log: logger}
 }
