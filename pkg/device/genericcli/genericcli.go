@@ -277,7 +277,7 @@ func (m *GenericDevice) Execute(command cmd.Cmd) (cmd.CmdRes, error) {
 			return nil, err
 		}
 	}
-	return GenericExecute(command, m.connector, m.cli)
+	return GenericExecute(command, m.connector, m.cli, m.logger)
 }
 
 func (m *GenericDevice) Download(paths []string) (map[string]streamer.File, error) {
@@ -421,7 +421,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 
 }
 
-func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI) (cmd.CmdRes, error) {
+func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI, logger *zap.Logger) (cmd.CmdRes, error) {
 	ctx := context.Background()
 	if cmdTimeout := command.GetCmdTimeout(); cmdTimeout > 0 {
 		newCtx, cancel := context.WithTimeout(ctx, cmdTimeout)
@@ -540,6 +540,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			if store, ok := match.GetMatchedGroups()["store"]; ok {
 				buffer.Write(store)
 			}
+			logger.Debug("auto answer to pager")
 			err = connector.Write([]byte(` `))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
@@ -556,6 +557,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 					return nil, fmt.Errorf("write error %w", err)
 				}
 			}
+			logger.Debug("auto answer to question")
 			err = connector.Write([]byte("\n"))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
@@ -566,6 +568,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			cbLimit--
 			wr := exprsAddMap[exprsAdd[matchId-3]]
+			logger.Debug("write callback result")
 			err := connector.Write([]byte(wr))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
