@@ -556,10 +556,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
-			if len(answer) == 0 {
-				return nil, fmt.Errorf("not found answer for '%s'", question)
-			}
-			logger.Debug("auto answer to question")
+			logger.Debug("QuestionHandler answer to question")
 			err = connector.Write(answer)
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
