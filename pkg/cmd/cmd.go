@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -15,6 +16,8 @@ import (
 const (
 	defaultReadTimeout = 10 * time.Second
 )
+
+var ErrNotFoundAnswer = errors.New("not found answer")
 
 type Res struct {
 	output []byte
@@ -141,15 +144,15 @@ func (m CmdImpl) GetExprCallback() ([]string, map[string]string) {
 
 func (m CmdImpl) QuestionHandler(question []byte) ([]byte, error) {
 	for _, cmdAnswer := range m.questionAnswers {
-		ans, err := cmdAnswer.Match(question)
+		ans, ok, err := cmdAnswer.Match(question)
 		if err != nil {
 			return nil, err
 		}
-		if len(ans) > 0 {
+		if ok {
 			return ans, nil
 		}
 	}
-	return nil, nil
+	return nil, ErrNotFoundAnswer
 }
 
 type CmdOption func(*CmdImpl)
@@ -217,25 +220,25 @@ type Answer struct {
 	answer   string
 }
 
-func (m Answer) Match(question []byte) ([]byte, error) {
+func (m Answer) Match(question []byte) ([]byte, bool, error) {
 	if len(m.question) == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 	if m.question[0] == '/' && m.question[len(m.question)-1] == '/' {
 		match, err := regexp.Match(m.question[1:len(m.question)-1], question)
 		if err != nil {
-			return nil, fmt.Errorf("regexp error %w", err)
+			return nil, false, fmt.Errorf("regexp error %w", err)
 		}
 		if match {
-			return []byte(m.answer), nil
+			return []byte(m.answer), true, nil
 		}
 	} else {
 		match := bytes.Equal([]byte(m.question), question)
 		if match {
-			return []byte(m.answer), nil
+			return []byte(m.answer), true, nil
 		}
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 func (m Answer) GetExpr() expr.Expr {

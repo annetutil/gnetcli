@@ -223,23 +223,25 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 		switch matchName {
 		case "prompt":
 		case "question":
-			answered := false
+			seenOk := false
 			question := match.GetMatched()
 			for _, cmdAnswer := range m.cli.defaultAnswers {
-				ans, err := cmdAnswer.Match(question)
+				ans, ok, err := cmdAnswer.Match(question)
 				if err != nil {
 					return err
 				}
 				if len(ans) > 0 {
-					answered = true
 					err := m.connector.Write(ans)
 					if err != nil {
 						return fmt.Errorf("write error %w", err)
 					}
+				}
+				if ok {
+					seenOk = true
 					break
 				}
 			}
-			if !answered {
+			if !seenOk {
 				return device.ThrowQuestionException(question)
 			}
 			_, err = m.connector.ReadTo(ctx, m.cli.prompt)
@@ -549,6 +551,9 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			question := match.GetMatched()
 			answer, err := command.QuestionHandler(question)
 			if err != nil {
+				if errors.Is(err, cmd.ErrNotFoundAnswer) {
+					return nil, device.ThrowQuestionException(question)
+				}
 				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
 			if len(answer) == 0 {
