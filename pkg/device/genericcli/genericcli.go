@@ -551,18 +551,17 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			if err != nil {
 				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
-			if len(answer) > 0 {
-				logger.Debug("auto answer to question")
-				err := connector.Write(answer)
-				if err != nil {
-					return nil, fmt.Errorf("write error %w", err)
-				}
-				err = connector.Write([]byte("\n"))
-				if err != nil {
-					return nil, fmt.Errorf("write error %w", err)
-				}
-			} else {
+			if len(answer) == 0 {
 				return nil, fmt.Errorf("not found answer for '%s'", question)
+			}
+			logger.Debug("auto answer to question")
+			err = connector.Write(answer)
+			if err != nil {
+				return nil, fmt.Errorf("write error %w", err)
+			}
+			err = connector.Write([]byte("\n"))
+			if err != nil {
+				return nil, fmt.Errorf("write error %w", err)
 			}
 		} else if matchName == "cb" { // ExprCallback
 			if cbLimit == 0 { // reset cbLimit in other cases
