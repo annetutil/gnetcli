@@ -230,7 +230,7 @@ func TestFailedToEchoButFoundPromt(t *testing.T) {
 					m.Send("gescheit@sas-cpb3# "),
 				},
 			},
-			err: device.ThrowEchoReadException([]byte("set interfaces et-0/0/3 \rgescheit@sas-cpb3# set interfaces et-0/0/3    \b\b\bunit 0 description temp_description \r\n\r\n[edit]\r\ngescheit@sas-cpb3# "), true),
+			err: device.ThrowEchoReadException([]byte("set interfaces et-0/0/3 \rgescheit@sas-cpb3# set interfaces et-0/0/3    \b\b\bunit 0 description temp_description \r\n"), true),
 		},
 	}
 
