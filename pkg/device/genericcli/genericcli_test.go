@@ -244,3 +244,34 @@ func TestEscTermInEchoEmptyCmd(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
 }
+
+func TestFailedToEchoButFoundPromt(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("set interfaces et-0/0/3 unit 0 description temp_description\n"),
+			gmock.Send("set interfaces et-"),
+			gmock.Send("0/0/3"),
+			gmock.Send(" \r<device> set interfaces et-0/0/3    \u0008\u0008\u0008unit 0 description"),
+			gmock.Send(" temp_description"),
+			gmock.Send(" \r\n\r\n[edit]\r\n"),
+			gmock.Send("<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, actions, []cmd.Cmd{cmd.NewCmd("set interfaces et-0/0/3 unit 0 description temp_description")}, logger)
+
+	expErr := device.ThrowEchoReadException([]byte("set interfaces et-0/0/3 \r<device> set interfaces et-0/0/3    \b\b\bunit 0 description temp_description \r\n\r\n[edit]\n"), true)
+	require.Equal(t, expErr, resErr)
+	require.Equal(t, cmdRes, []cmd.CmdRes{})
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+}

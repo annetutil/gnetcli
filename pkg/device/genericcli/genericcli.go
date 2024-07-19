@@ -497,9 +497,10 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		}
 		mbefore := match.GetBefore()
 		if !seenEcho {
+			promptFound := matchName == "prompt"
 			// case where we caught prompt before echo because of term codes in echo
-			if len(mbefore) < 2 || matchName != "prompt" { // don't bother to do complex logic
-				return nil, device.ThrowEchoReadException(mbefore)
+			if len(mbefore) < 2 || !promptFound { // don't bother to do complex logic
+				return nil, device.ThrowEchoReadException(mbefore, promptFound)
 			}
 
 			termParsedEcho, err := terminal.Parse(mbefore)
@@ -518,12 +519,12 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				mres, ok = exprs.Match(termParsedEcho)
 				if !ok {
-					return nil, device.ThrowEchoReadException(mbefore)
+					return nil, device.ThrowEchoReadException(mbefore, promptFound)
 				}
 			}
 			// assuring that it is echo
 			if exprs.GetName(mres.PatternNo) != "echo" {
-				return nil, device.ThrowEchoReadException(mbefore)
+				return nil, device.ThrowEchoReadException(mbefore, promptFound)
 			}
 			if mres.End > len(termParsedEcho) {
 				return nil, errors.New("termParsedEcho len less than mres.End")
