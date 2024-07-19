@@ -223,23 +223,25 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 		switch matchName {
 		case "prompt":
 		case "question":
-			answered := false
+			seenOk := false
 			question := match.GetMatched()
 			for _, cmdAnswer := range m.cli.defaultAnswers {
-				ans, err := cmdAnswer.Match(question)
+				ans, ok, err := cmdAnswer.Match(question)
 				if err != nil {
 					return err
 				}
 				if len(ans) > 0 {
-					answered = true
 					err := m.connector.Write(ans)
 					if err != nil {
 						return fmt.Errorf("write error %w", err)
 					}
+				}
+				if ok {
+					seenOk = true
 					break
 				}
 			}
-			if !answered {
+			if !seenOk {
 				return device.ThrowQuestionException(question)
 			}
 			_, err = m.connector.ReadTo(ctx, m.cli.prompt)
@@ -277,7 +279,7 @@ func (m *GenericDevice) Execute(command cmd.Cmd) (cmd.CmdRes, error) {
 			return nil, err
 		}
 	}
-	return GenericExecute(command, m.connector, m.cli)
+	return GenericExecute(command, m.connector, m.cli, m.logger)
 }
 
 func (m *GenericDevice) Download(paths []string) (map[string]streamer.File, error) {
@@ -421,7 +423,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 
 }
 
-func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI) (cmd.CmdRes, error) {
+func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI, logger *zap.Logger) (cmd.CmdRes, error) {
 	ctx := context.Background()
 	if cmdTimeout := command.GetCmdTimeout(); cmdTimeout > 0 {
 		newCtx, cancel := context.WithTimeout(ctx, cmdTimeout)
@@ -541,6 +543,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			if store, ok := match.GetMatchedGroups()["store"]; ok {
 				buffer.Write(store)
 			}
+			logger.Debug("auto answer to pager")
 			err = connector.Write([]byte(` `))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
@@ -549,13 +552,15 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			question := match.GetMatched()
 			answer, err := command.QuestionHandler(question)
 			if err != nil {
+				if errors.Is(err, cmd.ErrNotFoundAnswer) {
+					return nil, device.ThrowQuestionException(question)
+				}
 				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
-			if len(answer) > 0 {
-				err := connector.Write(answer)
-				if err != nil {
-					return nil, fmt.Errorf("write error %w", err)
-				}
+			logger.Debug("QuestionHandler answer to question")
+			err = connector.Write(answer)
+			if err != nil {
+				return nil, fmt.Errorf("write error %w", err)
 			}
 			err = connector.Write([]byte("\n"))
 			if err != nil {
@@ -567,6 +572,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			cbLimit--
 			wr := exprsAddMap[exprsAdd[matchId-3]]
+			logger.Debug("write callback result")
 			err := connector.Write([]byte(wr))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
