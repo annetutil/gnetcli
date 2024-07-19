@@ -191,7 +191,46 @@ func TestInvalidShowCommandsWithException(t *testing.T) {
 				},
 				everyDayByeBye,
 			},
-			err: device.ThrowEchoReadException([]byte("dis \r\n                                  ^\r\nunknown command.\r\n")),
+			err: device.ThrowEchoReadException([]byte("dis \r\n                                  ^\r\nunknown command.\r\n"), true),
+		},
+	}
+
+	for i := range testCases {
+		tc := testCases[i]
+		t.Run(tc.name, func(t *testing.T) {
+			actions := m.ConcatMultipleSlices(tc.dialog)
+			m.RunInvalidDialogWithException(t, func(connector streamer.Connector) device.Device {
+				dev := NewDevice(connector)
+				return &dev
+			}, actions, tc.command, tc.err)
+		})
+	}
+}
+
+func TestFailedToEchoButFoundPromt(t *testing.T) {
+	// ported from https://st.yandex-team.ru/NOCDEV-13497 input
+	testCases := []struct {
+		name    string
+		command string
+		dialog  [][]m.Action
+		err     error
+	}{
+		{
+			name:    "Test failed to echo, but found prompt",
+			command: "set interfaces et-0/0/3 unit 0 description temp_description",
+			dialog: [][]m.Action{
+				everyDayHello,
+				{
+					m.Expect("set interfaces et-0/0/3 unit 0 description temp_description\n"),
+					m.Send("set interfaces et-"),
+					m.Send("0/0/3"),
+					m.Send(" \rgescheit@sas-cpb3# set interfaces et-0/0/3    \u0008\u0008\u0008unit 0 description"),
+					m.Send(" temp_description"),
+					m.Send(" \r\n\r\n[edit]\r\n"),
+					m.Send("gescheit@sas-cpb3# "),
+				},
+			},
+			err: device.ThrowEchoReadException([]byte("set interfaces et-0/0/3 \rgescheit@sas-cpb3# set interfaces et-0/0/3    \b\b\bunit 0 description temp_description \r\n"), true),
 		},
 	}
 
