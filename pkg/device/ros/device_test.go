@@ -18,6 +18,7 @@ func TestErrors(t *testing.T) {
 		[]byte("bad command name ttt (line 1 column 2)"),
 		[]byte("syntax error (line 1 column 2)"),
 		[]byte("[Safe mode released by another user]"),
+		[]byte("expected end of command (line 1 column 5)"),
 	}
 	testutils.ExprTester(t, cases, errorExpression)
 }
@@ -25,6 +26,7 @@ func TestErrors(t *testing.T) {
 func TestQuestion(t *testing.T) {
 	cases := [][]byte{
 		[]byte("Reboot, yes? [y/N]:"),
+		[]byte("\rnumbers: "),
 	}
 	testutils.ExprTester(t, cases, questionExpression)
 }
