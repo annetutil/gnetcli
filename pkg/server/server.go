@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net/netip"
 	"regexp"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ var errEmptyHost = errors.New("empty host")
 var errWrongReadTimeout = errors.New("wrong read timeout")
 var errWrongCmdTimeout = errors.New("wrong cmd timeout")
 var errDevDuplicate = errors.New("duplicated device type")
+var errNotFound = errors.New("HostParams not found")
 
 type Server struct {
 	pb.UnimplementedGnetcliServer
@@ -54,6 +56,7 @@ type hostParams struct {
 	port   int
 	device string
 	creds  credentials.Credentials
+	ip     netip.Addr
 }
 
 func (m *hostParams) GetCredentials() credentials.Credentials {
@@ -68,16 +71,31 @@ func (m *hostParams) GetPort() int {
 	return m.port
 }
 
-func makeHostParams(port int, device string, creds *pb.Credentials) hostParams {
+func (m *hostParams) GetIP() netip.Addr {
+	return m.ip
+}
+
+func makeHostParams(params *pb.HostParams) (*hostParams, error) {
 	var credsParsed credentials.Credentials
+	creds := params.GetCredentials()
 	if creds != nil {
 		credsParsed = BuildCreds(creds.GetLogin(), creds.GetPassword(), false, nil)
 	}
-	return hostParams{
-		port:   port,
-		device: device,
-		creds:  credsParsed,
+	addr := params.GetIp()
+	ip := netip.Addr{}
+	if len(addr) > 0 {
+		r, err := netip.ParseAddr(addr)
+		if err != nil {
+			return nil, err
+		}
+		ip = r
 	}
+	return &hostParams{
+		port:   int(params.GetPort()),
+		device: params.GetDevice(),
+		creds:  credsParsed,
+		ip:     ip,
+	}, nil
 }
 
 type Option func(*Server)
@@ -94,6 +112,21 @@ func WithCredentials(creds credentials.Credentials) Option {
 	}
 }
 
+func (m *Server) makeConnectArg(hostname string, params hostParams) (string, int) {
+	host := hostname
+	if params.GetIP().IsValid() {
+		host = params.GetIP().String()
+	}
+	var port int64 = 0
+	if params.port > 0 {
+		port = int64(params.port)
+	}
+	if params.ip.IsValid() {
+		host = params.ip.String()
+	}
+	return host, int(port)
+}
+
 func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtrace.Operation, data []byte), logger *zap.Logger) (device.Device, error) {
 	c := m.creds // global
 	paramCreds := params.GetCredentials()
@@ -102,12 +135,11 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 	}
 	deviceType := params.GetDevice()
 	streamerOpts := []ssh.StreamerOption{ssh.WithLogger(logger), ssh.WithTrace(add)}
-	port := params.GetPort()
+	connHost, port := m.makeConnectArg(hostname, params)
 	if port > 0 {
 		streamerOpts = append(streamerOpts, ssh.WithPort(port))
 	}
-	connector := ssh.NewStreamer(hostname, c, streamerOpts...)
-
+	connector := ssh.NewStreamer(connHost, c, streamerOpts...)
 	devFab, ok := m.deviceMaps[deviceType]
 	if !ok {
 		return nil, fmt.Errorf("unknown device %v", deviceType)
@@ -122,7 +154,7 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 		return errors.New("empty auth")
 	}
 	logger := zap.New(m.log.Core()).With(zap.String("login", authData.GetUser()))
-	m.log.Info("start chat")
+	logger.Info("start chat")
 	firstCmd, err := stream.Recv()
 	if err != nil {
 		if err == io.EOF {
@@ -139,12 +171,12 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	devTraceMulti.AddTrace(devTrace)
 
 	logger = logger.With(zap.String("host", firstCmd.GetHost()))
-	params, ok := m.getHostParams(firstCmd.GetHost())
-	if !ok {
-		return status.Errorf(codes.Internal, "params are not set")
+	params, err := m.getHostParams(firstCmd.GetHost(), firstCmd.GetHostParams())
+	if err != nil {
+		return status.Errorf(codes.Internal, err.Error())
 	}
 
-	devInited, err := m.makeDevice(firstCmd.GetHost(), params, devTraceMulti.Add, logger)
+	devInited, err := m.makeDevice(firstCmd.GetHost(), *params, devTraceMulti.Add, logger)
 	if err != nil {
 		return status.Errorf(codes.Internal, err.Error())
 	}
@@ -167,6 +199,9 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 
 		chatCmd := makeGnetcliCmd(cmd)
 		res, err := devInited.Execute(chatCmd)
+		if err != nil {
+			return status.Errorf(codes.Internal, err.Error())
+		}
 		start := time.Now()
 		logger.Debug("executed", zap.String("cmd", cmd.String()), zap.Duration("duration", time.Since(start)), zap.Error(err))
 
@@ -316,8 +351,11 @@ func (m *Server) AddDevice(ctx context.Context, device *pb.Device) (*pb.DeviceRe
 
 func (m *Server) SetupHostParams(ctx context.Context, hostParams *pb.HostParams) (*emptypb.Empty, error) {
 	m.log.Debug("SetupHostParams", zap.Any("device", hostParams))
-	port := hostParams.GetPort()
-	m.updateHostParams(hostParams.GetHost(), makeHostParams(int(port), hostParams.GetDevice(), hostParams.GetCredentials()))
+	params, err := makeHostParams(hostParams)
+	if err != nil {
+		return nil, err
+	}
+	m.updateHostParams(hostParams.GetHost(), *params)
 	return &emptypb.Empty{}, nil
 }
 
@@ -327,11 +365,18 @@ func (m *Server) updateHostParams(hostname string, params hostParams) {
 	m.hostParams[hostname] = params
 }
 
-func (m *Server) getHostParams(hostname string) (params hostParams, ok bool) {
+func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (*hostParams, error) {
+	if cmdParams != nil {
+		hParams, err := makeHostParams(cmdParams)
+		return hParams, err
+	}
 	m.hostParamsMu.Lock()
 	defer m.hostParamsMu.Unlock()
-	params, ok = m.hostParams[hostname]
-	return params, ok
+	params, ok := m.hostParams[hostname]
+	if !ok {
+		return nil, errNotFound
+	}
+	return &params, nil
 }
 
 func (m *Server) Download(ctx context.Context, req *pb.FileDownloadRequest) (*pb.FilesResult, error) {
@@ -341,11 +386,11 @@ func (m *Server) Download(ctx context.Context, req *pb.FileDownloadRequest) (*pb
 	if len(paths) == 0 {
 		return nil, errors.New("empty paths")
 	}
-	params, ok := m.getHostParams(req.GetHost())
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "params are not set")
+	params, err := m.getHostParams(req.GetHost(), nil)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	devInited, err := m.makeDevice(req.GetHost(), params, nil, logger)
+	devInited, err := m.makeDevice(req.GetHost(), *params, nil, logger)
 	if err != nil {
 		logger.Debug("download error", zap.Error(err))
 		return nil, status.Error(codes.Internal, fmt.Sprintf("download error: %s", err))
@@ -369,11 +414,11 @@ func (m *Server) Download(ctx context.Context, req *pb.FileDownloadRequest) (*pb
 func (m *Server) Upload(ctx context.Context, req *pb.FileUploadRequest) (*emptypb.Empty, error) {
 	logger := m.log.With(zap.String("host", req.GetHost()))
 	logger.Info("upload")
-	params, ok := m.getHostParams(req.GetHost())
-	if !ok {
-		return nil, status.Errorf(codes.Internal, "params are not set")
+	params, err := m.getHostParams(req.GetHost(), nil)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, err.Error())
 	}
-	devInited, err := m.makeDevice(req.GetHost(), params, nil, logger)
+	devInited, err := m.makeDevice(req.GetHost(), *params, nil, logger)
 	if err != nil {
 		return nil, err
 	}

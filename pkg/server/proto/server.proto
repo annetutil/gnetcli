@@ -24,6 +24,7 @@ message CMD {
   double read_timeout = 5;
   double cmd_timeout = 6;
   bool string_result = 8;
+  HostParams host_params = 9;
 }
 
 message Device {
@@ -64,6 +65,7 @@ message HostParams {
   Credentials credentials = 2;
   int32 port = 3;
   string device = 4;
+  string ip = 5;
 }
 
 message CMDResult {
