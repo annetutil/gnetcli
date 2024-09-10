@@ -16,6 +16,7 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device/netconf"
 	"github.com/annetutil/gnetcli/pkg/device/nxos"
 	"github.com/annetutil/gnetcli/pkg/device/pc"
+	"github.com/annetutil/gnetcli/pkg/device/ros"
 	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/streamer"
 )
@@ -178,6 +179,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 		"cisco":   GenericCLIWrapper(cisco.NewDevice, logger),
 		"nxos":    GenericCLIWrapper(nxos.NewDevice, logger),
 		"pc":      pc.NewDevice,
+		"ros":     GenericCLIWrapper(ros.NewDevice, logger),
 		"netconf": netconf.BindDeviceOpts(netconf.NewDevice, netconf.WithLogger(logger)),
 	}
 	return deviceMaps
