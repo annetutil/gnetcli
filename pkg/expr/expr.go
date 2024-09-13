@@ -34,30 +34,9 @@ type NamedExpr struct {
 	Exprs []Expr
 }
 
-type ExprMatcher struct {
+type exprMatcher struct {
 	matchExpr   *regexp.Regexp
 	excludeExpr *regexp.Regexp
-}
-
-// NewExprMatcher returns matcher that matches strings to given pattern
-// If excludePattern is specified, strings matching it won't be matched
-func NewExprMatcher(pattern string, excludePattern *string) ExprMatcher {
-	res := ExprMatcher{
-		matchExpr: regexp.MustCompile(pattern),
-	}
-	if excludePattern != nil {
-		res.excludeExpr = regexp.MustCompile(*excludePattern)
-	}
-	return res
-}
-
-// NewExprMatcher returns matcher that matches strings to given expr
-// If excludeExpr is specified, strings matching it won't be matched
-func NewExprMatcherRegex(expr *regexp.Regexp, excludeExpr *regexp.Regexp) ExprMatcher {
-	return ExprMatcher{
-		matchExpr:   expr,
-		excludeExpr: excludeExpr,
-	}
 }
 
 type matchRes struct {
@@ -67,7 +46,7 @@ type matchRes struct {
 }
 
 // Match tries to match given data against underlying regexes
-func (e *ExprMatcher) Match(data []byte) (*matchRes, bool) {
+func (e *exprMatcher) Match(data []byte) (*matchRes, bool) {
 	if len(e.matchExpr.String()) == 0 {
 		return nil, false
 	}
@@ -95,92 +74,12 @@ func (e *ExprMatcher) Match(data []byte) (*matchRes, bool) {
 }
 
 type simpleExpr struct {
-	exprs []ExprMatcher
+	exprs []exprMatcher
 	last  int
 	first int
 }
 
-type SimpleExprOption func(*simpleExpr)
-
-func WithLast(last int) SimpleExprOption {
-	return func(se *simpleExpr) {
-		se.last = last
-	}
-}
-
-func WithFirst(first int) SimpleExprOption {
-	return func(se *simpleExpr) {
-		se.first = first
-	}
-}
-
 var _ Expr = (*simpleExpr)(nil)
-
-func NewSimpleExprMatchers(matchers []ExprMatcher, opts ...SimpleExprOption) Expr {
-	res := &simpleExpr{
-		exprs: matchers,
-		last:  0,
-		first: 0,
-	}
-	for _, v := range opts {
-		v(res)
-	}
-	return res
-}
-
-func NewSimpleExpr(pattern string, opts ...SimpleExprOption) Expr {
-	res := &simpleExpr{
-		exprs: []ExprMatcher{
-			NewExprMatcher(pattern, nil),
-		},
-		last:  0,
-		first: 0,
-	}
-	for _, v := range opts {
-		v(res)
-	}
-	return res
-}
-
-func NewSimpleExprLast200(pattern string) Expr {
-	return NewSimpleExpr(
-		pattern,
-		WithLast(200),
-	)
-}
-
-func NewSimpleExprFirst200(pattern string) Expr {
-	return NewSimpleExpr(
-		pattern,
-		WithFirst(200),
-	)
-}
-
-func NewSimpleExprLast20(pattern string) Expr {
-	return NewSimpleExpr(
-		pattern,
-		WithLast(20),
-	)
-}
-
-func NewSimpleExprFromRegex(pattern *regexp.Regexp, opts ...SimpleExprOption) Expr {
-	return NewSimpleExprMatchers(
-		[]ExprMatcher{NewExprMatcherRegex(pattern, nil)},
-		opts...,
-	)
-}
-
-func NewSimpleExprFromRegexLast200(pattern *regexp.Regexp) Expr {
-	return NewSimpleExprFromRegex(pattern, WithLast(200))
-}
-
-func NewSimpleExprFromRegexFirst200(pattern *regexp.Regexp) Expr {
-	return NewSimpleExprFromRegex(pattern, WithFirst(200))
-}
-
-func NewSimpleExprFromRegexLast20(pattern *regexp.Regexp) Expr {
-	return NewSimpleExprFromRegex(pattern, WithLast(20))
-}
 
 func (m simpleExpr) Repr() string {
 	resList := []string{}

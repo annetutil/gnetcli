@@ -33,19 +33,19 @@ var autoCommands = []cmd.Cmd{
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
 	cli := genericcli.MakeGenericCLI(
-		expr.NewSimpleExprLast200(promptExpression),
-		expr.NewSimpleExprLast200(errorExpression),
+		expr.NewSimpleExprLast200().FromPattern(promptExpression),
+		expr.NewSimpleExprLast200().FromPattern(errorExpression),
 		genericcli.WithLoginExprs(
-			expr.NewSimpleExprLast200(loginExpression),
-			expr.NewSimpleExprLast200(passwordExpression),
-			expr.NewSimpleExprLast200(passwordErrorExpression),
+			expr.NewSimpleExprLast200().FromPattern(loginExpression),
+			expr.NewSimpleExprLast200().FromPattern(passwordExpression),
+			expr.NewSimpleExprLast200().FromPattern(passwordErrorExpression),
 		),
 		genericcli.WithPager(
-			expr.NewSimpleExprLast200(pagerExpression),
+			expr.NewSimpleExprLast200().FromPattern(pagerExpression),
 		),
 		genericcli.WithAutoCommands(autoCommands),
 		genericcli.WithQuestion(
-			expr.NewSimpleExprLast200(questionExpression),
+			expr.NewSimpleExprLast200().FromPattern(questionExpression),
 		),
 		genericcli.WithSFTPEnabled(),
 		genericcli.WithTerminalParams(400, 0),

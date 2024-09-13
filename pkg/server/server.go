@@ -282,12 +282,12 @@ func makeNewDevice(dev *pb.Device) (*genericcli.GenericCLI, error) {
 		if err != nil {
 			return nil, fmt.Errorf("pager expression error %w", err)
 		}
-		opts = append(opts, genericcli.WithPager(expr.NewSimpleExprLast200(pagerExpression)))
+		opts = append(opts, genericcli.WithPager(expr.NewSimpleExprLast200().FromPattern(pagerExpression)))
 	}
 
 	cli := genericcli.MakeGenericCLI(
-		expr.NewSimpleExprLast200(promptExpr),
-		expr.NewSimpleExprLast200(errorExpr),
+		expr.NewSimpleExprLast200().FromPattern(promptExpr),
+		expr.NewSimpleExprLast200().FromPattern(errorExpr),
 		opts...,
 	)
 	return &cli, nil

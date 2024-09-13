@@ -27,11 +27,13 @@ var autoCommands = []cmd.Cmd{
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
-	cli := genericcli.MakeGenericCLI(expr.NewSimpleExprLast200(promptExpression), expr.NewSimpleExprLast200(errorExpression),
+	cli := genericcli.MakeGenericCLI(
+		expr.NewSimpleExprLast200().FromPattern(promptExpression),
+		expr.NewSimpleExprLast200().FromPattern(errorExpression),
 		genericcli.WithPager(
-			expr.NewSimpleExprLast200(pagerExpression)),
+			expr.NewSimpleExprLast200().FromPattern(pagerExpression)),
 		genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
-			return expr.NewSimpleExpr(fmt.Sprintf(`%s\r\r\n`, regexp.QuoteMeta(string(c.Value()))))
+			return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s\r\r\n`, regexp.QuoteMeta(string(c.Value()))))
 		}),
 		genericcli.WithAutoCommands(autoCommands),
 		genericcli.WithTerminalParams(400, 0),

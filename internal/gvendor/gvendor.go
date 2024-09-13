@@ -117,7 +117,7 @@ type ActionExpectLine struct {
 }
 
 func (m ActionExpectLine) Exec(client Client) error {
-	res, err := client.ReadTo(context.Background(), expr.NewSimpleExpr("(?P<data>.+)(\r\n|\n)"))
+	res, err := client.ReadTo(context.Background(), expr.NewSimpleExpr().FromPattern("(?P<data>.+)(\r\n|\n)"))
 	if err != nil {
 		return err
 	}

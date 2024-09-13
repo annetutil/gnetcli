@@ -64,7 +64,7 @@ func TestGenericReadToSimple(t *testing.T) {
 	readSize := 2
 	readTimeout := 2 * time.Second
 	ch := setupChan([]byte("test"))
-	pat := expr.NewSimpleExpr("es")
+	pat := expr.NewSimpleExpr().FromPattern("es")
 	res, extra, read, err := GenericReadX(ctx, buffer, ch, readSize, readTimeout, pat, 0, 0)
 
 	left := readAll(ch)

@@ -133,12 +133,12 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 		if err != nil {
 			return nil, fmt.Errorf("pager expression error %w", err)
 		}
-		opts = append(opts, genericcli.WithPager(expr.NewSimpleExprLast200(m.PagerExpression)))
+		opts = append(opts, genericcli.WithPager(expr.NewSimpleExprLast200().FromPattern(m.PagerExpression)))
 	}
 
 	cli := genericcli.MakeGenericCLI(
-		expr.NewSimpleExprLast200(m.PromptExpression),
-		expr.NewSimpleExprLast200(errorExpr),
+		expr.NewSimpleExprLast200().FromPattern(m.PromptExpression),
+		expr.NewSimpleExprLast200().FromPattern(errorExpr),
 		opts...,
 	)
 	return &cli, nil

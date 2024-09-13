@@ -83,14 +83,14 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 		if err != nil {
 			return nil, fmt.Errorf("pager expression error %w", err)
 		}
-		opts = append(opts, genericcli.WithPager(expr.NewSimpleExprLast200(m.PagerExpression)))
+		opts = append(opts, genericcli.WithPager(expr.NewSimpleExprLast200().FromPattern(m.PagerExpression)))
 	}
 	if len(m.QuestionExpression) > 0 {
 		_, err := regexp.Compile(m.QuestionExpression)
 		if err != nil {
 			return nil, fmt.Errorf("pager question error %w", err)
 		}
-		opts = append(opts, genericcli.WithQuestion(expr.NewSimpleExprLast200(m.QuestionExpression)))
+		opts = append(opts, genericcli.WithQuestion(expr.NewSimpleExprLast200().FromPattern(m.QuestionExpression)))
 	}
 	for _, feature := range m.Features {
 		switch featureTyped := feature.(type) {
@@ -98,7 +98,7 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 			switch featureTyped {
 			case FeatureSpacesAfterEcho:
 				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
-					return expr.NewSimpleExpr(fmt.Sprintf(`%s *\r\n`, regexp.QuoteMeta(string(c.Value()))))
+					return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s *\r\n`, regexp.QuoteMeta(string(c.Value()))))
 				})
 				opts = append(opts, a)
 			default:
@@ -126,8 +126,8 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 		}
 	}
 	cli := genericcli.MakeGenericCLI(
-		expr.NewSimpleExprLast200(m.PromptExpression),
-		expr.NewSimpleExprLast200(errorExpr),
+		expr.NewSimpleExprLast200().FromPattern(m.PromptExpression),
+		expr.NewSimpleExprLast200().FromPattern(errorExpr),
 		opts...,
 	)
 	return &cli, nil

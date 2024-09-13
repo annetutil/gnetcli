@@ -253,18 +253,17 @@ const (
 ```
 
 To create Device implementation, you need to define a constructor function that combines a Connector and a set of CLI templates:
-
 ```go
 func NewHuaweiDevice(connector streamer.Connector) GenericDevice {
-	cli := MakeGenericCLI(expr.NewSimpleExpr(huaweiPromptExpression), expr.NewSimpleExpr(huaweiErrorExpression),
+	cli := MakeGenericCLI(expr.NewSimpleExpr().FromPattern(huaweiPromptExpression), expr.NewSimpleExpr().FromPattern(huaweiErrorExpression),
 		WithLoginExprs(
-			expr.NewSimpleExpr(huaweiLoginExpression),
-			expr.NewSimpleExpr(huaweiPasswordExpression),
-			expr.NewSimpleExpr(huaweiPasswordErrorExpression)),
+			expr.NewSimpleExpr().FromPattern(huaweiLoginExpression),
+			expr.NewSimpleExpr().FromPattern(huaweiPasswordExpression),
+			expr.NewSimpleExpr().FromPattern(huaweiPasswordErrorExpression)),
 		WithPager(
-			expr.NewSimpleExpr(huaweiPagerExpression)),
+			expr.NewSimpleExpr().FromPattern(huaweiPagerExpression)),
 		WithQuestion(
-			expr.NewSimpleExpr(huaweiQuestionExpression)),
+			expr.NewSimpleExpr().FromPattern(huaweiQuestionExpression)),
 	)
 	return MakeGenericDevice(cli, connector)
 }
@@ -409,13 +408,13 @@ const (
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
   cli := genericcli.MakeGenericCLI(
-    expr.NewSimpleExpr(promptExpression),
-    expr.NewSimpleExpr(errorExpression),
+    expr.NewSimpleExpr().FromPattern(promptExpression),
+    expr.NewSimpleExpr().FromPattern(errorExpression),
     genericcli.WithPager(
-      expr.NewSimpleExpr(pagerExpression),
+      expr.NewSimpleExpr().FromPattern(pagerExpression),
     ),
     genericcli.WithQuestion(
-      expr.NewSimpleExpr(questionExpression),
+      expr.NewSimpleExpr().FromPattern(questionExpression),
     ),
   )
   return genericcli.MakeGenericDevice(cli, connector, opts...)
