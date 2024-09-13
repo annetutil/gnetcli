@@ -42,7 +42,7 @@ type ExpressionPair struct {
 	ExcludePattern string
 }
 
-func ExprExcludeTester(t *testing.T, cases [][]byte, expressions ...ExpressionPair) {
+func ExprTesterWithExclude(t *testing.T, cases [][]byte, expressions ...ExpressionPair) {
 	var errorExpr expr.Expr
 
 	if len(expressions) == 0 {
@@ -76,6 +76,16 @@ func ExprExcludeTester(t *testing.T, cases [][]byte, expressions ...ExpressionPa
 
 func ExprTesterFalse(t *testing.T, errorCases [][]byte, expression string) {
 	errorExpr := expr.NewSimpleExpr().FromPattern(expression)
+	for _, tc := range errorCases {
+		t.Run("", func(t *testing.T) {
+			res, ok := errorExpr.Match(tc)
+			assert.False(t, ok, errorExpr.Repr())
+			assert.Nil(t, res)
+		})
+	}
+}
+func ExprTesterFalseWithExclude(t *testing.T, errorCases [][]byte, expression ExpressionPair) {
+	errorExpr := expr.NewSimpleExpr().FromPatternAndExclude(expression.Pattern, expression.ExcludePattern)
 	for _, tc := range errorCases {
 		t.Run("", func(t *testing.T) {
 			res, ok := errorExpr.Match(tc)
