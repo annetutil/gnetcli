@@ -3,6 +3,7 @@ package juniper
 import (
 	"testing"
 
+	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/testutils"
 )
 
@@ -12,7 +13,11 @@ func TestPrompt(t *testing.T) {
 		[]byte("\r\n{master}\r\nloginlog@xdc-13f3> "),
 		[]byte("\r\n[edit]\r\nlogin-login@host-dc-1d# "),
 	}
-	testutils.ExprTester(t, errorCases, promptExpression)
+	testutils.ExprTester(
+		t,
+		errorCases,
+		expr.NewExprMatcher(promptExpression, nil),
+	)
 }
 
 func TestError(t *testing.T) {
@@ -23,7 +28,11 @@ func TestError(t *testing.T) {
 		[]byte("configure exclusive error: configuration database modified\r\n"),
 		[]byte("error: configuration database modified\r\n"),
 	}
-	testutils.ExprTester(t, errorCases, errorExpression)
+	testutils.ExprTester(
+		t,
+		errorCases,
+		expr.NewExprMatcher(errorExpression, nil),
+	)
 }
 
 func TestPager(t *testing.T) {
@@ -31,5 +40,9 @@ func TestPager(t *testing.T) {
 		[]byte("\n---(more)---"),
 		[]byte("\n---(more 100%)---"),
 	}
-	testutils.ExprTester(t, errorCases, pagerExpression)
+	testutils.ExprTester(
+		t,
+		errorCases,
+		expr.NewExprMatcher(pagerExpression, nil),
+	)
 }

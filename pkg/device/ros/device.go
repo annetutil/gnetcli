@@ -25,7 +25,7 @@ const (
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
 	cli := genericcli.MakeGenericCLI(
-		expr.NewSimpleExprLast(promptExpression, 1500),
+		expr.NewSimpleExpr(promptExpression, expr.WithLast(1500)),
 		expr.NewSimpleExprLast200(errorExpression),
 		genericcli.WithQuestion(
 			expr.NewSimpleExprLast200(questionExpression),

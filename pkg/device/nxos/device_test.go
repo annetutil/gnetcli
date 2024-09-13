@@ -3,6 +3,7 @@ package nxos
 import (
 	"testing"
 
+	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/testutils"
 )
 
@@ -11,7 +12,11 @@ func TestPrompt(t *testing.T) {
 		[]byte("\r\n\rn9k-9316-test# "),
 		[]byte("\r\n\rn9k-9316-test(config)# "),
 	}
-	testutils.ExprTester(t, cases, promptExpression)
+	testutils.ExprTester(
+		t,
+		cases,
+		expr.NewExprMatcher(promptExpression, nil),
+	)
 }
 
 func TestErrors(t *testing.T) {
@@ -20,7 +25,11 @@ func TestErrors(t *testing.T) {
 		[]byte("                              ^\r\n% Incomplete command at '^' marker."),
 		[]byte("                                              ^\r\nInvalid range at '^' marker."),
 	}
-	testutils.ExprTester(t, cases, errorExpression)
+	testutils.ExprTester(
+		t,
+		cases,
+		expr.NewExprMatcher(errorExpression, nil),
+	)
 }
 
 func TestPager(t *testing.T) {
@@ -28,5 +37,9 @@ func TestPager(t *testing.T) {
 		[]byte("\r\n\u001b[7m--More--\u001b[m\""),
 		[]byte("\r\n\x1b[7m--More--\x1b[27m"),
 	}
-	testutils.ExprTester(t, cases, pagerExpression)
+	testutils.ExprTester(
+		t,
+		cases,
+		expr.NewExprMatcher(pagerExpression, nil),
+	)
 }

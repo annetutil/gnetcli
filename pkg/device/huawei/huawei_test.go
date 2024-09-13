@@ -3,6 +3,7 @@ package huawei
 import (
 	"testing"
 
+	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/testutils"
 )
 
@@ -18,7 +19,11 @@ func TestHuaweiErrors(t *testing.T) {
 		[]byte("              ^\r\nError[2]: Incomplete command found at '^' position."),
 		[]byte("                                   ^\r\nError:Too many parameters found at '^' position."),
 	}
-	testutils.ExprTester(t, errorCases, errorExpression)
+	testutils.ExprTester(
+		t,
+		errorCases,
+		expr.NewExprMatcher(errorExpression, nil),
+	)
 }
 
 func TestHuaweiPrompt(t *testing.T) {
@@ -30,19 +35,31 @@ func TestHuaweiPrompt(t *testing.T) {
 		[]byte("[*host-100GE1/1/1:1]"),
 		[]byte("[~host-auto-mmm-100GE3/3/3.111]"),
 	}
-	testutils.ExprTester(t, errorCases, promptExpression)
+	testutils.ExprTester(
+		t,
+		errorCases,
+		expr.NewExprMatcher(promptExpression, nil),
+	)
 }
 
 func TestHuaweiNotPrompt(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\n local-user username password irreversible-cipher ..cut..:SL<->"), // from config aaa section
 	}
-	testutils.ExprTesterFalse(t, errorCases, promptExpression)
+	testutils.ExprTesterFalse(
+		t,
+		errorCases,
+		expr.NewExprMatcher(promptExpression, nil),
+	)
 }
 
 func TestHuaweiQuestion(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nWarning: The current configuration will be written to the device. Continue? [Y/N]:"),
 	}
-	testutils.ExprTester(t, errorCases, questionExpression)
+	testutils.ExprTester(
+		t,
+		errorCases,
+		expr.NewExprMatcher(questionExpression, nil),
+	)
 }

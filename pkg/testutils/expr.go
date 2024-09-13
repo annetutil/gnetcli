@@ -13,17 +13,33 @@ import (
 	"github.com/annetutil/gnetcli/pkg/expr"
 )
 
-func ExprTester(t *testing.T, cases [][]byte, expressions ...string) {
+type ExpressionPair struct {
+	Match   string
+	Exclude *string
+}
+
+func ExprTester(t *testing.T, cases [][]byte, expressions ...expr.ExprMatcher) {
 	var errorExpr expr.Expr
 
 	if len(expressions) == 0 {
 
 	} else if len(expressions) == 1 {
-		errorExpr = expr.NewSimpleExpr(expressions[0])
+		errorExpr = expr.NewSimpleExprMatchers(
+			[]expr.ExprMatcher{
+				expressions[0],
+			},
+		)
 	} else {
 		var errorExprList []expr.Expr
 		for _, expression := range expressions {
-			errorExprList = append(errorExprList, expr.NewSimpleExpr(expression))
+			errorExprList = append(
+				errorExprList,
+				expr.NewSimpleExprMatchers(
+					[]expr.ExprMatcher{
+						expression,
+					},
+				),
+			)
 		}
 		errorExpr = expr.NewSimpleExprList(errorExprList...)
 	}
@@ -37,8 +53,10 @@ func ExprTester(t *testing.T, cases [][]byte, expressions ...string) {
 	}
 }
 
-func ExprTesterFalse(t *testing.T, errorCases [][]byte, expression string) {
-	errorExpr := expr.NewSimpleExpr(expression)
+func ExprTesterFalse(t *testing.T, errorCases [][]byte, expression expr.ExprMatcher) {
+	errorExpr := expr.NewSimpleExprMatchers(
+		[]expr.ExprMatcher{expression},
+	)
 	for _, tc := range errorCases {
 		t.Run("", func(t *testing.T) {
 			res, ok := errorExpr.Match(tc)
