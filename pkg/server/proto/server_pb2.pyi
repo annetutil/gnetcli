@@ -150,16 +150,16 @@ class DeviceResult(_message.Message):
     def __init__(self, res: _Optional[_Union[DeviceResultStatus, str]] = ..., error: _Optional[str] = ...) -> None: ...
 
 class FileDownloadRequest(_message.Message):
-    __slots__ = ("host", "paths", "device", "credentials")
+    __slots__ = ("host", "paths", "device", "host_params")
     HOST_FIELD_NUMBER: _ClassVar[int]
     PATHS_FIELD_NUMBER: _ClassVar[int]
     DEVICE_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    HOST_PARAMS_FIELD_NUMBER: _ClassVar[int]
     host: str
     paths: _containers.RepeatedScalarFieldContainer[str]
     device: str
-    credentials: Credentials
-    def __init__(self, host: _Optional[str] = ..., paths: _Optional[_Iterable[str]] = ..., device: _Optional[str] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
+    host_params: HostParams
+    def __init__(self, host: _Optional[str] = ..., paths: _Optional[_Iterable[str]] = ..., device: _Optional[str] = ..., host_params: _Optional[_Union[HostParams, _Mapping]] = ...) -> None: ...
 
 class FileData(_message.Message):
     __slots__ = ("path", "data", "status")
@@ -172,16 +172,16 @@ class FileData(_message.Message):
     def __init__(self, path: _Optional[str] = ..., data: _Optional[bytes] = ..., status: _Optional[_Union[FileStatus, str]] = ...) -> None: ...
 
 class FileUploadRequest(_message.Message):
-    __slots__ = ("host", "device", "files", "credentials")
+    __slots__ = ("host", "device", "files", "host_params")
     HOST_FIELD_NUMBER: _ClassVar[int]
     DEVICE_FIELD_NUMBER: _ClassVar[int]
     FILES_FIELD_NUMBER: _ClassVar[int]
-    CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    HOST_PARAMS_FIELD_NUMBER: _ClassVar[int]
     host: str
     device: str
     files: _containers.RepeatedCompositeFieldContainer[FileData]
-    credentials: Credentials
-    def __init__(self, host: _Optional[str] = ..., device: _Optional[str] = ..., files: _Optional[_Iterable[_Union[FileData, _Mapping]]] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ...) -> None: ...
+    host_params: HostParams
+    def __init__(self, host: _Optional[str] = ..., device: _Optional[str] = ..., files: _Optional[_Iterable[_Union[FileData, _Mapping]]] = ..., host_params: _Optional[_Union[HostParams, _Mapping]] = ...) -> None: ...
 
 class FilesResult(_message.Message):
     __slots__ = ("files",)

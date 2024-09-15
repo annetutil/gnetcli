@@ -86,7 +86,7 @@ message FileDownloadRequest {
   string host = 1;
   repeated string paths = 2;
   string device = 3;
-  Credentials credentials = 4;
+  HostParams host_params = 5;
 }
 
 enum FileStatus {
@@ -107,7 +107,7 @@ message FileUploadRequest {
   string host = 1;
   string device = 4;
   repeated FileData files = 3;
-  Credentials credentials = 5;
+  HostParams host_params = 6;
 }
 
 message FilesResult {
