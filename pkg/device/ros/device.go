@@ -25,12 +25,12 @@ const (
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
 	cli := genericcli.MakeGenericCLI(
-		expr.NewSimpleExprLast(promptExpression, 1500),
-		expr.NewSimpleExprLast200(errorExpression),
+		expr.NewSimpleExprLast(1500).FromPattern(promptExpression),
+		expr.NewSimpleExprLast200().FromPattern(errorExpression),
 		genericcli.WithQuestion(
-			expr.NewSimpleExprLast200(questionExpression),
+			expr.NewSimpleExprLast200().FromPattern(questionExpression),
 		),
-		genericcli.WithPager(expr.NewSimpleExprLast200(pagerExpression)),
+		genericcli.WithPager(expr.NewSimpleExprLast200().FromPattern(pagerExpression)),
 		genericcli.WithCredentialInterceptor(credentialLoginModifier),
 		genericcli.WithWriteNewLine([]byte("\r\n")),
 	)

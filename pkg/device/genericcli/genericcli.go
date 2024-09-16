@@ -452,7 +452,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	if cli.echoExprFormat != nil {
 		expCmdEcho = cli.echoExprFormat(command)
 	} else {
-		expCmdEcho = expr.NewSimpleExpr(fmt.Sprintf("%s%s", regexp.QuoteMeta(string(command.Value())), AnyNLPattern))
+		expCmdEcho = expr.NewSimpleExpr().FromPattern(fmt.Sprintf("%s%s", regexp.QuoteMeta(string(command.Value())), AnyNLPattern))
 	}
 
 	var buffer bytes.Buffer
@@ -472,7 +472,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 
 	exprsAdd, exprsAddMap := command.GetExprCallback()
 	for _, exprCB := range exprsAdd {
-		exprs.Add("cb", expr.NewSimpleExpr(exprCB))
+		exprs.Add("cb", expr.NewSimpleExpr().FromPattern(exprCB))
 	}
 	cbLimit := 100
 	seenEcho := false

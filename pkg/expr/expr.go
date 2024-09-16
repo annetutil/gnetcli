@@ -4,6 +4,7 @@ Package expr implements text matching.
 package expr
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -33,62 +34,74 @@ type NamedExpr struct {
 	Exprs []Expr
 }
 
+type exprMatcher struct {
+	matchExpr   *regexp.Regexp
+	excludeExpr *regexp.Regexp
+}
+
+type matchRes struct {
+	start     int
+	end       int
+	groupDict map[string][]byte
+}
+
+// Match tries to match given data against underlying regexes
+func (e *exprMatcher) Match(data []byte) (*matchRes, bool) {
+	if len(e.matchExpr.String()) == 0 {
+		return nil, false
+	}
+	match := e.matchExpr.FindStringSubmatchIndex(string(data))
+	if len(match) == 0 {
+		return nil, false
+	}
+	if e.excludeExpr != nil && e.excludeExpr.Match(data) {
+		return nil, false
+	}
+	paramsMap := make(map[string][]byte)
+	for i, name := range e.matchExpr.SubexpNames() {
+		if i > 0 {
+			if match[i*2] < 0 {
+				continue
+			}
+			paramsMap[name] = data[match[i*2]:match[i*2+1]]
+		}
+	}
+	return &matchRes{
+		start:     match[0],
+		end:       match[1],
+		groupDict: paramsMap,
+	}, true
+}
+
 type simpleExpr struct {
-	exprs []*regexp.Regexp
+	exprs []exprMatcher
 	last  int
 	first int
 }
 
 var _ Expr = (*simpleExpr)(nil)
 
-func NewSimpleExpr(pattern string) Expr {
-	return &simpleExpr{exprs: []*regexp.Regexp{regexp.MustCompile(pattern)}, last: 0, first: 0}
-}
-
-func NewSimpleExprLast200(pattern string) Expr {
-	return NewSimpleExprLast(pattern, 200)
-}
-
-func NewSimpleExprFirst200(pattern string) Expr {
-	return NewSimpleExprFirst(pattern, 200)
-}
-
-func NewSimpleExprLast20(pattern string) Expr {
-	return NewSimpleExprLast(pattern, 20)
-}
-
-func NewSimpleExprLast(pattern string, last int) Expr {
-	return &simpleExpr{exprs: []*regexp.Regexp{regexp.MustCompile(pattern)}, last: last, first: 0}
-}
-
-func NewSimpleExprFirst(pattern string, first int) Expr {
-	return &simpleExpr{exprs: []*regexp.Regexp{regexp.MustCompile(pattern)}, last: 0, first: first}
-}
-
-func NewSimpleExprFromRegexLast200(pattern *regexp.Regexp) Expr {
-	return NewSimpleExprFromRegexLast(pattern, 200)
-}
-
-func NewSimpleExprFromRegexFirst200(pattern *regexp.Regexp) Expr {
-	return NewSimpleExprFromRegexFirst(pattern, 200)
-}
-
-func NewSimpleExprFromRegexLast20(pattern *regexp.Regexp) Expr {
-	return NewSimpleExprFromRegexLast(pattern, 20)
-}
-
-func NewSimpleExprFromRegexLast(pattern *regexp.Regexp, last int) Expr {
-	return &simpleExpr{exprs: []*regexp.Regexp{pattern}, last: last, first: 0}
-}
-
-func NewSimpleExprFromRegexFirst(pattern *regexp.Regexp, first int) Expr {
-	return &simpleExpr{exprs: []*regexp.Regexp{pattern}, last: 0, first: first}
-}
-
 func (m simpleExpr) Repr() string {
 	resList := []string{}
 	for _, expr := range m.exprs {
-		resList = append(resList, expr.String())
+		if expr.excludeExpr == nil {
+			resList = append(
+				resList,
+				fmt.Sprintf(
+					"{match: '%s'}",
+					expr.matchExpr.String(),
+				),
+			)
+			continue
+		}
+		resList = append(
+			resList,
+			fmt.Sprintf(
+				"{match: '%s', exclude: '%s'}",
+				expr.matchExpr.String(),
+				expr.excludeExpr.String(),
+			),
+		)
 	}
 	return strings.Join(resList, ",")
 }
@@ -98,9 +111,6 @@ func (m simpleExpr) String() string {
 }
 
 func (m simpleExpr) Match(data []byte) (*MatchRes, bool) {
-	var match []int
-	var expr *regexp.Regexp
-	var patterNo int
 	checkData := data
 	offset := 0
 	if m.last > 0 && len(data) > m.last {
@@ -110,37 +120,20 @@ func (m simpleExpr) Match(data []byte) (*MatchRes, bool) {
 		checkData = data[0:m.first]
 	}
 
-	for patterNo, expr = range m.exprs {
-		if len(expr.String()) == 0 { // skip empty pattern
-			continue
-		}
-		match = expr.FindStringSubmatchIndex(string(checkData))
-		if len(match) != 0 {
-			break
-		}
-	}
-	if len(match) == 0 {
-		return nil, false
-	}
-	paramsMap := make(map[string][]byte)
-	for i, name := range expr.SubexpNames() {
-		if i > 0 {
-			if match[i*2] < 0 {
-				continue
-			}
-			paramsMap[name] = data[offset+match[i*2] : offset+match[i*2+1]]
+	for patterNo, expr := range m.exprs {
+		res, ok := expr.Match(checkData)
+		if ok {
+			return &MatchRes{
+				Start:      res.start + offset,
+				End:        res.end + offset,
+				GroupDict:  res.groupDict,
+				PatternNo:  patterNo,
+				Underlying: nil,
+			}, true
 		}
 	}
 
-	return &MatchRes{Start: offset + match[0], End: offset + match[1], GroupDict: paramsMap, PatternNo: patterNo}, true
-}
-
-func NewSimpleExprListStr(patterns []string) Expr {
-	exprs := make([]*regexp.Regexp, len(patterns))
-	for i, pattern := range patterns {
-		exprs[i] = regexp.MustCompile(pattern)
-	}
-	return &simpleExpr{exprs: exprs, last: 0, first: 0}
+	return nil, false
 }
 
 type SimpleExprList struct {

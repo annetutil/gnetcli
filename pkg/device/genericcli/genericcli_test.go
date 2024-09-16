@@ -23,10 +23,10 @@ func newDevice(questionExpression string, connector streamer.Connector, logger *
 	promptExpression := `(\r\n|^)(?P<prompt>(<\w+>))$`
 	errorExpression := `(\r\n|^)Error: .+$`
 	cli := MakeGenericCLI(
-		expr.NewSimpleExprLast200(promptExpression),
-		expr.NewSimpleExprLast200(errorExpression),
+		expr.NewSimpleExprLast200().FromPattern(promptExpression),
+		expr.NewSimpleExprLast200().FromPattern(errorExpression),
 		WithQuestion(
-			expr.NewSimpleExprLast200(questionExpression),
+			expr.NewSimpleExprLast200().FromPattern(questionExpression),
 		),
 	)
 	return MakeGenericDevice(cli, connector, WithDevLogger(logger))

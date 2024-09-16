@@ -247,9 +247,9 @@ func (m Answer) GetExpr() expr.Expr {
 	}
 	var res expr.Expr
 	if m.question[0] == '/' && m.question[len(m.question)-1] == '/' {
-		res = expr.NewSimpleExpr(m.question[1 : len(m.question)-1])
+		res = expr.NewSimpleExpr().FromPattern(m.question[1 : len(m.question)-1])
 	} else {
-		res = expr.NewSimpleExpr(regexp.QuoteMeta(m.question))
+		res = expr.NewSimpleExpr().FromPattern(regexp.QuoteMeta(m.question))
 	}
 	return res
 }

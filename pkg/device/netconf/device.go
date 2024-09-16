@@ -141,7 +141,7 @@ func (m *NetconfDevice) Connect(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	res, err := m.connector.ReadTo(ctx, expr.NewSimpleExprLast20(eom))
+	res, err := m.connector.ReadTo(ctx, expr.NewSimpleExprLast20().FromPattern(eom))
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func (m *NetconfDevice) cmd10(ctx context.Context, command []byte) ([]byte, erro
 		return nil, err
 	}
 
-	res, err := m.connector.ReadTo(ctx, expr.NewSimpleExprLast20(eom))
+	res, err := m.connector.ReadTo(ctx, expr.NewSimpleExprLast20().FromPattern(eom))
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +295,7 @@ func (m *NetconfDevice) readChunked(ctx context.Context) ([]byte, error) {
 		// HASH            = %x23
 		// LF              = %x0A
 		// OCTET           = %x00-FF
-		sizeLine, err := m.connector.ReadTo(ctx, expr.NewSimpleExprFirst200(`\n#(?P<size>[1-9]\d*|#)\n`))
+		sizeLine, err := m.connector.ReadTo(ctx, expr.NewSimpleExprFirst200().FromPattern(`\n#(?P<size>[1-9]\d*|#)\n`))
 		if err != nil {
 			return nil, fmt.Errorf("chunk size read error %w", err)
 		}
