@@ -9,19 +9,23 @@ build:
 build-docker:
 	docker build -f ./image/Dockerfile -t gnetcli-server .
 
+build-proto-docker:
+	(cd proto_builder; IMAGE=proto_builder TAG=tag make build)
+
 proto:
-	protoc -I '${CURDIR}/pkg/server/proto/'  \
-		 --go_out='${CURDIR}/pkg/server/proto/' \
-		 --go-grpc_out='${CURDIR}/pkg/server/proto/' \
-		 --go_opt=paths=source_relative \
-		 --go-grpc_opt=paths=source_relative \
-		 '${CURDIR}/pkg/server/proto/server.proto';
-	$(protoc_cmd) -I '${CURDIR}/pkg/server/proto/' \
-		 --python_out '${CURDIR}/pkg/server/proto/'  \
-		 --pyi_out '${CURDIR}/pkg/server/proto/'  \
-		 --grpc_python_out '${CURDIR}/pkg/server/proto/'  \
-		 '${CURDIR}/pkg/server/proto/server.proto';
-	# https://github.com/protocolbuffers/protobuf/issues/5374
+	docker run --rm -v `pwd`:/home/docker/app --workdir /home/docker/app proto_builder:tag \
+		protoc -I ./pkg/server/proto/ \
+			--go_opt=paths=source_relative \
+			--go-grpc_opt=paths=source_relative \
+			--go_out=./pkg/server/proto/ \
+			--go-grpc_out=./pkg/server/proto/ \
+			'./pkg/server/proto/server.proto'
+	docker run --rm -v `pwd`:/home/docker/app --workdir /home/docker/app proto_builder:tag \
+		$(protoc_cmd) -I ./pkg/server/proto/ \
+			 --python_out=./pkg/server/proto/ \
+			 --pyi_out=./pkg/server/proto/ \
+			 --grpc_python_out=./pkg/server/proto/ \
+			 './pkg/server/proto/server.proto'
 	perl -pi -e 's,import server_pb2 as server__pb2,from . import server_pb2 as server__pb2,' '${CURDIR}/pkg/server/proto/server_pb2_grpc.py'
 
 testrace:

@@ -24,6 +24,7 @@ message CMD {
   double read_timeout = 5;
   double cmd_timeout = 6;
   bool string_result = 8;
+  HostParams host_params = 9;
 }
 
 message Device {
@@ -64,6 +65,7 @@ message HostParams {
   Credentials credentials = 2;
   int32 port = 3;
   string device = 4;
+  string ip = 5;
 }
 
 message CMDResult {
@@ -84,7 +86,7 @@ message FileDownloadRequest {
   string host = 1;
   repeated string paths = 2;
   string device = 3;
-  Credentials credentials = 4;
+  HostParams host_params = 5;
 }
 
 enum FileStatus {
@@ -105,7 +107,7 @@ message FileUploadRequest {
   string host = 1;
   string device = 4;
   repeated FileData files = 3;
-  Credentials credentials = 5;
+  HostParams host_params = 6;
 }
 
 message FilesResult {
