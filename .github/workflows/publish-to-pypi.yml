@@ -36,7 +36,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: python-package-distributions
-          path: dist/
+          path: grpc_sdk/python/dist/
 
 
   publish-to-pypi:
