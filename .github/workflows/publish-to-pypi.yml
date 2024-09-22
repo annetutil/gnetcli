@@ -47,7 +47,7 @@ jobs:
 
     environment:
       name: pypi
-      url: https://pypi.org/p/annet
+      url: https://pypi.org/p/gnetclisdk
 
     permissions:
       id-token: write
