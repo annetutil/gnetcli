@@ -17,7 +17,7 @@ server -debug -basic-auth mylogin:mysecret
 Exec a command on a device using `grpcurl`:
 ```shell
 TOKEN=$(echo -n "$LOGIN:$PASSWORD" | base64)
-grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "device": "huawei", "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
+grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "juniper", "credentials": {"login": "test", "password": "test"}}, "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
 ```
 
 

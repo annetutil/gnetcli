@@ -2,7 +2,7 @@
 PROTOC_VERSION = 3.17.3
 
 # https://github.com/bufbuild/buf/releases
-BUF_VERSION = 0.43.2
+# BUF_VERSION = 0.43.2
 
 # https://golang.org/doc/devel/release.html
 GO_VERSION = 1.16.5
@@ -17,7 +17,6 @@ PROTOC_GEN_GO_GRPC_VERSION = 1.1.0
 
 help:
 	@echo Read Makefile to understand
-	# orb run -m new-ubuntu IMAGE=image TAG=tag sudo -E make build
 
 check:
 ifeq ($(strip $(IMAGE)),)
