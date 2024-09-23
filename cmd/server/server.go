@@ -134,7 +134,7 @@ func main() {
 		})
 		wg.Go(func() error {
 			<-wCtx.Done()
-			_ = listener.Close()
+			_ = wListener.Close()
 			return nil
 		})
 	}
