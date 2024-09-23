@@ -45,7 +45,7 @@ var errNotFound = errors.New("HostParams not found")
 type Server struct {
 	pb.UnimplementedGnetcliServer
 	log          *zap.Logger
-	creds        credentials.Credentials
+	defDevCreds  credentials.Credentials
 	deviceMaps   map[string]func(streamer.Connector) device.Device
 	deviceMapsMu sync.Mutex
 	hostParams   map[string]hostParams
@@ -106,9 +106,9 @@ func WithLogger(logger *zap.Logger) Option {
 	}
 }
 
-func WithCredentials(creds credentials.Credentials) Option {
+func WithDefaultDeviceCredentials(creds credentials.Credentials) Option {
 	return func(h *Server) {
-		h.creds = creds
+		h.defDevCreds = creds
 	}
 }
 
@@ -125,7 +125,7 @@ func (m *Server) makeConnectArg(hostname string, params hostParams) (string, int
 }
 
 func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtrace.Operation, data []byte), logger *zap.Logger) (device.Device, error) {
-	c := m.creds // global
+	c := m.defDevCreds // global
 	paramCreds := params.GetCredentials()
 	if paramCreds != nil {
 		c = paramCreds
@@ -428,7 +428,7 @@ func New(opts ...Option) *Server {
 	s := &Server{
 		UnimplementedGnetcliServer: pb.UnimplementedGnetcliServer{},
 		log:                        zap.NewNop(),
-		creds:                      nil,
+		defDevCreds:                nil,
 		deviceMapsMu:               sync.Mutex{},
 		deviceMaps:                 nil,
 		hostParams:                 map[string]hostParams{},
