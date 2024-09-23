@@ -1,6 +1,8 @@
-name: Build and publish Python wheel to pypi
+name: Build and publish Python SDK wheel to pypi
 
-on: push
+on:
+  release:
+    types: [created]
 
 jobs:
   build:
@@ -41,7 +43,6 @@ jobs:
 
   publish-to-pypi:
     name: Publish to pypi.org
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     needs: [ build ]
     runs-on: ubuntu-latest
 

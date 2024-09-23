@@ -1,4 +1,4 @@
-name: Build server
+name: Build and publish gnetcli-server
 
 env:
   GORELEASER_VER: v1.20.0
