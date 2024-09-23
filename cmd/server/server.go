@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -44,68 +44,59 @@ func parseAuth(basicAuth string) (string, gcred.Secret) {
 }
 
 func main() {
-	tls := flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
-	certFile := flag.String("cert-file", "", "The TLS cert file")
-	keyFile := flag.String("key-file", "", "The TLS key file")
-	basicAuth := flag.String("basic-auth", "", "Authenticate client using Basic auth")
-	devLogin := flag.String("dev-login", "", "Authenticate password")
-	devPassword := flag.String("dev-password", "", "Authorization password")
-	devUseAgent := flag.Bool("dev-enable-agent", false, "Enable pubkey auth using ssh-agent")
-	port := flag.Int("port", 50051, "The server port")
-	disableTcp := flag.Bool("disable-tcp", false, "Disable TCP listener")
-	unixSocket := flag.String("unix-socket", "", "Unix socket path")
-	debug := flag.Bool("debug", false, "set debug log level")
-	flag.Parse()
 	logConfig := zap.NewProductionConfig()
-	if *debug {
-		logConfig = zap.NewDevelopmentConfig()
-	}
-
 	logger := zap.Must(logConfig.Build())
+	cfg, err := server.LoadConf()
+	if err != nil {
+		logger.Panic("conf error", zap.Error(err))
+	}
 	var listeners []net.Listener
-	if len(*unixSocket) > 0 {
-		logger.Debug("init unix socket", zap.String("path", *unixSocket))
-		unixSocketLn, err := newUnixSocket(*unixSocket)
+
+	logConfig = zap.NewDevelopmentConfig()
+	if cfg.Logging.Json {
+		logConfig = zap.NewProductionConfig()
+	}
+	logConfig.Level = zap.NewAtomicLevelAt(cfg.Logging.Level)
+	logger = zap.Must(logConfig.Build())
+
+	if len(cfg.UnixSocket) > 0 {
+		logger.Debug("init unix socket", zap.String("path", cfg.UnixSocket))
+		unixSocketLn, err := newUnixSocket(cfg.UnixSocket)
 		if err != nil {
 			logger.Panic("unix socket error", zap.Error(err))
 		}
 		listeners = append(listeners, unixSocketLn)
 	}
-	if !*disableTcp {
-		address := fmt.Sprintf("localhost:%d", *port)
-		logger.Debug("init tcp socket", zap.String("address", address))
+	if !cfg.DisableTcp {
+		address := fmt.Sprintf("localhost:%d", cfg.Port)
 		tcpSocketLn, err := newTcpSocket(address)
 		if err != nil {
 			logger.Panic("tcp socket error", zap.Error(err))
 		}
+		logger.Debug("init tcp socket", zap.String("address", tcpSocketLn.Addr().String()))
 		listeners = append(listeners, tcpSocketLn)
 	}
 	if len(listeners) == 0 {
 		logger.Panic("specify tcp or unix socket")
 	}
 	var opts []grpc.ServerOption
-	if *tls {
-		if *certFile == "" {
-			*certFile = path("x509/server_cert.pem")
+	if cfg.Tls {
+		if cfg.CertFile == "" {
+			cfg.CertFile = path("x509/server_cert.pem")
 		}
-		if *keyFile == "" {
-			*keyFile = path("x509/server_key.pem")
+		if cfg.KeyFile == "" {
+			cfg.KeyFile = path("x509/server_key.pem")
 		}
-		creds, err := credentials.NewServerTLSFromFile(*certFile, *keyFile)
+		creds, err := credentials.NewServerTLSFromFile(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
 			log.Fatalf("Failed to generate credentials: %v", err)
 		}
 		opts = []grpc.ServerOption{grpc.Creds(creds)}
 	}
 	var auth *server.Auth
-	envBasicAuth, exists := os.LookupEnv("BASIC_AUTH")
-	if len(*basicAuth) > 0 {
-		login, secret := parseAuth(*basicAuth)
-		logger.Info("auth string assigned with flag")
-		auth = server.NewAuth(logger, login, secret)
-	} else if exists {
-		login, secret := parseAuth(envBasicAuth)
-		logger.Info("auth string assigned with env")
+	if len(cfg.BasicAuth) > 0 {
+		login, secret := parseAuth(cfg.BasicAuth)
+		logger.Info("using basic auth")
 		auth = server.NewAuth(logger, login, secret)
 	} else {
 		logger.Error("server is working in dangerous authentication free mode")
@@ -126,24 +117,36 @@ func main() {
 
 	serverOpts := []server.Option{server.WithLogger(logger)}
 	devCreds := server.BuildEmptyCreds(logger)
-	if len(*devLogin) > 0 || len(*devPassword) > 0 || *devUseAgent {
-		devCreds = server.BuildCreds(*devLogin, *devPassword, *devUseAgent, logger)
+	if len(cfg.DevLogin) > 0 || len(cfg.DevPass) > 0 || cfg.DevUseAgent {
+		devCreds = server.BuildCreds(cfg.DevLogin, cfg.DevPass, cfg.DevUseAgent, logger)
 	}
-	serverOpts = append(serverOpts, server.WithCredentials(devCreds))
+	serverOpts = append(serverOpts, server.WithDefaultDeviceCredentials(devCreds))
 
 	s := server.New(serverOpts...)
 	pb.RegisterGnetcliServer(grpcServer, s)
 	reflection.Register(grpcServer)
 	ctx := context.Background()
-	wg, _ := errgroup.WithContext(ctx)
+	wg, wCtx := errgroup.WithContext(ctx)
 	for _, listener := range listeners {
 		wListener := listener
 		wg.Go(func() error {
 			return grpcServer.Serve(wListener)
 		})
+		wg.Go(func() error {
+			<-wCtx.Done()
+			_ = wListener.Close()
+			return nil
+		})
 	}
-	err := wg.Wait()
-	panic(err)
+	wg.Go(func() error {
+		err := WaitInterrupted(wCtx)
+		logger.Debug("WaitInterrupted", zap.Error(err))
+		return err
+	})
+	err = wg.Wait()
+	if err != nil {
+		panic(err)
+	}
 }
 
 func newUnixSocket(path string) (net.Listener, error) {
@@ -164,4 +167,24 @@ func newTcpSocket(address string) (net.Listener, error) {
 		return nil, err
 	}
 	return lis, nil
+}
+
+type Interrupted struct {
+	os.Signal
+}
+
+func (m Interrupted) Error() string {
+	return m.String()
+}
+
+func WaitInterrupted(ctx context.Context) error {
+	ch := make(chan os.Signal, 1)
+
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case v := <-ch:
+		return Interrupted{Signal: v}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
