@@ -8,7 +8,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="gnetclisdk",
-    version="1.0.1",
+    version="1.0.2",
     description="Client for Gnetcli GRPC-server",
     long_description=readme,
     long_description_content_type="text/markdown",
