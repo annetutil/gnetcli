@@ -32,7 +32,7 @@ const (
 
 var autoCommands = []cmd.Cmd{
 	cmd.NewCmd("terminal length 0", cmd.WithErrorIgnore()),
-	cmd.NewCmd("enable", cmd.WithErrorIgnore()),
+	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAnswers(cmd.NewAnswer("Password: ", ""))),
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
