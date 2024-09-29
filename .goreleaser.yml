@@ -6,7 +6,7 @@ builds:
       - linux
     goarch:
       - amd64
-    main: ./cmd/server/
+    main: ./cmd/gnetcli_server/
     binary: server
 dockers:
   - image_templates: ["ghcr.io/annetutil/{{ .ProjectName }}-server:{{ .Version }}"]

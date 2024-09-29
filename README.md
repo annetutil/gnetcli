@@ -100,7 +100,7 @@ cli -hostname myhost -devtype huawei -debug -command $'dis clock\ndis ver0' -pas
 ### GRPC-server
 Install and start the server:
 ```shell
-go install github.com/annetutil/gnetcli/cmd/server@latest
+go install github.com/annetutil/gnetcli/cmd/gnetcli_server@latest
 server -debug -basic-auth mylogin:mysecret
 ```
 

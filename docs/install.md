@@ -15,6 +15,6 @@ cli ...
 You can download it manually from [Github releases](https://github.com/annetutil/gnetcli/releases) or install using go:
 
 ```shell
-go install github.com/annetutil/gnetcli/cmd/server@latest
+go install github.com/annetutil/gnetcli/cmd/gnetcli_server@latest
 server ...
 ```

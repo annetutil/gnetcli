@@ -26,7 +26,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          project_path: ./cmd/server/
+          project_path: ./cmd/gnetcli_server/
           binary_name: gnetcli_server
 
   release-docker:
