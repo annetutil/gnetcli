@@ -5,7 +5,7 @@ See GRPC-server calls description in [server.proto](https://github.com/annetutil
 
 Installation:
 ```shell
-go install github.com/annetutil/gnetcli/cmd/server@latest
+go install github.com/annetutil/gnetcli/cmd/gnetcli_server@latest
 ```
 Or download latest release from [Github release](https://github.com/annetutil/gnetcli/releases/).
 
