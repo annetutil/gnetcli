@@ -32,7 +32,7 @@ jobs:
       - name: Build a binary wheel and a source tarball
         run: python3 -m build
         env:
-          VERSION: "${{ steps.extract-version.outputs.group1 }}"
+          VERSION: "${{ github.event.release.tag_name }}"
 
       - name: Store the distribution packages
         uses: actions/upload-artifact@v3

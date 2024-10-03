@@ -9,7 +9,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="gnetclisdk",
-    version=os.getenv("VERSION") or "0.0",
+    version=os.getenv("VERSION", "0.0").strip("v"),
     description="Client for Gnetcli GRPC-server",
     long_description=readme,
     long_description_content_type="text/markdown",
