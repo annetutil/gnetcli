@@ -1,3 +1,4 @@
+import os
 from setuptools import setup
 
 with open("README.md") as f:
@@ -8,7 +9,7 @@ with open("requirements.txt") as f:
 
 setup(
     name="gnetclisdk",
-    version="1.0.2",
+    version=os.getenv("VERSION") or "0.0",
     description="Client for Gnetcli GRPC-server",
     long_description=readme,
     long_description_content_type="text/markdown",
