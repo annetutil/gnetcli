@@ -59,7 +59,19 @@ class File:
 class HostParams:
     device: str
     port: Optional[int] = None
+    hostname: Optional[str] = None
     credentials: Optional[Credentials] = None
+    ip: Optional[str] = None
+
+    def make_pb(self) -> Message:
+        pbcmd = server_pb2.HostParams(
+            host=self.hostname,
+            port=self.port,
+            credentials=self.credentials.make_pb(),
+            device=self.device,
+            ip=self.ip,
+        )
+        return pbcmd
 
 
 def make_auth(auth_token: str) -> ClientAuthentication:
@@ -119,6 +131,7 @@ class Gnetcli:
         qa: Optional[List[QA]] = None,
         read_timeout: float = 0.0,
         cmd_timeout: float = 0.0,
+        host_params: Optional[HostParams] = None,
     ) -> Message:
         pbcmd = make_cmd(
             hostname=hostname,
@@ -127,6 +140,7 @@ class Gnetcli:
             qa=qa,
             read_timeout=read_timeout,
             cmd_timeout=cmd_timeout,
+            host_params=host_params,
         )
         if self._channel is None:
             _logger.debug("connect to %s", self._server)
@@ -342,6 +356,7 @@ class GnetcliSessionCmd(GnetcliSession):
         qa: Optional[List[QA]] = None,
         cmd_timeout: float = 0.0,
         read_timeout: float = 0.0,
+        host_params: Optional[HostParams] = None,
     ) -> Message:
         _logger.debug("session cmd %r", cmd)
         pbcmd = make_cmd(
@@ -351,6 +366,7 @@ class GnetcliSessionCmd(GnetcliSession):
             qa=qa,
             read_timeout=read_timeout,
             cmd_timeout=cmd_timeout,
+            host_params=host_params,
         )
         return await self._cmd(pbcmd)
 
@@ -437,6 +453,7 @@ def make_cmd(
     qa: Optional[List[QA]] = None,
     read_timeout: float = 0.0,
     cmd_timeout: float = 0.0,
+    host_params: Optional[HostParams] = None,
 ) -> Message:
     qa_cmd: List[Message] = []
     if qa:
@@ -452,6 +469,7 @@ def make_cmd(
         qa=qa_cmd,
         read_timeout=read_timeout,
         cmd_timeout=cmd_timeout,
+        host_params=host_params.make_pb(),
     )
     return res  # type: ignore
 
