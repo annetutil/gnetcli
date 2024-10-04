@@ -261,7 +261,7 @@ class GnetcliSession(ABC):
     def __init__(
         self,
         hostname: str,
-        token: str,
+        token: str | None = None,
         server: str = DEFAULT_SERVER,
         target_name_override: Optional[str] = None,
         cert_file: Optional[str] = None,
@@ -288,13 +288,17 @@ class GnetcliSession(ABC):
         cert = get_cert(cert_file=cert_file)
         channel_credentials = grpc.ssl_channel_credentials(root_certificates=cert)
         authentication: ClientAuthentication
-        if token.startswith("OAuth"):
+        interceptors: [grpc.aio.ClientInterceptor] = list()
+        if not token:
+            pass
+        elif token.startswith("OAuth"):
             authentication = OAuthClientAuthentication(token.split(" ")[1])
+            interceptors.append(get_auth_client_interceptors(authentication))
         elif token.startswith("Basic"):
             authentication = BasicClientAuthentication(token.split(" ")[1])
+            interceptors.append(get_auth_client_interceptors(authentication))
         else:
             raise Exception("unknown token type")
-        interceptors = get_auth_client_interceptors(authentication)
         grpc_channel_fn = partial(grpc.aio.secure_channel, credentials=channel_credentials, interceptors=interceptors)
         if insecure_grpc:
             grpc_channel_fn = partial(grpc.aio.insecure_channel, interceptors=interceptors)
