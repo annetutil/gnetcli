@@ -19,6 +19,7 @@ func TestErrors(t *testing.T) {
 		[]byte("syntax error (line 1 column 2)"),
 		[]byte("[Safe mode released by another user]"),
 		[]byte("expected end of command (line 1 column 5)"),
+		[]byte("failure: duplicate address"),
 	}
 	testutils.ExprTester(t, cases, errorExpression)
 }
