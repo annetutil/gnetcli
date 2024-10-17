@@ -42,6 +42,7 @@ class QA:
         pb.answer = self.answer
         return pb
 
+
 @dataclass
 class Credentials:
     login: Optional[str] = None
