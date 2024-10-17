@@ -136,10 +136,22 @@ func (m *Parser) parse() ([]byte, error) {
 				m.pos = begin - 1
 
 			case ELINE, SGR:
-				m.data = sliceEdit(m.data, escStart, m.pos+1)
+				// Erases part of the line.
+				// If n is 0 (or missing), clear from cursor to the end of the line.
+				// If n is 1, clear from cursor to beginning of the line.
+				// If n is 2, clear entire line. Cursor position does not change.
+				// only n == 0 is supported TODO: check parameter
+				m.data = sliceEdit(m.data, escStart, m.pos+1) // drop
 				// Rolling back to the place of the deleted esc-1, consume moved to the esc old pos
 				// Necessary in case of two esc sequences in a row
 				m.pos = escStart - 1
+				lineStart := bytes.LastIndexByte(m.data[0:m.pos], NEWLINE)
+				if lineStart == -1 {
+					lineStart = 0
+					m.data = m.data[m.pos+1:]
+				} else {
+					m.data = sliceEdit(m.data, lineStart+1, m.pos+1)
+				}
 			case CUP, ED: // not implemented
 				m.data = sliceEdit(m.data, escStart, m.pos+1)
 				m.pos = escStart - 1

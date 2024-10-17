@@ -50,6 +50,12 @@ func TestParseRN3(t *testing.T) {
 	assert.Equal(t, "foo\r\r\nbar", string(res))
 }
 
+func TestParseEL(t *testing.T) {
+	res, err := Parse([]byte("\rset api-ssl disabled=yes\r\n\r\r\r\r[mk-rb3011-test] >   \r[mk-rb3011-test] > \r\r[mk-rb3011-test] >     \x1b[K"))
+	assert.NoError(t, err)
+	assert.Equal(t, "set api-ssl disabled=yes\r\n", string(res))
+}
+
 func TestParseErase(t *testing.T) {
 	magics := []string{
 		"\x1b[K",
