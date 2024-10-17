@@ -36,16 +36,22 @@ class QA:
     question: str
     answer: str
 
+    def make_pb(self) -> server_pb2.QA:
+        pb = server_pb2.QA()
+        pb.question = self.question
+        pb.answer = self.answer
+        return pb
+
 
 @dataclass
 class Credentials:
-    login: str
-    password: str
+    login: Optional[str] = None
+    password: Optional[str] = None
 
-    def make_pb(self) -> Message:
+    def make_pb(self) -> server_pb2.Credentials:
         pb = server_pb2.Credentials()
-        pb.login = self.login
-        pb.password = self.password
+        pb.login = self.login or ""
+        pb.password = self.password or ""
         return pb
 
 
@@ -63,11 +69,14 @@ class HostParams:
     credentials: Optional[Credentials] = None
     ip: Optional[str] = None
 
-    def make_pb(self) -> Message:
+    def make_pb(self) -> server_pb2.HostParams:
+        creds_pb: Optional[server_pb2.Credentials] = None
+        if self.credentials:
+            creds_pb = self.credentials.make_pb()
         pbcmd = server_pb2.HostParams(
             host=self.hostname,
             port=self.port,
-            credentials=self.credentials.make_pb(),
+            credentials=creds_pb,
             device=self.device,
             ip=self.ip,
         )
@@ -132,7 +141,7 @@ class Gnetcli:
         read_timeout: float = 0.0,
         cmd_timeout: float = 0.0,
         host_params: Optional[HostParams] = None,
-    ) -> Message:
+    ) -> server_pb2.CMDResult:
         pbcmd = make_cmd(
             hostname=hostname,
             cmd=cmd,
@@ -361,7 +370,7 @@ class GnetcliSessionCmd(GnetcliSession):
         cmd_timeout: float = 0.0,
         read_timeout: float = 0.0,
         host_params: Optional[HostParams] = None,
-    ) -> Message:
+    ) -> server_pb2.CMDResult:
         _logger.debug("session cmd %r", cmd)
         pbcmd = make_cmd(
             hostname=self._hostname,
@@ -458,14 +467,14 @@ def make_cmd(
     read_timeout: float = 0.0,
     cmd_timeout: float = 0.0,
     host_params: Optional[HostParams] = None,
-) -> Message:
-    qa_cmd: List[Message] = []
+) -> server_pb2.CMD:
+    qa_cmd: List[server_pb2.QA] = []
     if qa:
         for item in qa:
-            qaitem = server_pb2.QA()
-            qaitem.question = item.question
-            qaitem.answer = item.answer
-            qa_cmd.append(qaitem)
+            qa_cmd.append(item.make_pb())
+    host_params_pb: Optional[server_pb2.HostParams] = None
+    if host_params:
+        host_params_pb = host_params.make_pb()
     res = server_pb2.CMD(
         host=hostname,
         cmd=cmd,
@@ -473,9 +482,9 @@ def make_cmd(
         qa=qa_cmd,
         read_timeout=read_timeout,
         cmd_timeout=cmd_timeout,
-        host_params=host_params.make_pb(),
+        host_params=host_params_pb,
     )
-    return res  # type: ignore
+    return res
 
 
 def make_files_request(files: Dict[str, File]) -> List[server_pb2.FileData]:
