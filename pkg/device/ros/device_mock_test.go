@@ -284,9 +284,10 @@ func TestRos(t *testing.T) {
 						"                                                                                              " +
 						"                                                                                              " +
 						"                                                                                              " +
-						"                                                                     \u001b[K\r[username12345@" +
-						"mk-rb3011-test2] > ",
+						"                                                                     \u001b[K\r" +
+						"",
 					),
+					m.Send("[username12345@mk-rb3011-test2] > "),
 				},
 				byeMsg,
 			},

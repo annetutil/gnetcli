@@ -44,6 +44,17 @@ func Parse(data []byte) ([]byte, error) {
 	return parser.parse()
 }
 
+// ParseDropLastReturn evaluates ANSI escape sequences and apply logik related to prompt cut
+func ParseDropLastReturn(data []byte) ([]byte, error) {
+	res, err := Parse(data)
+	// It's implied that after the last \r some text is cut beforehand
+	// Delete whole line
+	if len(res) > 0 && res[len(res)-1] == '\r' {
+		res = dropLastR(res)
+	}
+	return res, err
+}
+
 func (m *Parser) consume() (byte, error) {
 	if m.pos+1 == len(m.data) {
 		return 0, fmt.Errorf("length is exceeded")
@@ -140,18 +151,17 @@ func (m *Parser) parse() ([]byte, error) {
 				// If n is 0 (or missing), clear from cursor to the end of the line.
 				// If n is 1, clear from cursor to beginning of the line.
 				// If n is 2, clear entire line. Cursor position does not change.
-				// only n == 0 is supported TODO: check parameter
-				m.data = sliceEdit(m.data, escStart, m.pos+1) // drop
+				// only n == 0 is supported TODO: check parameter var
+				m.data = sliceEdit(m.data, escStart, m.pos+1) // drop esc
 				// Rolling back to the place of the deleted esc-1, consume moved to the esc old pos
 				// Necessary in case of two esc sequences in a row
-				m.pos = escStart - 1
-				lineStart := bytes.LastIndexByte(m.data[0:m.pos], NEWLINE)
-				if lineStart == -1 {
-					lineStart = 0
-					m.data = m.data[m.pos+1:]
-				} else {
-					m.data = sliceEdit(m.data, lineStart+1, m.pos+1)
-				}
+				m.pos = escStart
+				//lineEnd := bytes.IndexByte(m.data[0:m.pos], NEWLINE)
+				//if lineEnd == -1 {
+				//	m.data = m.data[m.pos:]
+				//} else {
+				//	m.data = sliceEdit(m.data, lineEnd+1, m.pos+1)
+				//}
 			case CUP, ED: // not implemented
 				m.data = sliceEdit(m.data, escStart, m.pos+1)
 				m.pos = escStart - 1
@@ -198,4 +208,13 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func dropLastR(input []byte) []byte {
+	lastNL := bytes.LastIndexByte(input, NEWLINE)
+	var res []byte
+	if lastNL > -1 {
+		res = input[0 : lastNL+1]
+	}
+	return res
 }

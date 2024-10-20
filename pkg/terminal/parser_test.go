@@ -51,9 +51,10 @@ func TestParseRN3(t *testing.T) {
 }
 
 func TestParseEL(t *testing.T) {
-	res, err := Parse([]byte("\rset api-ssl disabled=yes\r\n\r\r\r\r[mk-rb3011-test] >   \r[mk-rb3011-test] > \r\r[mk-rb3011-test] >     \x1b[K"))
+	res, err := Parse([]byte("\rset api-ssl disabled=yes\r\n" +
+		"\r\r\r\r[mk-rb3011-test1] >   \r[mk-rb3011-test2] > \r\r[mk-rb3011-test3] >     \x1b[K"))
 	assert.NoError(t, err)
-	assert.Equal(t, "set api-ssl disabled=yes\r\n", string(res))
+	assert.Equal(t, "set api-ssl disabled=yes\r\n[mk-rb3011-test3] >     ", string(res))
 }
 
 func TestParseErase(t *testing.T) {
