@@ -15,9 +15,9 @@ import (
 
 const (
 	// line may be like this "\r\n\r\r\r\r[admin@mk-rb3011-test] >   (~1000 space)   \r[admin@mk-rb3011-test] > "
-	hiddenPrompt       = `((\r\n|\r+|^)\[\S+@\S+\]\s+(\/[\/\w\s-]+)?(<SAFE)?>\s+)?`
-	visiblePrompt      = `(\r\n|\r|^)\[(?P<login>\S+)@(?P<hostname>\S+)\]\s+(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> $`
-	promptExpression   = hiddenPrompt + visiblePrompt
+	hiddenPrompt       = `(\[\S+@\S+\]\s+(\/[\/\w\s-]+)?(<SAFE)?>\s+)?`
+	visiblePrompt      = `\[(?P<login>\S+)@(?P<hostname>\S+)\]\s+(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> $`
+	promptExpression   = `(?P<store>(\r\n|\n|\r|^))` + hiddenPrompt + visiblePrompt
 	errorExpression    = `(^bad command name.*\(line \d+ column \d+\).*$|^syntax error.*\(line \d+ column \d+\).*$|\[(?P<question>Safe mode released by another user)\]|expected end of command \(line \d+ column \d+\)|failure: duplicate address)`
 	questionExpression = `((?P<question>.+\?)\s*\[y/N\]:$|(?P<question>\x1b\[c)|\rnumbers: )`
 	pagerExpression    = `-- \[Q quit\|D dump\|down\]$`

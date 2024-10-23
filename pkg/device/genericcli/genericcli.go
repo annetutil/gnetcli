@@ -505,7 +505,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				return nil, device.ThrowEchoReadException(mbefore, promptFound)
 			}
 
-			termParsedEcho, err := terminal.Parse(mbefore)
+			termParsedEcho, err := terminal.ParseDropLastReturn(mbefore)
 			if err != nil {
 				return nil, fmt.Errorf("echo terminal parse error %w", err)
 			}
@@ -515,7 +515,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				if mbefore[len(mbefore)-1] != '\n' {
 					mbefore = append(mbefore, '\n')
 				}
-				termParsedEcho, err = terminal.Parse(mbefore)
+				termParsedEcho, err = terminal.ParseDropLastReturn(mbefore)
 				if err != nil {
 					return nil, fmt.Errorf("echo terminal parse error %w", err)
 				}
@@ -537,6 +537,9 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		}
 		if matchName == "prompt" {
 			buffer.Write(mbefore)
+			if store, ok := match.GetMatchedGroups()["store"]; ok {
+				buffer.Write(store)
+			}
 			break
 		} else if matchName == "pager" { // next page
 			buffer.Write(mbefore)
@@ -588,7 +591,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		fondErr = command.ErrorHandler(fondErr)
 	}
 
-	strippedRes, err := terminal.Parse(res)
+	strippedRes, err := terminal.ParseDropLastReturn(res)
 	if err != nil {
 		return nil, err
 	}
