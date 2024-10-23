@@ -40,10 +40,10 @@ func TestRos(t *testing.T) {
 			command: "/ip service export",
 			result: "" +
 				"# oct/17/2024 10:17:11 by RouterOS 6.49.17\n" +
-				"# software id = PEWV-11HC\n" +
+				"# software id = 1111-1111\n" +
 				"#\n" +
 				"# model = RB3011UiAS\n" +
-				"# serial number = B88D0CD08928\n" +
+				"# serial number = 111111111111\n" +
 				"/ip service\n" +
 				"set telnet disabled=yes\n" +
 				"set ftp disabled=yes\n" +
@@ -260,8 +260,8 @@ func TestRos(t *testing.T) {
 						"                                                                                              " +
 						"                                                                      \u001b[K\r[username12345" +
 						"@mk-rb3011-test] > /ip service export\r[username12345@mk-rb3011-test] > /ip service export\r\n" +
-						"\r# oct/17/2024 10:17:11 by RouterOS 6.49.17\r\n# software id = PEWV-11HC\r\n#\r\n# model = RB" +
-						"3011UiAS\r\n# serial number = B88D0CD08928\r\n/ip service\r\nset telnet disabled=yes\r\nset ft" +
+						"\r# oct/17/2024 10:17:11 by RouterOS 6.49.17\r\n# software id = 1111-1111\r\n#\r\n# model = RB" +
+						"3011UiAS\r\n# serial number = 111111111111\r\n/ip service\r\nset telnet disabled=yes\r\nset ft" +
 						"p disabled=yes\r\nset www disabled=yes\r\nset api disabled=yes\r\nset api-ssl disabled=yes\r\n" +
 						"\r\r\r\r[username12345@mk-rb3011-test] >                                                      " +
 						"                                                                                              " +
