@@ -44,13 +44,13 @@ func Parse(data []byte) ([]byte, error) {
 	return parser.parse()
 }
 
-// ParseDropLastReturn evaluates ANSI escape sequences and apply logik related to prompt cut
+// ParseDropLastReturn evaluates ANSI escape sequences and apply logic related to prompt cut
 func ParseDropLastReturn(data []byte) ([]byte, error) {
 	res, err := Parse(data)
 	// It's implied that after the last \r some text is cut beforehand
 	// Delete whole line
 	if len(res) > 0 && res[len(res)-1] == '\r' {
-		res = dropLastR(res)
+		res = trimLastLine(res)
 	}
 	return res, err
 }
@@ -152,16 +152,10 @@ func (m *Parser) parse() ([]byte, error) {
 				// If n is 1, clear from cursor to beginning of the line.
 				// If n is 2, clear entire line. Cursor position does not change.
 				// only n == 0 is supported TODO: check parameter var
-				m.data = sliceEdit(m.data, escStart, m.pos+1) // drop esc
+				m.data = sliceEdit(m.data, escStart, m.pos+1)
 				// Rolling back to the place of the deleted esc-1, consume moved to the esc old pos
 				// Necessary in case of two esc sequences in a row
-				m.pos = escStart
-				//lineEnd := bytes.IndexByte(m.data[0:m.pos], NEWLINE)
-				//if lineEnd == -1 {
-				//	m.data = m.data[m.pos:]
-				//} else {
-				//	m.data = sliceEdit(m.data, lineEnd+1, m.pos+1)
-				//}
+				m.pos = escStart - 1
 			case CUP, ED: // not implemented
 				m.data = sliceEdit(m.data, escStart, m.pos+1)
 				m.pos = escStart - 1
@@ -210,7 +204,7 @@ func min(a, b int) int {
 	return b
 }
 
-func dropLastR(input []byte) []byte {
+func trimLastLine(input []byte) []byte {
 	lastNL := bytes.LastIndexByte(input, NEWLINE)
 	var res []byte
 	if lastNL > -1 {

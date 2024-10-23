@@ -537,6 +537,9 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		}
 		if matchName == "prompt" {
 			buffer.Write(mbefore)
+			if store, ok := match.GetMatchedGroups()["store"]; ok {
+				buffer.Write(store)
+			}
 			break
 		} else if matchName == "pager" { // next page
 			buffer.Write(mbefore)
