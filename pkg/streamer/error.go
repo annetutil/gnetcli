@@ -9,7 +9,7 @@ type ReadTimeoutException struct {
 }
 
 func (m *ReadTimeoutException) Error() string {
-	return fmt.Sprintf("read timeout error. last seen: \"%s\"", string(m.LastRead))
+	return fmt.Sprintf("read timeout error. last seen: %q", string(m.LastRead))
 }
 
 func (m *ReadTimeoutException) Is(target error) bool {
@@ -24,7 +24,7 @@ type EOFException struct {
 }
 
 func (m *EOFException) Error() string {
-	return fmt.Sprintf("read timeout error. last seen: \"%s\"", string(m.LastRead))
+	return fmt.Sprintf("read timeout error. last seen: %q", string(m.LastRead))
 }
 
 func (m *EOFException) Is(target error) bool {
@@ -47,7 +47,7 @@ type CmdTimeoutException struct {
 }
 
 func (e *CmdTimeoutException) Error() string {
-	return fmt.Sprintf("cmd timeout error. last seen: \"%s\"", string(e.lastRead))
+	return fmt.Sprintf("cmd timeout error. last seen: %q", string(e.lastRead))
 }
 
 func ThrowCmdTimeoutException(lastRead []byte) error {

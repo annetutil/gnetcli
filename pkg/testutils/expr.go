@@ -31,7 +31,7 @@ func ExprTester(t *testing.T, cases [][]byte, expressions ...string) {
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
 			res, ok := errorExpr.Match(tc)
-			require.True(t, ok, fmt.Sprintf("regex: %q not matched\ndata: '%q'", errorExpr.Repr(), tc))
+			require.True(t, ok, fmt.Sprintf("regex: %s not matched\ndata: %q", errorExpr.Repr(), tc))
 			require.NotNil(t, res)
 		})
 	}

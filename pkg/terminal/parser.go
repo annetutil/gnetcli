@@ -147,7 +147,7 @@ func (m *Parser) parse() ([]byte, error) {
 				m.pos = begin - 1
 
 			case ELINE, SGR:
-				// Erases part of the line.
+				// Erases part of the line - "CSI n K"
 				// If n is 0 (or missing), clear from cursor to the end of the line.
 				// If n is 1, clear from cursor to beginning of the line.
 				// If n is 2, clear entire line. Cursor position does not change.
