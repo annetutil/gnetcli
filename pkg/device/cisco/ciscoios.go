@@ -26,7 +26,7 @@ const (
 		`|Permission denied.+\[Errno \d+\] Permission denied` +
 		`)`
 	passwordExpression      = `.*Password:\s?$`
-	passwordErrorExpression = `\^\r\n\% Authentication failed\n`
+	passwordErrorExpression = `\n\% Authentication failed(\r\n|\n)`
 	pagerExpression         = `\r\n --More-- $`
 )
 
