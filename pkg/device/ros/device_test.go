@@ -21,13 +21,14 @@ func TestErrors(t *testing.T) {
 		[]byte("[Safe mode released by another user]"),
 		[]byte("expected end of command (line 1 column 5)"),
 		[]byte("failure: duplicate address"),
+		[]byte("\rbad command name set (line 1 column 1)"),
 	}
 	testutils.ExprTester(t, cases, errorExpression)
 }
 
 func TestQuestion(t *testing.T) {
 	cases := [][]byte{
-		[]byte("Reboot, yes? [y/N]:"),
+		[]byte("Reboot, yes? [y/N]: \r\n"),
 		[]byte("\rnumbers: "),
 	}
 	testutils.ExprTester(t, cases, questionExpression)
