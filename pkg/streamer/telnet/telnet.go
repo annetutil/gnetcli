@@ -85,12 +85,13 @@ func (m *Streamer) GetCredentials() credentials.Credentials {
 }
 
 func NewStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
+	stdoutBuffer := make(chan []byte, 100)
 	h := &Streamer{
 		credentials:            credentials,
 		logger:                 zap.NewNop(),
 		host:                   host,
 		conn:                   nil,
-		stdoutBuffer:           nil,
+		stdoutBuffer:           stdoutBuffer,
 		stdoutBufferExtra:      nil,
 		credentialsInterceptor: nil,
 		trace:                  nil,
