@@ -42,6 +42,13 @@ func TestPassword(t *testing.T) {
 	testutils.ExprTester(t, errorCases, passwordExpression)
 }
 
+func TestErrorPassword(t *testing.T) {
+	cases := [][]byte{
+		[]byte("\r\n% Authentication failed\r\n\r\n"),
+	}
+	testutils.ExprTester(t, cases, passwordErrorExpression)
+}
+
 func TestQuestion(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nWarning: The current configuration will be written to the device. Continue? [Y/N]:"),
