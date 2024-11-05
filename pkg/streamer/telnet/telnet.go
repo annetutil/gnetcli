@@ -108,7 +108,6 @@ func (m *Streamer) Cmd(context.Context, string) (gcmd.CmdRes, error) {
 }
 
 func (m *Streamer) Write(text []byte) error {
-	text = append(text, byte('\n'))
 	if m.trace != nil {
 		m.trace(trace.Write, text)
 	}
