@@ -450,7 +450,12 @@ func gnetcliTraceToTrace(tr gtrace.Trace) []*pb.CMDTraceItem {
 }
 
 func makeGnetcliCmd(cmd *pb.CMD) gcmd.Cmd {
-	return gcmd.NewCmd(cmd.GetCmd())
+	opts := make([]gcmd.CmdOption, 0, len(cmd.Qa))
+	for _, qa := range cmd.Qa {
+		opts = append(opts, gcmd.WithAnswers(gcmd.NewAnswer(qa.GetQuestion(), qa.GetAnswer())))
+		gcmd.NewCmd(cmd.GetCmd(), gcmd.WithAnswers())
+	}
+	return gcmd.NewCmd(cmd.GetCmd(), opts...)
 }
 
 func makeServerRes(cmd *pb.CMD, cmdRes gcmd.CmdRes, tr []*pb.CMDTraceItem) *pb.CMDResult {
