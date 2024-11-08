@@ -22,6 +22,7 @@ const (
 		`|\n?% ?Bad (OID|IP address or host name%[\ \w,]+)` +
 		`|\r?% This command is not authorized` +
 		`|\r?% Failed to commit .+` +
+		`|\r?% Specify .+` +
 		`|^% Invalid input` +
 		`|Permission denied.+\[Errno \d+\] Permission denied` +
 		`)`

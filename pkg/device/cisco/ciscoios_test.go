@@ -13,6 +13,7 @@ func TestErrors(t *testing.T) {
 		[]byte("% Bad IP address or host name% Unknown command or computer name, or unable to find computer address"),
 		[]byte("% Ambiguous command:  \"dis clock\""),
 		[]byte("                  ^\n% Ambiguous command at '^' marker."),
+		[]byte("% Specify remote-as or peer-group remote AS first"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }
