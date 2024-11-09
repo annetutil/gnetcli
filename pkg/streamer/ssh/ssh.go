@@ -403,7 +403,7 @@ func WithEnv(key, value string) StreamerOption {
 	}
 }
 
-// WithAdditionalEndpoints adds slice of endpoints that Streamer will sequentially try to connect to untill success of dial,
+// WithAdditionalEndpoints adds slice of endpoints that Streamer will sequentially try to connect to until success of dial,
 // if original host dial fails
 func WithAdditionalEndpoints(endpoints []Endpoint) StreamerOption {
 	return func(h *Streamer) {
@@ -1095,7 +1095,7 @@ func DialConnCtx(ctx context.Context, conn net.Conn, addr string, config *ssh.Cl
 	return ssh.NewClient(c, chans, reqs), nil
 }
 
-// SSHSignersLogger wraps ssh.Signer interface in order to log actions relateds to keys
+// SSHSignersLogger wraps ssh.Signer interface in order to log actions related to keys
 type SSHSignersLogger struct {
 	s   ssh.Signer
 	log *zap.Logger
