@@ -184,7 +184,7 @@ func GetAgentSocketFromConfig(host string) (string, error) {
 	return expandedIa, nil
 }
 
-// GetPrivateKeysFromConfig tries to extract PrivateKeys from default config's IdentityFiles specifed for provided host.
+// GetPrivateKeysFromConfig tries to extract PrivateKeys from default config's IdentityFiles specified for provided host.
 // IdentityFile value supports tilde syntax, but it doesn't support %d, %u, %l, %h and %r.
 func GetPrivateKeysFromConfig(host string) ([][]byte, error) {
 	identityFiles := ssh_config.GetAll(host, "IdentityFile")
@@ -208,7 +208,7 @@ func GetPrivateKeysFromConfig(host string) ([][]byte, error) {
 	return privKeys, nil
 }
 
-// isSSHConfigMadeUpDefaultFileError checks if given error occured because
+// isSSHConfigMadeUpDefaultFileError checks if given error occurred because
 // ssh_config lib made up a default value for IdentityFile due to it's absence in config
 func isSSHConfigMadeUpDefaultFileError(identityFiles []string, err error) bool {
 	if len(identityFiles) == 1 && identityFiles[0] == "~/.ssh/identity" && errors.Is(err, fs.ErrNotExist) {
