@@ -243,8 +243,11 @@ class Gnetcli:
             await grpc_call_wrapper(stub.SetupHostParams, pbcmd)
         return
 
-    async def upload(self, hostname: str, files: Dict[str, File]) -> None:
-        pbcmd = server_pb2.FileUploadRequest(host=hostname, files=make_files_request(files))
+    async def upload(self, hostname: str, files: Dict[str, File], host_params: Optional[HostParams] = None) -> None:
+        host_params_pb: Optional[server_pb2.HostParams] = None
+        if host_params:
+            host_params_pb = host_params.make_pb()
+        pbcmd = server_pb2.FileUploadRequest(host=hostname, files=make_files_request(files), host_params=host_params_pb)
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:
             _logger.debug("upload %s to %s", files.keys(), hostname)
@@ -253,8 +256,11 @@ class Gnetcli:
             _logger.debug("upload res %s", response)
         return
 
-    async def download(self, hostname: str, paths: List[str]) -> Dict[str, File]:
-        pbcmd = server_pb2.FileDownloadRequest(host=hostname, paths=paths)
+    async def download(self, hostname: str, paths: List[str], host_params: Optional[HostParams] = None) -> Dict[str, File]:
+        host_params_pb: Optional[server_pb2.HostParams] = None
+        if host_params:
+            host_params_pb = host_params.make_pb()
+        pbcmd = server_pb2.FileDownloadRequest(host=hostname, paths=paths, host_params=host_params_pb)
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:
             _logger.debug("download %s from %s", paths, hostname)
