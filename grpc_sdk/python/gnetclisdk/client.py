@@ -236,7 +236,7 @@ class Gnetcli:
             port=params.port,
             credentials=params.credentials.make_pb(),
             device=params.device,
-            )
+        )
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:
             _logger.debug("set params for %s", hostname)
