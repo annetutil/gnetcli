@@ -419,13 +419,23 @@ func (m *Server) Download(ctx context.Context, req *pb.FileDownloadRequest) (*pb
 func (m *Server) Upload(ctx context.Context, req *pb.FileUploadRequest) (*emptypb.Empty, error) {
 	logger := m.log.With(zap.String("host", req.GetHost()))
 	logger.Info("upload")
-	params, err := m.getHostParams(req.GetHost(), nil)
+	paths := req.GetFiles()
+	if len(paths) == 0 {
+		return nil, errors.New("empty paths")
+	}
+	params, err := m.getHostParams(req.GetHost(), req.GetHostParams())
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 	devInited, err := m.makeDevice(req.GetHost(), params, nil, logger)
 	if err != nil {
-		return nil, err
+		logger.Debug("upload error", zap.Error(err))
+		return nil, status.Error(codes.Internal, fmt.Sprintf("upload error: %s", err))
+	}
+	err = devInited.Connect(ctx)
+	if err != nil {
+		logger.Debug("upload error", zap.Error(err))
+		return nil, status.Error(codes.Internal, fmt.Sprintf("upload error: %s", err))
 	}
 	uploadFiles := makeFilesUpload(req.GetFiles())
 	err = devInited.Upload(uploadFiles)
