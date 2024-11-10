@@ -75,11 +75,11 @@ func (m *hostParams) GetIP() netip.Addr {
 	return m.ip
 }
 
-func makeHostParams(params *pb.HostParams) (hostParams, error) {
+func makeHostParams(params *pb.HostParams, agent bool) (hostParams, error) {
 	var credsParsed credentials.Credentials
 	creds := params.GetCredentials()
 	if creds != nil {
-		credsParsed = BuildCreds(creds.GetLogin(), creds.GetPassword(), false, nil)
+		credsParsed = BuildCreds(creds.GetLogin(), creds.GetPassword(), agent, nil)
 	}
 	addr := params.GetIp()
 	ip := netip.Addr{}
@@ -348,7 +348,11 @@ func (m *Server) AddDevice(ctx context.Context, device *pb.Device) (*pb.DeviceRe
 
 func (m *Server) SetupHostParams(ctx context.Context, hostParams *pb.HostParams) (*emptypb.Empty, error) {
 	m.log.Debug("SetupHostParams", zap.Any("device", hostParams))
-	params, err := makeHostParams(hostParams)
+	agent := false
+	if len(m.defDevCreds.GetAgentSocket()) > 0 {
+		agent = true
+	}
+	params, err := makeHostParams(hostParams, agent)
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +368,11 @@ func (m *Server) updateHostParams(hostname string, params hostParams) {
 
 func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostParams, error) {
 	if cmdParams != nil {
-		hParams, err := makeHostParams(cmdParams)
+		agent := false
+		if len(m.defDevCreds.GetAgentSocket()) > 0 {
+			agent = true
+		}
+		hParams, err := makeHostParams(cmdParams, agent)
 		return hParams, err
 	}
 	m.hostParamsMu.Lock()
