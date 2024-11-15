@@ -9,6 +9,7 @@ import (
 
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/device"
+	"github.com/annetutil/gnetcli/pkg/device/arista"
 	"github.com/annetutil/gnetcli/pkg/device/cisco"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/device/huawei"
@@ -176,6 +177,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 	deviceMaps := map[string]func(streamer.Connector) device.Device{
 		"juniper": GenericCLIWrapper(juniper.NewDevice, logger),
 		"huawei":  GenericCLIWrapper(huawei.NewDevice, logger),
+		"arista":  GenericCLIWrapper(arista.NewDevice, logger),
 		"cisco":   GenericCLIWrapper(cisco.NewDevice, logger),
 		"nxos":    GenericCLIWrapper(nxos.NewDevice, logger),
 		"pc":      pc.NewDevice,
