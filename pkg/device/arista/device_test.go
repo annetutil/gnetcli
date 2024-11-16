@@ -41,6 +41,7 @@ func TestErrors(t *testing.T) {
 		[]byte("% BGP is already running with AS number 50\r\n"),
 		[]byte("% More than 1 ISIS instance is not supported\r\n"),
 		[]byte("% Error: cannot specify source range with group range\r\n"),
+		[]byte("% Invalid input (privileged mode required)"),
 	}
 	testutils.ExprTesterWithExclude(t, errorCases, testutils.ExpressionPair{Pattern: errorExpression, ExcludePattern: excludeErrorExpression})
 }
