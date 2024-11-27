@@ -46,7 +46,7 @@ const (
 	defaultPort           = 22
 	defaultReadTimeout    = 20 * time.Second
 	defaultReadSize       = 4096
-	sftpServerPaths       = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec"
+	sftpServerPaths       = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec:/usr/lib/ssh"
 	defaultTerminalWidth  = 200
 	defaultTerminalHeight = 0
 	NoStatusResult        = -1000
