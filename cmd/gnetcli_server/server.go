@@ -55,7 +55,7 @@ func main() {
 		cfg.DevAuth.Login = cfg.DevLogin
 	}
 	if len(cfg.DevPass) > 0 {
-		cfg.DevAuth.Pass = gcred.Secret(cfg.DevPass)
+		cfg.DevAuth.Password = gcred.Secret(cfg.DevPass)
 	}
 	if cfg.DevUseAgent {
 		cfg.DevAuth.UseAgent = cfg.DevUseAgent

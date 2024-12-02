@@ -44,3 +44,20 @@ Usage of server:
   -tls
     	Connection uses TLS if true, else plain TCP
 ```
+
+### Configuration file
+
+Using `-conf-file conf.yaml` it's possible to set more parameters, like enabling ssh config or jump host.
+
+```yaml
+logging:
+  level: debug
+  json: true
+dev_auth:
+  login: login
+  password: pass
+  ssh_config: true # read config from ~/.ssh/config
+  proxy_jump: my_jump_host
+  use_agent: true
+port: 0  # 0 random
+```

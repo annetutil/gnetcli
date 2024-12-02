@@ -9,10 +9,10 @@ import (
 
 type authAppConfig struct {
 	Login     string             `yaml:"login"`
-	Pass      credentials.Secret `yaml:"pass"`
+	Password  credentials.Secret `yaml:"password"`
 	ProxyJump string             `yaml:"proxy_jump"`
 	UseAgent  bool               `yaml:"use_agent"`
-	SshConfig string             `yaml:"sshConfig"` // use OpenSSH client configuration file
+	SshConfig string             `yaml:"ssh_config"` // use OpenSSH client configuration file
 }
 
 type authApp struct {
@@ -62,8 +62,8 @@ func (m authApp) Get(host string) (credentials.Credentials, error) {
 	if m.config.UseAgent {
 		opts = append(opts, credentials.WithSSHAgentSocket(credentials.GetDefaultAgentSocket()))
 	}
-	if len(m.config.Pass) > 0 {
-		opts = append(opts, credentials.WithPassword(credentials.Secret(m.config.Pass)))
+	if len(m.config.Password) > 0 {
+		opts = append(opts, credentials.WithPassword(credentials.Secret(m.config.Password)))
 	}
 	creds := credentials.NewSimpleCredentials(opts...)
 	return creds, nil
