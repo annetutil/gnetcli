@@ -50,6 +50,16 @@ func main() {
 	if err != nil {
 		logger.Panic("conf error", zap.Error(err))
 	}
+	// copy params from legacy
+	if len(cfg.DevLogin) > 0 {
+		cfg.DevAuth.Login = cfg.DevLogin
+	}
+	if len(cfg.DevPass) > 0 {
+		cfg.DevAuth.Pass = gcred.Secret(cfg.DevPass)
+	}
+	if cfg.DevUseAgent {
+		cfg.DevAuth.UseAgent = cfg.DevUseAgent
+	}
 	var listeners []net.Listener
 
 	logConfig = zap.NewDevelopmentConfig()
@@ -116,13 +126,8 @@ func main() {
 	grpcServer := grpc.NewServer(opts...)
 
 	serverOpts := []server.Option{server.WithLogger(logger)}
-	devCreds := server.BuildEmptyCreds(logger)
-	if len(cfg.DevLogin) > 0 || len(cfg.DevPass) > 0 || cfg.DevUseAgent {
-		devCreds = server.BuildCreds(cfg.DevLogin, cfg.DevPass, cfg.DevUseAgent, logger)
-	}
-	serverOpts = append(serverOpts, server.WithDefaultDeviceCredentials(devCreds))
-
-	s := server.New(serverOpts...)
+	devAuthApp := server.NewAuthApp(cfg.DevAuth, logger)
+	s := server.New(devAuthApp, serverOpts...)
 	pb.RegisterGnetcliServer(grpcServer, s)
 	reflection.Register(grpcServer)
 	ctx := context.Background()
