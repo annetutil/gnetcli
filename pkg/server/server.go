@@ -40,23 +40,33 @@ var errEmptyHost = errors.New("empty host")
 var errWrongReadTimeout = errors.New("wrong read timeout")
 var errWrongCmdTimeout = errors.New("wrong cmd timeout")
 var errDevDuplicate = errors.New("duplicated device type")
-var errNotFound = errors.New("HostParams not found")
 
 type Server struct {
 	pb.UnimplementedGnetcliServer
 	log          *zap.Logger
-	defDevCreds  credentials.Credentials
 	deviceMaps   map[string]func(streamer.Connector) device.Device
 	deviceMapsMu sync.Mutex
 	hostParams   map[string]hostParams
 	hostParamsMu sync.Mutex
+	devAuthApp   authApp
 }
 
 type hostParams struct {
-	port   int
-	device string
-	creds  credentials.Credentials
-	ip     netip.Addr
+	port      int
+	device    string
+	creds     credentials.Credentials
+	ip        netip.Addr
+	proxyJump string
+}
+
+func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump string) hostParams {
+	return hostParams{
+		port:      port,
+		device:    device,
+		creds:     creds,
+		ip:        ip,
+		proxyJump: proxyJump,
+	}
 }
 
 func (m *hostParams) GetCredentials() credentials.Credentials {
@@ -75,27 +85,17 @@ func (m *hostParams) GetIP() netip.Addr {
 	return m.ip
 }
 
-func makeHostParams(params *pb.HostParams, agent bool) (hostParams, error) {
-	var credsParsed credentials.Credentials
-	creds := params.GetCredentials()
-	if creds != nil {
-		credsParsed = BuildCreds(creds.GetLogin(), creds.GetPassword(), agent, nil)
-	}
+func makeHostConnectionParams(params *pb.HostParams) (netip.Addr, int, error) {
 	addr := params.GetIp()
 	ip := netip.Addr{}
 	if len(addr) > 0 {
 		r, err := netip.ParseAddr(addr)
 		if err != nil {
-			return hostParams{}, err
+			return netip.Addr{}, 0, err
 		}
 		ip = r
 	}
-	return hostParams{
-		port:   int(params.GetPort()),
-		device: params.GetDevice(),
-		creds:  credsParsed,
-		ip:     ip,
-	}, nil
+	return ip, int(params.GetPort()), nil
 }
 
 type Option func(*Server)
@@ -103,12 +103,6 @@ type Option func(*Server)
 func WithLogger(logger *zap.Logger) Option {
 	return func(h *Server) {
 		h.log = logger
-	}
-}
-
-func WithDefaultDeviceCredentials(creds credentials.Credentials) Option {
-	return func(h *Server) {
-		h.defDevCreds = creds
 	}
 }
 
@@ -125,10 +119,16 @@ func (m *Server) makeConnectArg(hostname string, params hostParams) (string, int
 }
 
 func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtrace.Operation, data []byte), logger *zap.Logger) (device.Device, error) {
-	c := m.defDevCreds // global
+	var creds credentials.Credentials
 	paramCreds := params.GetCredentials()
 	if paramCreds != nil {
-		c = paramCreds
+		creds = paramCreds
+	} else {
+		defcreds, err := m.devAuthApp.Get(hostname)
+		if err != nil {
+			return nil, err
+		}
+		creds = defcreds
 	}
 	deviceType := params.GetDevice()
 	streamerOpts := []ssh.StreamerOption{ssh.WithLogger(logger), ssh.WithTrace(add)}
@@ -136,7 +136,21 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 	if port > 0 {
 		streamerOpts = append(streamerOpts, ssh.WithPort(port))
 	}
-	connector := ssh.NewStreamer(connHost, c, streamerOpts...)
+	if params.proxyJump != "" {
+		tunCreds, err := m.devAuthApp.Get(params.proxyJump)
+		if err != nil {
+			return nil, fmt.Errorf("unable to get creds for ssh tunnel to %s:%w", params.proxyJump, err)
+		}
+		tun := ssh.NewSSHTunnel(params.proxyJump, tunCreds, ssh.SSHTunnelWithLogger(logger))
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err = tun.CreateConnect(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to open ssh tunnel to %s:%w", params.proxyJump, err)
+		}
+		streamerOpts = append(streamerOpts, ssh.WithSSHTunnel(tun))
+	}
+	connector := ssh.NewStreamer(connHost, creds, streamerOpts...)
 	devFab, ok := m.deviceMaps[deviceType]
 	if !ok {
 		return nil, fmt.Errorf("unknown device %v", deviceType)
@@ -346,17 +360,14 @@ func (m *Server) AddDevice(ctx context.Context, device *pb.Device) (*pb.DeviceRe
 	}, nil
 }
 
-func (m *Server) SetupHostParams(ctx context.Context, hostParams *pb.HostParams) (*emptypb.Empty, error) {
-	m.log.Debug("SetupHostParams", zap.Any("device", hostParams))
-	agent := false
-	if len(m.defDevCreds.GetAgentSocket()) > 0 {
-		agent = true
-	}
-	params, err := makeHostParams(hostParams, agent)
+func (m *Server) SetupHostParams(ctx context.Context, cmdHostParams *pb.HostParams) (*emptypb.Empty, error) {
+	m.log.Debug("SetupHostParams", zap.Any("device", cmdHostParams))
+	ip, port, err := makeHostConnectionParams(cmdHostParams)
 	if err != nil {
 		return nil, err
 	}
-	m.updateHostParams(hostParams.GetHost(), params)
+	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "")
+	m.updateHostParams(cmdHostParams.GetHost(), params)
 	return &emptypb.Empty{}, nil
 }
 
@@ -367,21 +378,74 @@ func (m *Server) updateHostParams(hostname string, params hostParams) {
 }
 
 func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostParams, error) {
+	// from config
+	defaultCreds, err := m.devAuthApp.Get(hostname)
+	if err != nil {
+		return hostParams{}, err
+	}
+	defaultHostParams, err := m.devAuthApp.GetHostParams(hostname, cmdParams)
+	if err != nil {
+		return hostParams{}, err
+	}
+
+	// from GRPC calls
+	var localParams *hostParams
+	if localParamsVal, ok := m.hostParams[hostname]; ok {
+		localParams = &localParamsVal
+	}
+
+	// from current GRPC call arg
+	var cmdHostParams *hostParams
 	if cmdParams != nil {
-		agent := false
-		if len(m.defDevCreds.GetAgentSocket()) > 0 {
-			agent = true
+		ip, port, err := makeHostConnectionParams(cmdParams)
+		if err != nil {
+			return hostParams{}, err
 		}
-		hParams, err := makeHostParams(cmdParams, agent)
-		return hParams, err
+		cmdCreds := cmdParams.GetCredentials()
+		var credsParsed credentials.Credentials
+		if cmdCreds != nil {
+			creds, err := BuildCreds(cmdParams.GetHost(), cmdCreds.GetLogin(), cmdCreds.GetPassword(), false, "", nil)
+			if err != nil {
+				return hostParams{}, err
+			}
+			credsParsed = creds
+		}
+		cmdHostParams = &hostParams{
+			port:   port,
+			device: cmdParams.Device,
+			creds:  credsParsed,
+			ip:     ip,
+		}
 	}
-	m.hostParamsMu.Lock()
-	defer m.hostParamsMu.Unlock()
-	params, ok := m.hostParams[hostname]
-	if !ok {
-		return hostParams{}, errNotFound
+	var res hostParams
+	// merging
+	if cmdHostParams != nil {
+		res = *cmdHostParams
+		if res.creds == nil { // creds not in cmdParams
+			if localParams != nil && localParams.creds != nil {
+				res.creds = localParams.creds
+			} else {
+				res.creds = defaultCreds
+			}
+		}
+	} else if localParams != nil {
+		res = *localParams
+		if res.creds == nil {
+			res.creds = defaultCreds
+		}
+	} else {
+		res = hostParams{
+			port:   0,
+			device: cmdParams.Device,
+			creds:  defaultCreds,
+			ip:     netip.Addr{},
+		}
 	}
-	return params, nil
+	// proxyJump only supported in defaultHostParams
+	if defaultHostParams.proxyJump != "" {
+		res.proxyJump = defaultHostParams.proxyJump
+	}
+	return res, nil
 }
 
 func (m *Server) Download(ctx context.Context, req *pb.FileDownloadRequest) (*pb.FilesResult, error) {
@@ -442,15 +506,15 @@ func (m *Server) Upload(ctx context.Context, req *pb.FileUploadRequest) (*emptyp
 	return &emptypb.Empty{}, err
 }
 
-func New(opts ...Option) *Server {
+func New(devAuthApp authApp, opts ...Option) *Server {
 	s := &Server{
 		UnimplementedGnetcliServer: pb.UnimplementedGnetcliServer{},
 		log:                        zap.NewNop(),
-		defDevCreds:                nil,
 		deviceMapsMu:               sync.Mutex{},
 		deviceMaps:                 nil,
 		hostParams:                 map[string]hostParams{},
 		hostParamsMu:               sync.Mutex{},
+		devAuthApp:                 devAuthApp,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -520,12 +584,21 @@ func validateCmd(cmd *pb.CMD) error {
 	return nil
 }
 
-func BuildCreds(login, password string, enableAgent bool, logger *zap.Logger) credentials.Credentials {
+func BuildCreds(host, login, password string, enableAgent bool, sshConfig string, logger *zap.Logger) (credentials.Credentials, error) {
 	if len(login) == 0 {
 		newLogin := credentials.GetLogin()
 		login = newLogin
 	}
 
+	if len(sshConfig) > 0 {
+		sshConfigPassphrase := "" // TODO: pass it
+		// here we read ssh config each call
+		cred, err := BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, logger)
+		if err != nil {
+			return nil, err
+		}
+		return cred, nil
+	}
 	opts := []credentials.CredentialsOption{
 		credentials.WithUsername(login),
 	}
@@ -539,7 +612,7 @@ func BuildCreds(login, password string, enableAgent bool, logger *zap.Logger) cr
 		opts = append(opts, credentials.WithPassword(credentials.Secret(password)))
 	}
 	creds := credentials.NewSimpleCredentials(opts...)
-	return creds
+	return creds, nil
 }
 
 func BuildEmptyCreds(logger *zap.Logger) credentials.Credentials {
@@ -588,4 +661,36 @@ func makeFilesResult(files map[string]streamer.File) *pb.FilesResult {
 		res.Files = append(res.Files, p)
 	}
 	return &res
+}
+
+func BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase string, logger *zap.Logger) (credentials.Credentials, error) {
+	privateKeys, err := credentials.GetPrivateKeysFromConfig(host)
+	if err != nil {
+		return nil, err
+	}
+	configLogin := credentials.GetUsernameFromConfig(host)
+	if configLogin != "" {
+		login = configLogin
+	}
+	agentSocket, err := credentials.GetAgentSocketFromConfig(host)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := []credentials.CredentialsOption{
+		credentials.WithUsername(login),
+		credentials.WithLogger(logger),
+		credentials.WithSSHAgentSocket(agentSocket),
+	}
+	if len(password) > 0 {
+		opts = append(opts, credentials.WithPassword(credentials.Secret(password)))
+	}
+	if len(privateKeys) > 0 {
+		opts = append(opts, credentials.WithPrivateKeys(privateKeys))
+	}
+	if len(sshConfigPassphrase) > 0 {
+		opts = append(opts, credentials.WithPassphrase(credentials.Secret(sshConfigPassphrase)))
+	}
+
+	return credentials.NewSimpleCredentials(opts...), nil
 }

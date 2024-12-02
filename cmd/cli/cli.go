@@ -18,6 +18,7 @@ import (
 	"github.com/annetutil/gnetcli/pkg/devconf"
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
+	"github.com/annetutil/gnetcli/pkg/server"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
 	"github.com/annetutil/gnetcli/pkg/testutils"
 )
@@ -199,7 +200,7 @@ func buildCreds(login, password, host, sshConfigPassphrase string, useSSHConfig 
 	}
 
 	if useSSHConfig {
-		return buildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, logger)
+		return server.BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, logger)
 	}
 	return buildBasicCreds(login, password, logger), nil
 }
@@ -214,38 +215,6 @@ func buildBasicCreds(login, password string, logger *zap.Logger) gcred.Credentia
 		opts = append(opts, gcred.WithPassword(gcred.Secret(password)))
 	}
 	return gcred.NewSimpleCredentials(opts...)
-}
-
-func buildCredsFromSSHConfig(login, password, host, sshConfigPassphrase string, logger *zap.Logger) (gcred.Credentials, error) {
-	privateKeys, err := gcred.GetPrivateKeysFromConfig(host)
-	if err != nil {
-		return nil, err
-	}
-	configLogin := gcred.GetUsernameFromConfig(host)
-	if configLogin != "" {
-		login = configLogin
-	}
-	agentSocket, err := gcred.GetAgentSocketFromConfig(host)
-	if err != nil {
-		return nil, err
-	}
-
-	opts := []gcred.CredentialsOption{
-		gcred.WithUsername(login),
-		gcred.WithLogger(logger),
-		gcred.WithSSHAgentSocket(agentSocket),
-	}
-	if len(password) > 0 {
-		opts = append(opts, gcred.WithPassword(gcred.Secret(password)))
-	}
-	if len(privateKeys) > 0 {
-		opts = append(opts, gcred.WithPrivateKeys(privateKeys))
-	}
-	if len(sshConfigPassphrase) > 0 {
-		opts = append(opts, gcred.WithPassphrase(gcred.Secret(sshConfigPassphrase)))
-	}
-
-	return gcred.NewSimpleCredentials(opts...), nil
 }
 
 func exec(ctx context.Context, dev device.Device, commands []string, cmdopts []cmd.CmdOption, logger *zap.Logger) ([]cmd.CmdRes, error) {
