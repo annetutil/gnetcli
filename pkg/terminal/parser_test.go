@@ -99,6 +99,12 @@ func TestBadEscape(t *testing.T) {
 	checkError(t, "\x1b[D")
 }
 
+func TestBS(t *testing.T) {
+	res, err := Parse([]byte("test   \u0008\u0008\u0008123"))
+	assert.NoError(t, err)
+	assert.Equal(t, "test123", string(res))
+}
+
 func check(t *testing.T, want string, s string) {
 	res, err := Parse([]byte(s))
 	assert.NoError(t, err)
