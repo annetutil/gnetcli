@@ -26,6 +26,7 @@ import (
 const (
 	FeatureAutocmds        = "autocmds"
 	FeatureSpacesAfterEcho = "spaces_after_echo"
+	FeatureExtraCrEcho     = "extra_cr_echo"
 )
 
 type DevConf struct {
@@ -102,6 +103,11 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 			case FeatureSpacesAfterEcho:
 				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
 					return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s *\r\n`, regexp.QuoteMeta(string(c.Value()))))
+				})
+				opts = append(opts, a)
+			case FeatureExtraCrEcho:
+				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
+					return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s\r*\n`, regexp.QuoteMeta(string(c.Value()))))
 				})
 				opts = append(opts, a)
 			default:
