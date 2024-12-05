@@ -852,7 +852,7 @@ func (m *Streamer) ReadTo(ctx context.Context, exp expr.Expr) (streamer.ReadRes,
 	return underlyingRes, nil
 }
 
-func (m *Streamer) checkConsoleError(readRes streamer.ReadRes) error {
+func (m *Streamer) CheckConsoleError(readRes streamer.ReadRes) error {
 	res := readRes.GetMatched()
 
 	r, err := regexp.Compile(regExErrors)

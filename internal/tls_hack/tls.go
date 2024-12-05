@@ -20,9 +20,9 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"net"
+	"os"
 	"strings"
 	"time"
 )
@@ -183,11 +183,11 @@ func Dial(network, addr string, config *Config) (*Conn, error) {
 // form a certificate chain. On successful return, Certificate.Leaf will
 // be nil because the parsed form of the certificate is not retained.
 func LoadX509KeyPair(certFile, keyFile string) (Certificate, error) {
-	certPEMBlock, err := ioutil.ReadFile(certFile)
+	certPEMBlock, err := os.ReadFile(certFile)
 	if err != nil {
 		return Certificate{}, err
 	}
-	keyPEMBlock, err := ioutil.ReadFile(keyFile)
+	keyPEMBlock, err := os.ReadFile(keyFile)
 	if err != nil {
 		return Certificate{}, err
 	}
@@ -343,7 +343,7 @@ func parseDhParams(der []byte) (DhParams, error) {
 // LoadDhParams reads and parses the Diff-Hellman parameters p and g from a file.
 // The file must contain PEM encoded data.
 func LoadDhParams(DhParamsFile string) (DhParams, error) {
-	dhparamsPEMBlock, err := ioutil.ReadFile(DhParamsFile)
+	dhparamsPEMBlock, err := os.ReadFile(DhParamsFile)
 	if err != nil {
 		return DhParams{}, err
 	}
