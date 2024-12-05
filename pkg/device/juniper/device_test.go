@@ -23,6 +23,7 @@ func TestError(t *testing.T) {
 		[]byte("\r\n                           ^\r\nsyntax error.\r\n\r\n"),
 		[]byte("configure exclusive error: configuration database modified\r\n"),
 		[]byte("error: configuration database modified\r\n"),
+		[]byte("error: configuration check-out failed\r\n"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }
