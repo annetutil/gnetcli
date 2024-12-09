@@ -78,7 +78,7 @@ func main() {
 		listeners = append(listeners, unixSocketLn)
 	}
 	if !cfg.DisableTcp {
-		address := fmt.Sprintf("localhost:%d", cfg.Port)
+		address := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
 		tcpSocketLn, err := newTcpSocket(address)
 		if err != nil {
 			logger.Panic("tcp socket error", zap.Error(err))
