@@ -86,12 +86,12 @@ func LoadConf() (Config, error) {
 		if len(flagCfg.DevPass) > 0 {
 			pcfg.DevPass = flagCfg.DevPass
 		}
-		if flagCfg.Debug {
-			pcfg.Logging.Level = zapcore.DebugLevel
-		}
 		cfg = pcfg
 	} else {
 		cfg = flagCfg
+	}
+	if flagCfg.Debug {
+		cfg.Logging.Level = zapcore.DebugLevel
 	}
 	return cfg, nil
 }
