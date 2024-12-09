@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -78,7 +77,10 @@ func main() {
 		listeners = append(listeners, unixSocketLn)
 	}
 	if !cfg.DisableTcp {
-		address := fmt.Sprintf("localhost:%d", cfg.Port)
+		address := cfg.Listen
+		if !strings.Contains(cfg.Listen, ":") { // just port
+			address = net.JoinHostPort("127.0.0.1", address)
+		}
 		tcpSocketLn, err := newTcpSocket(address)
 		if err != nil {
 			logger.Panic("tcp socket error", zap.Error(err))
