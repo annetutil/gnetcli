@@ -19,7 +19,7 @@ import (
 
 type Config struct {
 	Logging LogConfig `yaml:"logging"`
-	Port    int       `config:"port,description=Server port" yaml:"port"`
+	Listen  string    `config:"port,description=Listen address" yaml:"port"`
 	// FIXME: Dev* in DevAuth, drop it
 	DevLogin    string        `config:"dev-login,description=Default device login" yaml:"dev_login"`
 	DevPass     string        `config:"dev-pass,description=Default device password" yaml:"dev_pass"`
@@ -42,7 +42,7 @@ type LogConfig struct {
 
 func newDefaultConf() Config {
 	return Config{
-		Port: 50051,
+		Listen: "127.0.0.1:50051",
 		Logging: LogConfig{
 			Level: zapcore.InfoLevel,
 			Json:  false,
@@ -80,8 +80,8 @@ func LoadConf() (Config, error) {
 		if len(flagCfg.DevLogin) > 0 {
 			pcfg.DevLogin = flagCfg.DevLogin
 		}
-		if flagCfg.Port > 0 {
-			pcfg.Port = flagCfg.Port
+		if len(flagCfg.Listen) > 0 {
+			pcfg.Listen = flagCfg.Listen
 		}
 		if len(flagCfg.DevPass) > 0 {
 			pcfg.DevPass = flagCfg.DevPass
