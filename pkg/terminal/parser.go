@@ -16,6 +16,7 @@ import (
 const (
 	RETURN  = '\r'
 	NEWLINE = '\n'
+	BS      = 0x08
 	ESCAPE  = 0x1B
 	CSI     = '['
 	CUB     = 'D'
@@ -182,6 +183,9 @@ func (m *Parser) parse() ([]byte, error) {
 				m.data = sliceEdit(m.data, lineStart+1, m.pos+1)
 			}
 			m.pos = lineStart - 1
+		} else if char == BS {
+			m.data = sliceEdit(m.data, m.pos-1, m.pos+1)
+			m.pos = m.pos - 2
 		} else if char == NEWLINE {
 			lastNewline = m.pos
 		}

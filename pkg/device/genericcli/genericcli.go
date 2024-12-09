@@ -533,6 +533,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			seenEcho = true
 			exprs.Delete("echo")
+			// delete echo
 			mbefore = termParsedEcho[mres.End:]
 		}
 		if matchName == "prompt" {
