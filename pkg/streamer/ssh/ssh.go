@@ -13,6 +13,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -101,7 +102,7 @@ func (endpoint Endpoint) String() string {
 }
 
 func (endpoint *Endpoint) Addr() string {
-	return fmt.Sprintf("%s:%d", endpoint.Host, endpoint.Port)
+	return net.JoinHostPort(endpoint.Host, strconv.Itoa(endpoint.Port))
 }
 
 func NewEndpoint(host string, port int, network Network) Endpoint {
