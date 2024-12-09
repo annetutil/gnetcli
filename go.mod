@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
-	github.com/heetch/confita v0.0.0-20181011080120-653cbec9ecff
+	github.com/heetch/confita v0.10.0
 	github.com/kevinburke/ssh_config v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.8.1
