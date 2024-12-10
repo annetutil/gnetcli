@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	loginExpression    = `.*Username:\s?$`
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
 	promptExpression   = `(?P<prompt>[\w\-]+(\(config(-\w+)*\))?)(>|#)$`
 	errorExpression    = `(` +
@@ -29,9 +28,7 @@ const (
 		`|^% Invalid input` +
 		`|Permission denied.+\[Errno \d+\] Permission denied` +
 		`)`
-	passwordExpression      = `.*Password:\s?$`
-	passwordErrorExpression = `\n\% Authentication failed(\r\n|\n)`
-	pagerExpression         = `\r\n --More-- $`
+	pagerExpression = `\r\n --More-- $`
 )
 
 var autoCommands = []cmd.Cmd{
@@ -40,10 +37,6 @@ var autoCommands = []cmd.Cmd{
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
 	cli := genericcli.MakeGenericCLI(expr.NewSimpleExprLast200().FromPattern(promptExpression), expr.NewSimpleExprLast200().FromPattern(errorExpression),
-		genericcli.WithLoginExprs(
-			expr.NewSimpleExprLast200().FromPattern(loginExpression),
-			expr.NewSimpleExprLast200().FromPattern(passwordExpression),
-			expr.NewSimpleExprLast200().FromPattern(passwordErrorExpression)),
 		genericcli.WithPager(
 			expr.NewSimpleExprLast200().FromPattern(pagerExpression)),
 		genericcli.WithQuestion(
