@@ -29,6 +29,8 @@ Usage of server:
     	Authenticate client using Basic auth
   -cert-file string
     	The TLS cert file
+  -conf-file string
+      Path to config file
   -debug
     	set debug log level
   -dev-enable-agent
