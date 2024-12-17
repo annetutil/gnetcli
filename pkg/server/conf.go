@@ -25,7 +25,7 @@ type Config struct {
 	DevPass     string        `config:"dev-pass,description=Default device password" yaml:"dev_pass"`
 	DevUseAgent bool          `config:"dev-use-agent" yaml:"dev_use_agent"`
 	DevAuth     authAppConfig `config:"dev-auth" yaml:"dev_auth"`
-	ConfFile    string        `config:"conf-file,description=Path to config file"`
+	ConfFile    string        `config:"conf-file,description=Path to config file. '-' for stdin"`
 	Tls         bool          `config:"tls,description=Connection uses TLS if true, else plain TCP" yaml:"tls"`
 	CertFile    string        `config:"cert-file,description=The TLS cert file" yaml:"cert_file"`
 	KeyFile     string        `config:"key-file,description=The TLS key file" yaml:"key_file"`
