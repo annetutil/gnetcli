@@ -29,6 +29,32 @@ const (
 	defaultPort        = 23
 )
 
+const (
+	IAC  = "\xff"
+	BIAC = 255
+
+	SB  = "\xfa"
+	BSB = 250
+	SE  = "\xf0"
+	BSE = 240
+
+	WILL  = "\xfb"
+	BWILL = 251
+	WONT  = "\xfc"
+	BWONT = 252
+	DO    = "\xfd"
+	BDO   = 253
+	DONT  = "\xfe"
+	BDONT = 254
+
+	BINARY  = "\x00"
+	BBINARY = 0
+	ECHO    = "\x01"
+	BECHO   = 1
+	SGA     = "\x03"
+	BSGA    = 03
+)
+
 type Streamer struct {
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
