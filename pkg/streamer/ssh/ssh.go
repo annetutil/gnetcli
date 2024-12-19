@@ -55,6 +55,13 @@ const (
 
 var _ streamer.Connector = (*Streamer)(nil)
 
+type sshSessionTemplate struct {
+	stdin   io.WriteCloser
+	stderr  io.Reader
+	stdout  io.Reader
+	session *ssh.Session
+}
+
 type sshSession struct {
 	stdin             io.WriteCloser
 	stderr            io.Reader
@@ -65,21 +72,21 @@ type sshSession struct {
 	chanReaderCancel  context.CancelFunc
 }
 
-func newSSHSession(stdin io.WriteCloser, stdout, stderr io.Reader, session *ssh.Session, logger *zap.Logger) *sshSession {
+func newSSHSession(in *sshSessionTemplate, logger *zap.Logger) *sshSession {
 	stdoutBuffer := make(chan []byte, 100)
 	newCtx, cancel := context.WithCancel(context.Background())
 	go func() { // will be closed after closing stdout
-		err := chanReader(newCtx, stdout, stdoutBuffer, time.Second, logger)
+		err := chanReader(newCtx, in.stdout, stdoutBuffer, time.Second, logger)
 		if err != nil {
 			logger.Debug("sessionStdoutReader error", zap.Error(err))
 			close(stdoutBuffer)
 		}
 	}()
 	return &sshSession{
-		stdin:             stdin,
-		stderr:            stderr,
-		stdout:            stdout,
-		session:           session,
+		stdin:             in.stdin,
+		stderr:            in.stderr,
+		stdout:            in.stdout,
+		session:           in.session,
 		stdoutBuffer:      stdoutBuffer,
 		stdoutBufferExtra: nil,
 		chanReaderCancel:  cancel,
@@ -433,44 +440,21 @@ func (m *Streamer) Close() {
 
 func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 	m.logger.Debug("run cmd", zap.String("cmd", cmd))
-	session, err := m.conn.NewSession()
+	sessionTemplate, err := m.newSessionTemplate()
 	if err != nil {
-		return nil, err
-	}
-	err = m.onSessionOpen(session)
-	if err != nil {
-		if e := session.Close(); e != nil {
-			m.logger.Error("session closer error", zap.Error(err))
-		}
-		return nil, fmt.Errorf("onSessionOpen error %w", err)
+		return nil, fmt.Errorf("failed to init session template: %w", err)
 	}
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	session.Stdout = &stdout
-	session.Stderr = &stderr
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
-	session.Stdin = r
-
-	for name, value := range m.env {
-		err := session.Setenv(name, value)
-		if err != nil {
-			m.logger.Debug("unable to set PATH env", zap.Error(err))
-		}
-	}
-
-	defer session.Close()
+	defer sessionTemplate.session.Close()
 	var ctxCanceErr error
 	cancel := streamer.CloserCTX(ctx, func() {
 		ctxCanceErr = ctx.Err()
-		session.Signal(ssh.SIGKILL)
-		_ = session.Close()
+		sessionTemplate.session.Signal(ssh.SIGKILL)
+		_ = sessionTemplate.session.Close()
 	})
-	err = session.Run(cmd)
+	err = sessionTemplate.session.Run(cmd)
 	cancel()
-	onSessionCloseErr := m.onSessionCloseCallbacks(session)
+	onSessionCloseErr := m.onSessionCloseCallbacks(sessionTemplate.session)
 	if onSessionCloseErr != nil {
 		m.logger.Error("onSessionCloseCallbacks error %w", zap.Error(err))
 	}
@@ -489,8 +473,16 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 		isStatusGettingOk = true
 	}
 
-	stdoutBytes := stdout.Bytes()
-	stderrBytes := stderr.Bytes()
+	var stdoutBuffer, stderrBuffer bytes.Buffer
+	_, err = io.Copy(&stdoutBuffer, sessionTemplate.stdout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy stdout: %w", err)
+	}
+	_, err = io.Copy(&stderrBuffer, sessionTemplate.stderr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy stderr: %w", err)
+	}
+	stdoutBytes, stderrBytes := stdoutBuffer.Bytes(), stderrBuffer.Bytes()
 	var res gcmd.CmdRes
 	if isStatusGettingOk {
 		res = gcmd.NewCmdResFull(stdoutBytes, stderrBytes, status, nil)
@@ -671,10 +663,7 @@ func (m *Streamer) onSessionCloseCallbacks(sess *ssh.Session) error {
 	return multierr.Combine(errs...)
 }
 
-func (m *Streamer) openSession() (*sshSession, error) {
-	var stdin io.WriteCloser
-	var stdout, stderr io.Reader
-
+func (m *Streamer) newSessionTemplate() (*sshSessionTemplate, error) {
 	session, err := m.conn.NewSession()
 	if err != nil {
 		return nil, fmt.Errorf("session error %w", err)
@@ -683,15 +672,15 @@ func (m *Streamer) openSession() (*sshSession, error) {
 	if err != nil {
 		return nil, fmt.Errorf("onSessionOpen error %w", err)
 	}
-	stdin, err = session.StdinPipe()
+	stdin, err := session.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StdinPipe error %w", err)
 	}
-	stdout, err = session.StdoutPipe()
+	stdout, err := session.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StdoutPipe error %w", err)
 	}
-	stderr, err = session.StderrPipe()
+	stderr, err := session.StderrPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StderrPipe error %w", err)
 	}
@@ -705,18 +694,31 @@ func (m *Streamer) openSession() (*sshSession, error) {
 			return nil, fmt.Errorf("unable to set env %s: %s %s %w", name, string(stdoutBuf[0:stdoutRead]), string(stderrBuf[0:stderrRead]), err)
 		}
 	}
+	return &sshSessionTemplate{
+		stdin:   stdin,
+		stderr:  stderr,
+		stdout:  stdout,
+		session: session,
+	}, nil
+}
+
+func (m *Streamer) openSession() (*sshSession, error) {
+	sessionTemplate, err := m.newSessionTemplate()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init session template: %w", err)
+	}
 	m.logger.Debug("request", zap.String("program", m.program), zap.String("program_data", m.programData))
 	switch m.program {
 	case "shell":
-		if err := m.requestPty(session); err != nil {
+		if err := m.requestPty(sessionTemplate.session); err != nil {
 			return nil, fmt.Errorf("RequestPty error %w", err)
 		}
-		err := session.Shell()
+		err := sessionTemplate.session.Shell()
 		if err != nil {
 			return nil, fmt.Errorf("shell request error %w", err)
 		}
 	case "subsystem":
-		err := session.RequestSubsystem(m.programData)
+		err := sessionTemplate.session.RequestSubsystem(m.programData)
 		if err != nil {
 			return nil, fmt.Errorf("subsystem %s requst error %w", m.programData, err)
 		}
@@ -724,7 +726,7 @@ func (m *Streamer) openSession() (*sshSession, error) {
 		return nil, fmt.Errorf("unknown ssh session program %s", m.program)
 	}
 
-	sess := newSSHSession(stdin, stdout, stderr, session, m.logger)
+	sess := newSSHSession(sessionTemplate, m.logger)
 	return sess, nil
 }
 
@@ -883,37 +885,29 @@ func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), e
 
 	cmd := strings.TrimSpace(string(res.Output()))
 	m.logger.Debug("resolved sftp-server", zap.String("path", cmd))
-	session, err := m.conn.NewSession()
+	sessionTemplate, err := m.newSessionTemplate()
 	if err != nil {
 		return
 	}
 	defer func() {
 		if err != nil {
-			_ = session.Close()
+			_ = sessionTemplate.session.Close()
 		}
 	}()
 
-	pw, err := session.StdinPipe()
-	if err != nil {
-		return
-	}
-	pr, err := session.StdoutPipe()
-	if err != nil {
-		return
-	}
-	err = session.Start("sudo " + cmd)
+	err = sessionTemplate.session.Start("sudo " + cmd)
 	if err != nil {
 		m.logger.Warn("cannot run sudo sftp-server", zap.Error(err))
 		return
 	}
-	sc, err = sftp.NewClientPipe(pr, pw)
+	sc, err = sftp.NewClientPipe(sessionTemplate.stdout, sessionTemplate.stdin)
 	if err != nil {
 		m.logger.Warn("cannot create client for sudo sftp-server", zap.Error(err))
 		return
 	}
 	stop = func() {
 		_ = sc.Close()
-		_ = session.Close()
+		_ = sessionTemplate.session.Close()
 	}
 	return
 }
@@ -924,21 +918,29 @@ func (m *Streamer) Download(filePaths []string, recurse bool) (map[string]stream
 	}
 
 	files, err := m.sftpDownload(filePaths, recurse, false)
-	if err != nil {
-		return nil, err
+	if err != nil && (!errors.Is(err, &SftpClientCreationFailedError{}) || !m.sftpSudoTry) {
+		return nil, fmt.Errorf("failed to sftp download, no sudo: %w", err)
 	}
 
 	// Retry with sudo files with "permission denied"
 	var filePathsWithSudo []string
-	for path, file := range files {
-		if errors.Is(file.Err, os.ErrPermission) {
-			filePathsWithSudo = append(filePathsWithSudo, path)
+	if errors.Is(err, &SftpClientCreationFailedError{}) {
+		filePathsWithSudo = filePaths
+		files = map[string]streamer.File{}
+	} else {
+		for path, file := range files {
+			if errors.Is(file.Err, os.ErrPermission) {
+				filePathsWithSudo = append(filePathsWithSudo, path)
+			}
 		}
 	}
 	if len(filePathsWithSudo) != 0 {
+		if !m.sftpSudoTry {
+			return nil, fmt.Errorf("sudo not specified, file paths %v are not available without it", filePathsWithSudo)
+		}
 		filesWithSudo, err := m.sftpDownload(filePathsWithSudo, recurse, true)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to sftp download with sudo: %w", err)
 		}
 		for path, file := range filesWithSudo {
 			files[path] = file
@@ -947,10 +949,25 @@ func (m *Streamer) Download(filePaths []string, recurse bool) (map[string]stream
 	return files, nil
 }
 
+type SftpClientCreationFailedError struct {
+	err error
+}
+
+func (e *SftpClientCreationFailedError) Error() string {
+	return e.err.Error()
+}
+
+func (e *SftpClientCreationFailedError) Is(target error) bool {
+	if _, ok := target.(*SftpClientCreationFailedError); ok {
+		return true
+	}
+	return false
+}
+
 func (m *Streamer) sftpDownload(filePaths []string, recurse bool, useSudo bool) (map[string]streamer.File, error) {
 	sc, stop, err := m.makeSftpClient(useSudo)
 	if err != nil {
-		return nil, err
+		return nil, &SftpClientCreationFailedError{err: err}
 	}
 	defer stop()
 
