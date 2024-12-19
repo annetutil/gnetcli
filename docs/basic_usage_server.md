@@ -30,21 +30,26 @@ Usage of server:
   -cert-file string
     	The TLS cert file
   -conf-file string
-      Path to config file
+    	Path to config file. '-' for stdin
+  -d	Set debug log level (short)
   -debug
-    	set debug log level
-  -dev-enable-agent
-    	Enable pubkey auth using ssh-agent
+    	Set debug log level
   -dev-login string
-    	Authenticate password
-  -dev-password string
-    	Authorization password
+    	Default device login
+  -dev-pass string
+    	Default device password
+  -dev-use-agent
+
+  -disable_tcp
+    	Disable TCP listener
   -key-file string
     	The TLS key file
-  -port int
-    	The server port (default 50051)
+  -port string
+    	Listen address (default "127.0.0.1:50051")
   -tls
-    	Connection uses TLS if true, else plain TCP
+    	Connection uses TLS if true
+  -unix-socket string
+    	Unix socket path
 ```
 
 ### Configuration file
