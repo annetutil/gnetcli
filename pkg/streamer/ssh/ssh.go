@@ -446,9 +446,9 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 	}
 
 	defer sessionTemplate.session.Close()
-	var ctxCanceErr error
+	var ctxCancelErr error
 	cancel := streamer.CloserCTX(ctx, func() {
-		ctxCanceErr = ctx.Err()
+		ctxCancelErr = ctx.Err()
 		sessionTemplate.session.Signal(ssh.SIGKILL)
 		_ = sessionTemplate.session.Close()
 	})
@@ -490,7 +490,7 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 		res = gcmd.NewCmdResFull(stdoutBytes, stderrBytes, NoStatusResult, nil)
 	}
 
-	if ctxCanceErr != nil {
+	if ctxCancelErr != nil {
 		return nil, fmt.Errorf("context timeout status=%d out=%s err=%s", res.Status(), res.Output(), res.Error())
 	}
 	if execErr != nil {
