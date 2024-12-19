@@ -1,5 +1,5 @@
 Gnetcli 'server' is a GRPC-server for interacting with non-Go projects and other automations.
-The server supports basic auth for clients, executing commands in stream mode, upload and downloading. 
+The server supports basic auth for clients, executing commands in stream mode, upload and downloading.
 Authentication on a device can be specified as a part of `Exec()` RPC or using `-dev*` arguments.
 See GRPC-server calls description in [server.proto](https://github.com/annetutil/gnetcli/blob/main/pkg/server/proto/server.proto).
 
@@ -11,7 +11,8 @@ Or download latest release from [Github release](https://github.com/annetutil/gn
 
 Starting:
 ```shell
-server -debug -basic-auth mylogin:mysecret
+# ~/go/bin/gnetcli_server
+gnetcli_server -debug -basic-auth mylogin:mysecret
 ```
 
 Exec a command on a device using `grpcurl`:
