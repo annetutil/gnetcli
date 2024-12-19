@@ -24,7 +24,7 @@ type Config struct {
 	DevLogin    string        `config:"dev-login,description=Default device login" yaml:"dev_login"`
 	DevPass     string        `config:"dev-pass,description=Default device password" yaml:"dev_pass"`
 	DevUseAgent bool          `config:"dev-use-agent" yaml:"dev_use_agent"`
-	DevAuth     authAppConfig `config:"dev-auth" yaml:"dev_auth"`
+	DevAuth     authAppConfig `yaml:"dev_auth"`
 	ConfFile    string        `config:"conf-file,description=Path to config file. '-' for stdin"`
 	Tls         bool          `config:"tls,description=Connection uses TLS if true, else plain TCP" yaml:"tls"`
 	CertFile    string        `config:"cert-file,description=The TLS cert file" yaml:"cert_file"`
@@ -36,8 +36,8 @@ type Config struct {
 }
 
 type LogConfig struct {
-	Level zapcore.Level `config:"level" yaml:"level"`
-	Json  bool          `config:"json" yaml:"json"`
+	Level zapcore.Level `yaml:"level"`
+	Json  bool          `yaml:"json"`
 }
 
 func newDefaultConf() Config {

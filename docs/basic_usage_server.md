@@ -1,5 +1,5 @@
 Gnetcli 'server' is a GRPC-server for interacting with non-Go projects and other automations.
-The server supports basic auth for clients, executing commands in stream mode, upload and downloading. 
+The server supports basic auth for clients, executing commands in stream mode, upload and downloading.
 Authentication on a device can be specified as a part of `Exec()` RPC or using `-dev*` arguments.
 See GRPC-server calls description in [server.proto](https://github.com/annetutil/gnetcli/blob/main/pkg/server/proto/server.proto).
 
@@ -11,7 +11,8 @@ Or download latest release from [Github release](https://github.com/annetutil/gn
 
 Starting:
 ```shell
-server -debug -basic-auth mylogin:mysecret
+# ~/go/bin/gnetcli_server
+gnetcli_server -debug -basic-auth mylogin:mysecret
 ```
 
 Exec a command on a device using `grpcurl`:
@@ -30,21 +31,26 @@ Usage of server:
   -cert-file string
     	The TLS cert file
   -conf-file string
-      Path to config file
+    	Path to config file. '-' for stdin
+  -d	Set debug log level (short)
   -debug
-    	set debug log level
-  -dev-enable-agent
-    	Enable pubkey auth using ssh-agent
+    	Set debug log level
   -dev-login string
-    	Authenticate password
-  -dev-password string
-    	Authorization password
+    	Default device login
+  -dev-pass string
+    	Default device password
+  -dev-use-agent
+
+  -disable_tcp
+    	Disable TCP listener
   -key-file string
     	The TLS key file
-  -port int
-    	The server port (default 50051)
+  -port string
+    	Listen address (default "127.0.0.1:50051")
   -tls
-    	Connection uses TLS if true, else plain TCP
+    	Connection uses TLS if true
+  -unix-socket string
+    	Unix socket path
 ```
 
 ### Configuration file
