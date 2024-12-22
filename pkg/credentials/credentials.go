@@ -174,10 +174,10 @@ func GetAgentSocketFromConfig(host string) (string, error) {
 	if expandedIa == "none" {
 		return "", nil
 	}
-	if expandedIa == "SSH_AUTH_SOCK" {
+	if expandedIa == "SSH_AUTH_SOCK" || len(expandedIa) == 0 {
 		return GetDefaultAgentSocket(), nil
 	}
-	if expandedIa == "" && ssh_config.Get(host, "ForwardAgent") == "yes" {
+	if ssh_config.Get(host, "ForwardAgent") == "yes" {
 		return GetDefaultAgentSocket(), nil
 	}
 
