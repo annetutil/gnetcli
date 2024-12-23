@@ -864,8 +864,24 @@ func (m *Streamer) passwordCallbackWrapper(passwords []credentials.Secret) func(
 }
 
 func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), err error) {
+	sessionTemplate, err := m.newSessionTemplate()
+	if err != nil {
+		err = fmt.Errorf("failed to init session template: %w", err)
+		return
+	}
+	defer func() {
+		if err != nil {
+			_ = sessionTemplate.session.Close()
+		}
+	}()
+
 	if !useSudo {
-		sc, err = sftp.NewClient(m.conn)
+		err = sessionTemplate.session.RequestSubsystem("sftp")
+		if err != nil {
+			err = fmt.Errorf("failed to request sftp subsystem: %w", err)
+			return
+		}
+		sc, err = sftp.NewClientPipe(sessionTemplate.stdout, sessionTemplate.stdin)
 		if err == nil {
 			stop = func() {
 				_ = sc.Close()
@@ -877,6 +893,7 @@ func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), e
 	ctx := context.Background()
 	res, err := m.Cmd(ctx, fmt.Sprintf("PATH=%s which sftp-server", sftpServerPaths))
 	if err != nil {
+		err = fmt.Errorf("failed to resolve sftp-server path: %w", err)
 		return
 	} else if res.Status() != 0 {
 		err = fmt.Errorf("sftp-server status %d error %s", res.Status(), res.Error())
@@ -885,15 +902,6 @@ func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), e
 
 	cmd := strings.TrimSpace(string(res.Output()))
 	m.logger.Debug("resolved sftp-server", zap.String("path", cmd))
-	sessionTemplate, err := m.newSessionTemplate()
-	if err != nil {
-		return
-	}
-	defer func() {
-		if err != nil {
-			_ = sessionTemplate.session.Close()
-		}
-	}()
 
 	err = sessionTemplate.session.Start("sudo " + cmd)
 	if err != nil {
