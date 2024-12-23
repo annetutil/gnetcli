@@ -31,6 +31,7 @@ type SSHTunnel struct {
 	credentials credentials.Credentials
 	logger      *zap.Logger
 	mu          sync.Mutex
+	controlFile string
 }
 
 func NewSSHTunnel(host string, credentials credentials.Credentials, opts ...SSHTunnelOption) *SSHTunnel {
@@ -58,6 +59,12 @@ func SSHTunnelWithLogger(log *zap.Logger) SSHTunnelOption {
 	}
 }
 
+func SSHTunnelWithControlFIle(path string) SSHTunnelOption {
+	return func(h *SSHTunnel) {
+		h.controlFile = path
+	}
+}
+
 func SSHTunnelWithNetwork(network Network) SSHTunnelOption {
 	return func(h *SSHTunnel) {
 		h.Server.Network = network
@@ -73,7 +80,13 @@ func SSHTunnelWitPort(port int) SSHTunnelOption {
 func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	connector := NewStreamer(m.Server.Host, m.credentials, WithLogger(m.logger))
+	strOpts := []StreamerOption{
+		WithLogger(m.logger),
+	}
+	if len(m.controlFile) > 0 {
+		strOpts = append(strOpts, WithSSHControlFIle(m.controlFile))
+	}
+	connector := NewStreamer(m.Server.Host, m.credentials, strOpts...)
 	conf, err := connector.GetConfig(ctx)
 	if err != nil {
 		m.logger.Error(err.Error())
@@ -81,16 +94,22 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	}
 
 	m.Config = conf
+	var conn *ssh.Client
 
-	serverConn, err := DialCtx(ctx, m.Server, nil, m.Config, m.logger)
+	if len(m.controlFile) != 0 {
+		conn, err = dialControlMasterConf(ctx, m.controlFile, m.Server, conf, m.logger)
+	} else {
+		conn, err = DialCtx(ctx, m.Server, nil, m.Config, m.logger)
+	}
 	if err != nil {
+		m.logger.Debug("unable to connect to tunnel", zap.Error(err))
 		if !errors.Is(err, context.Canceled) {
 			m.logger.Error(err.Error())
 		}
 		return err
 	}
 	m.logger.Debug("connected to tunnel", zap.String("server", m.Server.String()))
-	m.svrConn = serverConn
+	m.svrConn = conn
 	m.isOpen = true
 	return nil
 }
@@ -112,7 +131,7 @@ func (m *SSHTunnel) StartForward(network Network, remoteAddr string) (net.Conn, 
 
 	copyConn := func(writer, reader net.Conn) error {
 		_, err := io.Copy(writer, reader)
-		m.logger.Debug("done", zap.Error(err))
+		m.logger.Debug("forward done", zap.Error(err))
 		return err
 	}
 	wg, _ := errgroup.WithContext(context.Background())
