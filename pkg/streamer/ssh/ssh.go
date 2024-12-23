@@ -143,6 +143,7 @@ type Streamer struct {
 	readTimeout            time.Duration
 	forwardAgent           agent.Agent
 	hostKeyCallback        ssh.HostKeyCallback
+	controlFile            string // openssh control file
 }
 
 func (m *Streamer) SetTrace(cb trace.CB) {
@@ -194,6 +195,7 @@ func NewStreamer(host string, credentials credentials.Credentials, opts ...Strea
 		sftpSudoTry:            false,
 		readTimeout:            defaultReadTimeout,
 		hostKeyCallback:        ssh.InsecureIgnoreHostKey(),
+		controlFile:            "",
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -399,6 +401,13 @@ func WithSSHTunnel(tunnel Tunnel) StreamerOption {
 	}
 }
 
+// WithSSHControlFIle sets OpenSSH ControlPath
+func WithSSHControlFIle(path string) StreamerOption {
+	return func(h *Streamer) {
+		h.controlFile = path
+	}
+}
+
 func WithTrace(trace trace.CB) StreamerOption {
 	return func(h *Streamer) {
 		h.trace = trace
@@ -572,7 +581,7 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		Timeout:         15 * time.Second,
 	}
 
-	return conf, err
+	return conf, nil
 }
 
 func wrapSigner(signer ssh.Signer, logger *zap.Logger) ssh.Signer {
@@ -593,6 +602,10 @@ func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
 	var conn *ssh.Client
 	if m.tunnel != nil {
 		conn, err = m.dialTunnel(ctx, conf)
+	} else if len(m.controlFile) > 0 {
+		m.logger.Debug("dial control master", zap.String("controlFile", m.controlFile))
+		// TODO: add support additionalEndpoints
+		conn, err = dialControlMasterConf(ctx, m.controlFile, m.endpoint, conf, m.logger)
 	} else {
 		conn, err = DialCtx(ctx, m.endpoint, m.additionalEndpoints, conf, m.logger)
 	}
@@ -617,11 +630,13 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 		if err == nil {
 			break
 		}
-		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", endpoint.String()))
+		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", endpoint.String()), zap.Error(err))
 	}
 	if err != nil {
+		m.tunnel.Close()
 		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.endpoint, err)
 	}
+	m.logger.Debug("dial tunnel", zap.String("address", connectedEndpoint.String()))
 	res, err := DialConnCtx(ctx, tunConn, connectedEndpoint.Addr(), conf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedEndpoint.String(), err)
@@ -720,7 +735,7 @@ func (m *Streamer) openSession() (*sshSession, error) {
 	case "subsystem":
 		err := sessionTemplate.session.RequestSubsystem(m.programData)
 		if err != nil {
-			return nil, fmt.Errorf("subsystem %s requst error %w", m.programData, err)
+			return nil, fmt.Errorf("subsystem %s request error %w", m.programData, err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown ssh session program %s", m.program)
@@ -1086,6 +1101,7 @@ func DialCtx(ctx context.Context, endpoint Endpoint, additionalEndpoints []Endpo
 	endpoints := append([]Endpoint{endpoint}, additionalEndpoints...)
 	for _, endpoint := range endpoints {
 		connectedEndpoint = endpoint
+		logger.Debug("tcp dial", zap.String("address", connectedEndpoint.String()))
 		conn, err = streamer.TCPDialCtx(ctx, string(endpoint.Network), endpoint.Addr())
 		if err == nil {
 			break
@@ -1096,6 +1112,7 @@ func DialCtx(ctx context.Context, endpoint Endpoint, additionalEndpoints []Endpo
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial any of given endpoints: %v, last error: %w", endpoint, err)
 	}
+	logger.Debug("tcp ssh", zap.String("address", connectedEndpoint.String()))
 	res, err := DialConnCtx(ctx, conn, connectedEndpoint.Addr(), config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedEndpoint.String(), err)
