@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	_ "unsafe"
 
@@ -41,37 +42,37 @@ type packetConn interface {
 
 // channel is an implementation of the Channel interface that works
 // with the mux class.
-// type channel struct{} // nolint:all
+type channel struct{} //lint:ignore U1000 for linkname
 
 // chanList is a thread safe channel list.
-// type chanList struct { // nolint:all
-// protects concurrent access to chans
-// sync.Mutex
+type chanList struct { //lint:ignore U1000 for linkname
+	// protects concurrent access to chans
+	sync.Mutex
 
-// chans are indexed by the local id of the channel, which the
-// other side should send in the PeersId field.
-// chans []*channel
+	// chans are indexed by the local id of the channel, which the
+	// other side should send in the PeersId field.
+	chans []*channel //lint:ignore U1000 for linkname
 
-// This is a debugging aid: it offsets all IDs by this
-// amount. This helps distinguish otherwise identical
-// server/client muxes
-// offset uint32
-// }
+	// This is a debugging aid: it offsets all IDs by this
+	// amount. This helps distinguish otherwise identical
+	// server/client muxes
+	offset uint32 //lint:ignore U1000 for linkname
+}
 
 // mux represents the state for the SSH connection protocol, which
 // multiplexes many channels onto a single packet transport.
-type mux struct {
-	// conn packetConn // nolint:all
-	// chanList chanList   // nolint:all
+type mux struct { //lint:ignore U1000 for linkname
+	conn     packetConn //lint:ignore U1000 for linkname
+	chanList chanList   //lint:ignore U1000 for linkname
 
 	incomingChannels chan ssh.NewChannel
 
-	// globalSentMu     sync.Mutex       // nolint:all
-	// globalResponses  chan interface{} // nolint:all
+	globalSentMu     sync.Mutex       //lint:ignore U1000 for linkname
+	globalResponses  chan interface{} //lint:ignore U1000 for linkname
 	incomingRequests chan *ssh.Request
 
-	// errCond *sync.Cond // nolint:all
-	// err error // nolint:all
+	errCond *sync.Cond //lint:ignore U1000 for linkname
+	err     error      //lint:ignore U1000 for linkname
 }
 
 type connTransport interface {
