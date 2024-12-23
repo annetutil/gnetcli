@@ -51,12 +51,12 @@ type chanList struct { //lint:ignore U1000 for linkname
 
 	// chans are indexed by the local id of the channel, which the
 	// other side should send in the PeersId field.
-	chans []*channel
+	chans []*channel //lint:ignore U1000 for linkname
 
 	// This is a debugging aid: it offsets all IDs by this
 	// amount. This helps distinguish otherwise identical
 	// server/client muxes
-	offset uint32
+	offset uint32 //lint:ignore U1000 for linkname
 }
 
 // mux represents the state for the SSH connection protocol, which
