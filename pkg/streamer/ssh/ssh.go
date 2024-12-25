@@ -532,6 +532,11 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 			passphrase := creds.GetPassphrase()
 			if len(passphrase) > 0 {
 				signer, err = ssh.ParsePrivateKeyWithPassphrase(pk, []byte(passphrase))
+			} else {
+				m.logger.Info("passphrase missing error", zap.Error(err))
+				// suppress passphrase protected error
+				// maybe another method will work
+				err = nil
 			}
 		}
 		if err != nil {
