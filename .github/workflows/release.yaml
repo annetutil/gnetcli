@@ -28,6 +28,13 @@ jobs:
           goarch: ${{ matrix.goarch }}
           project_path: ./cmd/gnetcli_server/
           binary_name: gnetcli_server
+      - uses: wangyoucao577/go-release-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          project_path: ./cmd/cli/
+          binary_name: cli
 
   release-docker:
     name: release docker
