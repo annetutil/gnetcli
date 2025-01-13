@@ -46,5 +46,5 @@ ARG PROTOC_GEN_GO_GRPC_VERSION
 RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v${PROTOC_GEN_GO_GRPC_VERSION}
 
 RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install --break-system-packages grpcio==1.66.1 grpcio-tools==1.66.1 protobuf==5.28.1
+RUN python3 -m pip install --break-system-packages grpcio==1.62.3 grpcio-tools==1.62.3 protobuf==4.25.5
 RUN python3 -m grpc_tools.protoc --help
