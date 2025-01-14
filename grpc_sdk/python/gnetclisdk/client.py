@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, AsyncIterator, List, Optional, Tuple, Dict
+from typing import Any, AsyncIterator, List, Optional, Tuple, Dict, Callable
 
 import grpc
 from google.protobuf.message import Message
@@ -207,7 +207,7 @@ class Gnetcli:
             channel=self._channel,
             target_name_override=self._target_name_override,
             user_agent=self._user_agent,
-            insecure_grpc=self._insecure_grpc,
+            _grpc_channel_fn=self._grpc_channel_fn,
         )
         await sess.connect()
         try:
@@ -286,6 +286,7 @@ class GnetcliSession(ABC):
         insecure_grpc: bool = False,
         channel: Optional[grpc.aio.Channel] = None,
         credentials: Optional[Credentials] = None,
+        _grpc_channel_fn: Optional[Callable] = None,
     ):
         self._hostname = hostname
         self._credentials = credentials
@@ -300,25 +301,28 @@ class GnetcliSession(ABC):
             ("grpc.max_send_message_length", GRPC_MAX_MESSAGE_LENGTH),
             ("grpc.max_receive_message_length", GRPC_MAX_MESSAGE_LENGTH),
         ]
-        if target_name_override:
-            options.append(("grpc.ssl_target_name_override", target_name_override))
-        cert = get_cert(cert_file=cert_file)
-        channel_credentials = grpc.ssl_channel_credentials(root_certificates=cert)
-        authentication: ClientAuthentication
-        interceptors: [grpc.aio.ClientInterceptor] = list()
-        if not token:
-            pass
-        elif token.startswith("OAuth"):
-            authentication = OAuthClientAuthentication(token.split(" ")[1])
-            interceptors.append(get_auth_client_interceptors(authentication))
-        elif token.startswith("Basic"):
-            authentication = BasicClientAuthentication(token.split(" ")[1])
-            interceptors.append(get_auth_client_interceptors(authentication))
+        if _grpc_channel_fn:
+            grpc_channel_fn = _grpc_channel_fn
         else:
-            raise Exception("unknown token type")
-        grpc_channel_fn = partial(grpc.aio.secure_channel, credentials=channel_credentials, interceptors=interceptors)
-        if insecure_grpc:
-            grpc_channel_fn = partial(grpc.aio.insecure_channel, interceptors=interceptors)
+            if target_name_override:
+                options.append(("grpc.ssl_target_name_override", target_name_override))
+            cert = get_cert(cert_file=cert_file)
+            channel_credentials = grpc.ssl_channel_credentials(root_certificates=cert)
+            authentication: ClientAuthentication
+            interceptors: list[grpc.aio.ClientInterceptor] = list()
+            if not token:
+                pass
+            elif token.startswith("OAuth"):
+                authentication = OAuthClientAuthentication(token.split(" ")[1])
+                interceptors.append(get_auth_client_interceptors(authentication))
+            elif token.startswith("Basic"):
+                authentication = BasicClientAuthentication(token.split(" ")[1])
+                interceptors.append(get_auth_client_interceptors(authentication))
+            else:
+                raise Exception("unknown token type")
+            grpc_channel_fn = partial(grpc.aio.secure_channel, credentials=channel_credentials, interceptors=interceptors)
+            if insecure_grpc:
+                grpc_channel_fn = partial(grpc.aio.insecure_channel, interceptors=interceptors)
         self._grpc_channel_fn = grpc_channel_fn
         self._options = options
         self._req_id: Optional[Any] = None
