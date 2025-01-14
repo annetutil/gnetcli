@@ -199,10 +199,22 @@ class Gnetcli:
             return response
 
     @asynccontextmanager
-    async def cmd_session(self, hostname: str) -> AsyncIterator["GnetcliSessionCmd"]:
+    async def cmd_session(
+        self,
+        hostname: str,
+        trace: bool = False,
+        qa: Optional[List[QA]] = None,
+        read_timeout: float = 0.0,
+        cmd_timeout: float = 0.0,
+        host_params: Optional[HostParams] = None) -> AsyncIterator["GnetcliSessionCmd"]:
         sess = GnetcliSessionCmd(
             hostname,
             server=self._server,
+            trace=trace,
+            qa=qa,
+            read_timeout=read_timeout,
+            cmd_timeout=cmd_timeout,
+            host_params=host_params,
             channel=self._channel,
             target_name_override=self._target_name_override,
             user_agent=self._user_agent,
@@ -369,24 +381,53 @@ class GnetcliSession(ABC):
 
 
 class GnetcliSessionCmd(GnetcliSession):
+    def __init__(
+            self,
+            hostname: str,
+            token: str | None = None,
+            server: str = DEFAULT_SERVER,
+            target_name_override: Optional[str] = None,
+            cert_file: Optional[str] = None,
+            user_agent: str = DEFAULT_USER_AGENT,
+            insecure_grpc: bool = False,
+            channel: Optional[grpc.aio.Channel] = None,
+            credentials: Optional[Credentials] = None,
+            trace: bool = False,
+            qa: Optional[List[QA]] = None,
+            read_timeout: float = 0.0,
+            cmd_timeout: float = 0.0,
+            host_params: Optional[HostParams] = None,
+    ):
+        super(GnetcliSessionCmd, self).__init__(
+            hostname,
+            token,
+            server,
+            target_name_override,
+            cert_file,
+            user_agent,
+            insecure_grpc,
+            channel,
+            credentials,
+        )
+        self.trace = trace
+        self.qa = qa
+        self.read_timeout = read_timeout
+        self.cmd_timeout = cmd_timeout
+        self.host_params = host_params
+
     async def cmd(
         self,
         cmd: str,
-        trace: bool = False,
-        qa: Optional[List[QA]] = None,
-        cmd_timeout: float = 0.0,
-        read_timeout: float = 0.0,
-        host_params: Optional[HostParams] = None,
     ) -> server_pb2.CMDResult:
         _logger.debug("session cmd %r", cmd)
         pbcmd = make_cmd(
             hostname=self._hostname,
             cmd=cmd,
-            trace=trace,
-            qa=qa,
-            read_timeout=read_timeout,
-            cmd_timeout=cmd_timeout,
-            host_params=host_params,
+            trace=self.trace,
+            qa=self.qa,
+            read_timeout=self.cmd_timeout,
+            cmd_timeout=self.cmd_timeout,
+            host_params=self.host_params,
         )
         return await self._cmd(pbcmd)
 
