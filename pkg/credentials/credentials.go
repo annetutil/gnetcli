@@ -164,8 +164,9 @@ func GetUsernameFromConfig(host string) string {
 // GetAgentSocketFromConfig computes SSH authentication agent socket path using default ssh config's IdentityAgent and ForwardAgent keywords.
 // IdentityAgent value supports tilde syntax, but it doesn't support %d, %h, %l and %r.
 func GetAgentSocketFromConfig(host string) (string, error) {
-	// todo:
+	// TODO:
 	// IdentityAgent and IdentityFile accept the tokens %%, %d, %h, %l, %r, and %u.
+	// use ExpandTokens()
 	ia := ssh_config.Get(host, "IdentityAgent")
 	expandedIa, err := homedir.Expand(ia)
 	if err != nil {
@@ -174,10 +175,10 @@ func GetAgentSocketFromConfig(host string) (string, error) {
 	if expandedIa == "none" {
 		return "", nil
 	}
-	if expandedIa == "SSH_AUTH_SOCK" {
+	if expandedIa == "SSH_AUTH_SOCK" || len(expandedIa) == 0 {
 		return GetDefaultAgentSocket(), nil
 	}
-	if expandedIa == "" && ssh_config.Get(host, "ForwardAgent") == "yes" {
+	if ssh_config.Get(host, "ForwardAgent") == "yes" {
 		return GetDefaultAgentSocket(), nil
 	}
 

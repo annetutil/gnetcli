@@ -55,6 +55,13 @@ const (
 
 var _ streamer.Connector = (*Streamer)(nil)
 
+type sshSessionTemplate struct {
+	stdin   io.WriteCloser
+	stderr  io.Reader
+	stdout  io.Reader
+	session *ssh.Session
+}
+
 type sshSession struct {
 	stdin             io.WriteCloser
 	stderr            io.Reader
@@ -65,21 +72,21 @@ type sshSession struct {
 	chanReaderCancel  context.CancelFunc
 }
 
-func newSSHSession(stdin io.WriteCloser, stdout, stderr io.Reader, session *ssh.Session, logger *zap.Logger) *sshSession {
+func newSSHSession(in *sshSessionTemplate, logger *zap.Logger) *sshSession {
 	stdoutBuffer := make(chan []byte, 100)
 	newCtx, cancel := context.WithCancel(context.Background())
 	go func() { // will be closed after closing stdout
-		err := chanReader(newCtx, stdout, stdoutBuffer, time.Second, logger)
+		err := chanReader(newCtx, in.stdout, stdoutBuffer, time.Second, logger)
 		if err != nil {
 			logger.Debug("sessionStdoutReader error", zap.Error(err))
 			close(stdoutBuffer)
 		}
 	}()
 	return &sshSession{
-		stdin:             stdin,
-		stderr:            stderr,
-		stdout:            stdout,
-		session:           session,
+		stdin:             in.stdin,
+		stderr:            in.stderr,
+		stdout:            in.stdout,
+		session:           in.session,
 		stdoutBuffer:      stdoutBuffer,
 		stdoutBufferExtra: nil,
 		chanReaderCancel:  cancel,
@@ -136,6 +143,7 @@ type Streamer struct {
 	readTimeout            time.Duration
 	forwardAgent           agent.Agent
 	hostKeyCallback        ssh.HostKeyCallback
+	controlFile            string // openssh control file
 }
 
 func (m *Streamer) SetTrace(cb trace.CB) {
@@ -187,6 +195,7 @@ func NewStreamer(host string, credentials credentials.Credentials, opts ...Strea
 		sftpSudoTry:            false,
 		readTimeout:            defaultReadTimeout,
 		hostKeyCallback:        ssh.InsecureIgnoreHostKey(),
+		controlFile:            "",
 	}
 	for _, opt := range opts {
 		opt(h)
@@ -392,6 +401,13 @@ func WithSSHTunnel(tunnel Tunnel) StreamerOption {
 	}
 }
 
+// WithSSHControlFIle sets OpenSSH ControlPath
+func WithSSHControlFIle(path string) StreamerOption {
+	return func(h *Streamer) {
+		h.controlFile = path
+	}
+}
+
 func WithTrace(trace trace.CB) StreamerOption {
 	return func(h *Streamer) {
 		h.trace = trace
@@ -433,44 +449,21 @@ func (m *Streamer) Close() {
 
 func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 	m.logger.Debug("run cmd", zap.String("cmd", cmd))
-	session, err := m.conn.NewSession()
+	sessionTemplate, err := m.newSessionTemplate()
 	if err != nil {
-		return nil, err
-	}
-	err = m.onSessionOpen(session)
-	if err != nil {
-		if e := session.Close(); e != nil {
-			m.logger.Error("session closer error", zap.Error(err))
-		}
-		return nil, fmt.Errorf("onSessionOpen error %w", err)
+		return nil, fmt.Errorf("failed to init session template: %w", err)
 	}
 
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	session.Stdout = &stdout
-	session.Stderr = &stderr
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
-	session.Stdin = r
-
-	for name, value := range m.env {
-		err := session.Setenv(name, value)
-		if err != nil {
-			m.logger.Debug("unable to set PATH env", zap.Error(err))
-		}
-	}
-
-	defer session.Close()
-	var ctxCanceErr error
+	defer sessionTemplate.session.Close()
+	var ctxCancelErr error
 	cancel := streamer.CloserCTX(ctx, func() {
-		ctxCanceErr = ctx.Err()
-		session.Signal(ssh.SIGKILL)
-		_ = session.Close()
+		ctxCancelErr = ctx.Err()
+		sessionTemplate.session.Signal(ssh.SIGKILL)
+		_ = sessionTemplate.session.Close()
 	})
-	err = session.Run(cmd)
+	err = sessionTemplate.session.Run(cmd)
 	cancel()
-	onSessionCloseErr := m.onSessionCloseCallbacks(session)
+	onSessionCloseErr := m.onSessionCloseCallbacks(sessionTemplate.session)
 	if onSessionCloseErr != nil {
 		m.logger.Error("onSessionCloseCallbacks error %w", zap.Error(err))
 	}
@@ -489,8 +482,16 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 		isStatusGettingOk = true
 	}
 
-	stdoutBytes := stdout.Bytes()
-	stderrBytes := stderr.Bytes()
+	var stdoutBuffer, stderrBuffer bytes.Buffer
+	_, err = io.Copy(&stdoutBuffer, sessionTemplate.stdout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy stdout: %w", err)
+	}
+	_, err = io.Copy(&stderrBuffer, sessionTemplate.stderr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to copy stderr: %w", err)
+	}
+	stdoutBytes, stderrBytes := stdoutBuffer.Bytes(), stderrBuffer.Bytes()
 	var res gcmd.CmdRes
 	if isStatusGettingOk {
 		res = gcmd.NewCmdResFull(stdoutBytes, stderrBytes, status, nil)
@@ -498,7 +499,7 @@ func (m *Streamer) Cmd(ctx context.Context, cmd string) (gcmd.CmdRes, error) {
 		res = gcmd.NewCmdResFull(stdoutBytes, stderrBytes, NoStatusResult, nil)
 	}
 
-	if ctxCanceErr != nil {
+	if ctxCancelErr != nil {
 		return nil, fmt.Errorf("context timeout status=%d out=%s err=%s", res.Status(), res.Output(), res.Error())
 	}
 	if execErr != nil {
@@ -531,6 +532,11 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 			passphrase := creds.GetPassphrase()
 			if len(passphrase) > 0 {
 				signer, err = ssh.ParsePrivateKeyWithPassphrase(pk, []byte(passphrase))
+			} else {
+				m.logger.Info("passphrase missing error", zap.Error(err))
+				// suppress passphrase protected error
+				// maybe another method will work
+				err = nil
 			}
 		}
 		if err != nil {
@@ -580,7 +586,7 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		Timeout:         15 * time.Second,
 	}
 
-	return conf, err
+	return conf, nil
 }
 
 func wrapSigner(signer ssh.Signer, logger *zap.Logger) ssh.Signer {
@@ -601,6 +607,10 @@ func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
 	var conn *ssh.Client
 	if m.tunnel != nil {
 		conn, err = m.dialTunnel(ctx, conf)
+	} else if len(m.controlFile) > 0 {
+		m.logger.Debug("dial control master", zap.String("controlFile", m.controlFile))
+		// TODO: add support additionalEndpoints
+		conn, err = dialControlMasterConf(ctx, m.controlFile, m.endpoint, conf, m.logger)
 	} else {
 		conn, err = DialCtx(ctx, m.endpoint, m.additionalEndpoints, conf, m.logger)
 	}
@@ -625,11 +635,13 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 		if err == nil {
 			break
 		}
-		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", endpoint.String()))
+		m.logger.Debug("failed to open tunnel for endpoint", zap.String("address", endpoint.String()), zap.Error(err))
 	}
 	if err != nil {
+		m.tunnel.Close()
 		return nil, fmt.Errorf("failed to open tunnel for any of given hosts: %v, last error: %w", m.endpoint, err)
 	}
+	m.logger.Debug("dial tunnel", zap.String("address", connectedEndpoint.String()))
 	res, err := DialConnCtx(ctx, tunConn, connectedEndpoint.Addr(), conf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedEndpoint.String(), err)
@@ -671,10 +683,7 @@ func (m *Streamer) onSessionCloseCallbacks(sess *ssh.Session) error {
 	return multierr.Combine(errs...)
 }
 
-func (m *Streamer) openSession() (*sshSession, error) {
-	var stdin io.WriteCloser
-	var stdout, stderr io.Reader
-
+func (m *Streamer) newSessionTemplate() (*sshSessionTemplate, error) {
 	session, err := m.conn.NewSession()
 	if err != nil {
 		return nil, fmt.Errorf("session error %w", err)
@@ -683,15 +692,15 @@ func (m *Streamer) openSession() (*sshSession, error) {
 	if err != nil {
 		return nil, fmt.Errorf("onSessionOpen error %w", err)
 	}
-	stdin, err = session.StdinPipe()
+	stdin, err := session.StdinPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StdinPipe error %w", err)
 	}
-	stdout, err = session.StdoutPipe()
+	stdout, err := session.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StdoutPipe error %w", err)
 	}
-	stderr, err = session.StderrPipe()
+	stderr, err := session.StderrPipe()
 	if err != nil {
 		return nil, fmt.Errorf("StderrPipe error %w", err)
 	}
@@ -705,26 +714,39 @@ func (m *Streamer) openSession() (*sshSession, error) {
 			return nil, fmt.Errorf("unable to set env %s: %s %s %w", name, string(stdoutBuf[0:stdoutRead]), string(stderrBuf[0:stderrRead]), err)
 		}
 	}
+	return &sshSessionTemplate{
+		stdin:   stdin,
+		stderr:  stderr,
+		stdout:  stdout,
+		session: session,
+	}, nil
+}
+
+func (m *Streamer) openSession() (*sshSession, error) {
+	sessionTemplate, err := m.newSessionTemplate()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init session template: %w", err)
+	}
 	m.logger.Debug("request", zap.String("program", m.program), zap.String("program_data", m.programData))
 	switch m.program {
 	case "shell":
-		if err := m.requestPty(session); err != nil {
+		if err := m.requestPty(sessionTemplate.session); err != nil {
 			return nil, fmt.Errorf("RequestPty error %w", err)
 		}
-		err := session.Shell()
+		err := sessionTemplate.session.Shell()
 		if err != nil {
 			return nil, fmt.Errorf("shell request error %w", err)
 		}
 	case "subsystem":
-		err := session.RequestSubsystem(m.programData)
+		err := sessionTemplate.session.RequestSubsystem(m.programData)
 		if err != nil {
-			return nil, fmt.Errorf("subsystem %s requst error %w", m.programData, err)
+			return nil, fmt.Errorf("subsystem %s request error %w", m.programData, err)
 		}
 	default:
 		return nil, fmt.Errorf("unknown ssh session program %s", m.program)
 	}
 
-	sess := newSSHSession(stdin, stdout, stderr, session, m.logger)
+	sess := newSSHSession(sessionTemplate, m.logger)
 	return sess, nil
 }
 
@@ -862,8 +884,24 @@ func (m *Streamer) passwordCallbackWrapper(passwords []credentials.Secret) func(
 }
 
 func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), err error) {
+	sessionTemplate, err := m.newSessionTemplate()
+	if err != nil {
+		err = fmt.Errorf("failed to init session template: %w", err)
+		return
+	}
+	defer func() {
+		if err != nil {
+			_ = sessionTemplate.session.Close()
+		}
+	}()
+
 	if !useSudo {
-		sc, err = sftp.NewClient(m.conn)
+		err = sessionTemplate.session.RequestSubsystem("sftp")
+		if err != nil {
+			err = fmt.Errorf("failed to request sftp subsystem: %w", err)
+			return
+		}
+		sc, err = sftp.NewClientPipe(sessionTemplate.stdout, sessionTemplate.stdin)
 		if err == nil {
 			stop = func() {
 				_ = sc.Close()
@@ -875,6 +913,7 @@ func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), e
 	ctx := context.Background()
 	res, err := m.Cmd(ctx, fmt.Sprintf("PATH=%s which sftp-server", sftpServerPaths))
 	if err != nil {
+		err = fmt.Errorf("failed to resolve sftp-server path: %w", err)
 		return
 	} else if res.Status() != 0 {
 		err = fmt.Errorf("sftp-server status %d error %s", res.Status(), res.Error())
@@ -883,37 +922,20 @@ func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), e
 
 	cmd := strings.TrimSpace(string(res.Output()))
 	m.logger.Debug("resolved sftp-server", zap.String("path", cmd))
-	session, err := m.conn.NewSession()
-	if err != nil {
-		return
-	}
-	defer func() {
-		if err != nil {
-			_ = session.Close()
-		}
-	}()
 
-	pw, err := session.StdinPipe()
-	if err != nil {
-		return
-	}
-	pr, err := session.StdoutPipe()
-	if err != nil {
-		return
-	}
-	err = session.Start("sudo " + cmd)
+	err = sessionTemplate.session.Start("sudo " + cmd)
 	if err != nil {
 		m.logger.Warn("cannot run sudo sftp-server", zap.Error(err))
 		return
 	}
-	sc, err = sftp.NewClientPipe(pr, pw)
+	sc, err = sftp.NewClientPipe(sessionTemplate.stdout, sessionTemplate.stdin)
 	if err != nil {
 		m.logger.Warn("cannot create client for sudo sftp-server", zap.Error(err))
 		return
 	}
 	stop = func() {
 		_ = sc.Close()
-		_ = session.Close()
+		_ = sessionTemplate.session.Close()
 	}
 	return
 }
@@ -924,21 +946,29 @@ func (m *Streamer) Download(filePaths []string, recurse bool) (map[string]stream
 	}
 
 	files, err := m.sftpDownload(filePaths, recurse, false)
-	if err != nil {
-		return nil, err
+	if err != nil && (!errors.Is(err, &SftpClientCreationFailedError{}) || !m.sftpSudoTry) {
+		return nil, fmt.Errorf("failed to sftp download, no sudo: %w", err)
 	}
 
 	// Retry with sudo files with "permission denied"
 	var filePathsWithSudo []string
-	for path, file := range files {
-		if errors.Is(file.Err, os.ErrPermission) {
-			filePathsWithSudo = append(filePathsWithSudo, path)
+	if errors.Is(err, &SftpClientCreationFailedError{}) {
+		filePathsWithSudo = filePaths
+		files = map[string]streamer.File{}
+	} else {
+		for path, file := range files {
+			if errors.Is(file.Err, os.ErrPermission) {
+				filePathsWithSudo = append(filePathsWithSudo, path)
+			}
 		}
 	}
 	if len(filePathsWithSudo) != 0 {
+		if !m.sftpSudoTry {
+			return nil, fmt.Errorf("sudo not specified, file paths %v are not available without it", filePathsWithSudo)
+		}
 		filesWithSudo, err := m.sftpDownload(filePathsWithSudo, recurse, true)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to sftp download with sudo: %w", err)
 		}
 		for path, file := range filesWithSudo {
 			files[path] = file
@@ -947,10 +977,25 @@ func (m *Streamer) Download(filePaths []string, recurse bool) (map[string]stream
 	return files, nil
 }
 
+type SftpClientCreationFailedError struct {
+	err error
+}
+
+func (e *SftpClientCreationFailedError) Error() string {
+	return e.err.Error()
+}
+
+func (e *SftpClientCreationFailedError) Is(target error) bool {
+	if _, ok := target.(*SftpClientCreationFailedError); ok {
+		return true
+	}
+	return false
+}
+
 func (m *Streamer) sftpDownload(filePaths []string, recurse bool, useSudo bool) (map[string]streamer.File, error) {
 	sc, stop, err := m.makeSftpClient(useSudo)
 	if err != nil {
-		return nil, err
+		return nil, &SftpClientCreationFailedError{err: err}
 	}
 	defer stop()
 
@@ -1061,6 +1106,7 @@ func DialCtx(ctx context.Context, endpoint Endpoint, additionalEndpoints []Endpo
 	endpoints := append([]Endpoint{endpoint}, additionalEndpoints...)
 	for _, endpoint := range endpoints {
 		connectedEndpoint = endpoint
+		logger.Debug("tcp dial", zap.String("address", connectedEndpoint.String()))
 		conn, err = streamer.TCPDialCtx(ctx, string(endpoint.Network), endpoint.Addr())
 		if err == nil {
 			break
@@ -1071,6 +1117,7 @@ func DialCtx(ctx context.Context, endpoint Endpoint, additionalEndpoints []Endpo
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial any of given endpoints: %v, last error: %w", endpoint, err)
 	}
+	logger.Debug("tcp ssh", zap.String("address", connectedEndpoint.String()))
 	res, err := DialConnCtx(ctx, conn, connectedEndpoint.Addr(), config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedEndpoint.String(), err)

@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os.path
 import uuid
+import re
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -190,7 +191,7 @@ class Gnetcli:
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:
             stub = server_pb2_grpc.GnetcliStub(channel)
-            _logger.debug("executing netconf cmd: %r", pbcmd)
+            _logger.debug("executing netconf cmd: %r", mask_password(repr(pbcmd)))
             try:
                 response = await grpc_call_wrapper(stub.ExecNetconf, pbcmd)
             except Exception as e:
@@ -356,7 +357,7 @@ class GnetcliSession(ABC):
         if not self._stream:
             raise Exception("empty self._stream")
         try:
-            _logger.debug("cmd %r on %r", str(cmdpb).replace("\n", ""), self._stream)
+            _logger.debug("cmd %r on %r", mask_password(str(cmdpb)).replace("\n", ""), self._stream)
             await self._stream.write(cmdpb)
             response: Message = await self._stream.read()
         except grpc.aio.AioRpcError as e:
@@ -461,7 +462,7 @@ async def grpc_call_wrapper(stub: grpc.UnaryUnaryMultiCallable, request: Any) ->
         metadata = [
             (HEADER_REQUEST_ID, req_id),
         ]
-        _logger.debug("executing %s: %r, req_id=%s", type(request), repr(request), req_id)
+        _logger.debug("executing %s: %r, req_id=%s", type(request), mask_password(repr(request)), req_id)
         await asyncio.sleep(i * 2)
         try:
             response = await stub(request=request, metadata=metadata)
@@ -533,6 +534,10 @@ def make_cmd(
         host_params=host_params_pb,
     )
     return res
+
+
+def mask_password(line: str) -> str:
+    return re.sub(r'password: ".+?"', "password: ...", line)
 
 
 def make_files_request(files: Dict[str, File]) -> List[server_pb2.FileData]:

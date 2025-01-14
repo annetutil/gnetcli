@@ -52,20 +52,22 @@ type Server struct {
 }
 
 type hostParams struct {
-	port      int
-	device    string
-	creds     credentials.Credentials
-	ip        netip.Addr
-	proxyJump string
+	port        int
+	device      string
+	creds       credentials.Credentials
+	ip          netip.Addr
+	proxyJump   string
+	controlPath string
 }
 
-func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump string) hostParams {
+func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath string) hostParams {
 	return hostParams{
-		port:      port,
-		device:    device,
-		creds:     creds,
-		ip:        ip,
-		proxyJump: proxyJump,
+		port:        port,
+		device:      device,
+		creds:       creds,
+		ip:          ip,
+		proxyJump:   proxyJump,
+		controlPath: controlPath,
 	}
 }
 
@@ -137,11 +139,15 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 		streamerOpts = append(streamerOpts, ssh.WithPort(port))
 	}
 	if params.proxyJump != "" {
-		tunCreds, err := m.devAuthApp.Get(params.proxyJump)
+		jumpHostParams, err := m.getHostParams(params.proxyJump, &pb.HostParams{})
 		if err != nil {
-			return nil, fmt.Errorf("unable to get creds for ssh tunnel to %s:%w", params.proxyJump, err)
+			return nil, fmt.Errorf("unable to get host params for ssh tunnel to %s:%w", params.proxyJump, err)
 		}
-		tun := ssh.NewSSHTunnel(params.proxyJump, tunCreds, ssh.SSHTunnelWithLogger(logger))
+		opts := []ssh.SSHTunnelOption{ssh.SSHTunnelWithLogger(logger)}
+		if len(jumpHostParams.controlPath) > 0 {
+			opts = append(opts, ssh.SSHTunnelWithControlFIle(jumpHostParams.controlPath))
+		}
+		tun := ssh.NewSSHTunnel(params.proxyJump, jumpHostParams.GetCredentials(), opts...)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		err = tun.CreateConnect(ctx)
@@ -149,6 +155,9 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 			return nil, fmt.Errorf("unable to open ssh tunnel to %s:%w", params.proxyJump, err)
 		}
 		streamerOpts = append(streamerOpts, ssh.WithSSHTunnel(tun))
+	}
+	if params.controlPath != "" {
+		streamerOpts = append(streamerOpts, ssh.WithSSHControlFIle(params.controlPath))
 	}
 	connector := ssh.NewStreamer(connHost, creds, streamerOpts...)
 	devFab, ok := m.deviceMaps[deviceType]
@@ -164,7 +173,7 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	if !ok {
 		return errors.New("empty auth")
 	}
-	logger := zap.New(m.log.Core()).With(zap.String("login", authData.GetUser()))
+	logger := zap.New(m.log.Core()).With(zap.String("cmd_login", authData.GetUser()))
 	logger.Info("start chat")
 	firstCmd, err := stream.Recv()
 	if err != nil {
@@ -181,7 +190,7 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	devTrace := gtrace.NewTraceLimited(cmdTraceLimit)
 	devTraceMulti.AddTrace(devTrace)
 
-	logger = logger.With(zap.String("host", firstCmd.GetHost()))
+	logger = logger.With(zap.String("cmd_host", firstCmd.GetHost()))
 	params, err := m.getHostParams(firstCmd.GetHost(), firstCmd.GetHostParams())
 	if err != nil {
 		return status.Errorf(codes.Internal, err.Error())
@@ -191,7 +200,8 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	if err != nil {
 		return status.Errorf(codes.Internal, err.Error())
 	}
-	ctx := stream.Context()
+	ctx, cancel := context.WithTimeout(stream.Context(), 20*time.Second)
+	defer cancel()
 	logger.Info("connect")
 	err = devInited.Connect(ctx)
 	if err != nil {
@@ -366,7 +376,7 @@ func (m *Server) SetupHostParams(ctx context.Context, cmdHostParams *pb.HostPara
 	if err != nil {
 		return nil, err
 	}
-	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "")
+	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "", "")
 	m.updateHostParams(cmdHostParams.GetHost(), params)
 	return &emptypb.Empty{}, nil
 }
@@ -444,6 +454,9 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 	// proxyJump only supported in defaultHostParams
 	if defaultHostParams.proxyJump != "" {
 		res.proxyJump = defaultHostParams.proxyJump
+	}
+	if defaultHostParams.controlPath != "" {
+		res.controlPath = defaultHostParams.controlPath
 	}
 	return res, nil
 }
