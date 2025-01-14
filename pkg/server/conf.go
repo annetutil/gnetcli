@@ -50,9 +50,18 @@ func newDefaultConf() Config {
 	}
 }
 
+func newDefaultConfFlag() Config {
+	return Config{
+		Logging: LogConfig{
+			Level: zapcore.InfoLevel,
+			Json:  false,
+		},
+	}
+}
+
 func LoadConf() (Config, error) {
 	loader := confita.NewLoader(env.NewBackend(), flags.NewBackend())
-	flagCfg := newDefaultConf()
+	flagCfg := newDefaultConfFlag()
 	err := loader.Load(context.Background(), &flagCfg)
 	if err != nil {
 		return Config{}, err
