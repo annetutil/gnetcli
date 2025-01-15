@@ -203,16 +203,10 @@ class Gnetcli:
     async def cmd_session(
         self,
         hostname: str,
-        trace: bool = False,
-        read_timeout: float = 0.0,
-        cmd_timeout: float = 0.0,
         host_params: Optional[HostParams] = None) -> AsyncIterator["GnetcliSessionCmd"]:
         sess = GnetcliSessionCmd(
             hostname,
             server=self._server,
-            trace=trace,
-            read_timeout=read_timeout,
-            cmd_timeout=cmd_timeout,
             host_params=host_params,
             channel=self._channel,
             target_name_override=self._target_name_override,
@@ -395,9 +389,6 @@ class GnetcliSessionCmd(GnetcliSession):
             insecure_grpc: bool = False,
             channel: Optional[grpc.aio.Channel] = None,
             credentials: Optional[Credentials] = None,
-            trace: bool = False,
-            read_timeout: float = 0.0,
-            cmd_timeout: float = 0.0,
             host_params: Optional[HostParams] = None,
             _grpc_channel_fn: Optional[Callable] = None,
     ):
@@ -413,15 +404,15 @@ class GnetcliSessionCmd(GnetcliSession):
             credentials,
             _grpc_channel_fn,
         )
-        self.trace = trace
-        self.read_timeout = read_timeout
-        self.cmd_timeout = cmd_timeout
         self.host_params = host_params
 
     async def cmd(
         self,
         cmd: str,
         qa: Optional[List[QA]] = None,
+        trace: bool = False,
+        read_timeout: float = 0.0,
+        cmd_timeout: float = 0.0,
         host_params: Optional[HostParams] = None,
     ) -> server_pb2.CMDResult:
         _logger.debug("session cmd %r", cmd)
@@ -429,9 +420,9 @@ class GnetcliSessionCmd(GnetcliSession):
             hostname=self._hostname,
             cmd=cmd,
             qa=qa,
-            trace=self.trace,
-            read_timeout=self.cmd_timeout,
-            cmd_timeout=self.cmd_timeout,
+            trace=trace,
+            read_timeout=read_timeout,
+            cmd_timeout=cmd_timeout,
             host_params=host_params if host_params else self.host_params,
         )
         return await self._cmd(pbcmd)
