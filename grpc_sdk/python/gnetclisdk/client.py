@@ -204,7 +204,6 @@ class Gnetcli:
         self,
         hostname: str,
         trace: bool = False,
-        qa: Optional[List[QA]] = None,
         read_timeout: float = 0.0,
         cmd_timeout: float = 0.0,
         host_params: Optional[HostParams] = None) -> AsyncIterator["GnetcliSessionCmd"]:
@@ -212,7 +211,6 @@ class Gnetcli:
             hostname,
             server=self._server,
             trace=trace,
-            qa=qa,
             read_timeout=read_timeout,
             cmd_timeout=cmd_timeout,
             host_params=host_params,
@@ -398,7 +396,6 @@ class GnetcliSessionCmd(GnetcliSession):
             channel: Optional[grpc.aio.Channel] = None,
             credentials: Optional[Credentials] = None,
             trace: bool = False,
-            qa: Optional[List[QA]] = None,
             read_timeout: float = 0.0,
             cmd_timeout: float = 0.0,
             host_params: Optional[HostParams] = None,
@@ -417,7 +414,6 @@ class GnetcliSessionCmd(GnetcliSession):
             _grpc_channel_fn,
         )
         self.trace = trace
-        self.qa = qa
         self.read_timeout = read_timeout
         self.cmd_timeout = cmd_timeout
         self.host_params = host_params
@@ -425,14 +421,15 @@ class GnetcliSessionCmd(GnetcliSession):
     async def cmd(
         self,
         cmd: str,
+        qa: Optional[List[QA]] = None,
         host_params: Optional[HostParams] = None,
     ) -> server_pb2.CMDResult:
         _logger.debug("session cmd %r", cmd)
         pbcmd = make_cmd(
             hostname=self._hostname,
             cmd=cmd,
+            qa=qa,
             trace=self.trace,
-            qa=self.qa,
             read_timeout=self.cmd_timeout,
             cmd_timeout=self.cmd_timeout,
             host_params=host_params if host_params else self.host_params,
