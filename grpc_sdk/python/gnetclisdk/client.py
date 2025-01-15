@@ -402,6 +402,7 @@ class GnetcliSessionCmd(GnetcliSession):
             read_timeout: float = 0.0,
             cmd_timeout: float = 0.0,
             host_params: Optional[HostParams] = None,
+            _grpc_channel_fn: Optional[Callable] = None,
     ):
         super(GnetcliSessionCmd, self).__init__(
             hostname,
@@ -413,6 +414,7 @@ class GnetcliSessionCmd(GnetcliSession):
             insecure_grpc,
             channel,
             credentials,
+            _grpc_channel_fn,
         )
         self.trace = trace
         self.qa = qa
@@ -423,6 +425,7 @@ class GnetcliSessionCmd(GnetcliSession):
     async def cmd(
         self,
         cmd: str,
+        host_params: Optional[HostParams] = None,
     ) -> server_pb2.CMDResult:
         _logger.debug("session cmd %r", cmd)
         pbcmd = make_cmd(
@@ -432,7 +435,7 @@ class GnetcliSessionCmd(GnetcliSession):
             qa=self.qa,
             read_timeout=self.cmd_timeout,
             cmd_timeout=self.cmd_timeout,
-            host_params=self.host_params,
+            host_params=host_params if host_params else self.host_params,
         )
         return await self._cmd(pbcmd)
 
