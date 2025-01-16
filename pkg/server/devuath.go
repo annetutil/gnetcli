@@ -12,7 +12,7 @@ type authAppConfig struct {
 	Password  credentials.Secret `yaml:"password"`
 	ProxyJump string             `yaml:"proxy_jump"`
 	UseAgent  bool               `yaml:"use_agent"`
-	SshConfig string             `yaml:"ssh_config"` // use OpenSSH client configuration file
+	SshConfig bool               `yaml:"ssh_config"` // use OpenSSH client configuration file
 }
 
 type authApp struct {
@@ -29,7 +29,7 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 	controlPath := ""
 	if len(m.config.ProxyJump) > 0 {
 		proxyJump = m.config.ProxyJump
-	} else if len(m.config.SshConfig) > 0 {
+	} else if m.config.SshConfig {
 		proxyJump = ssh_config.Get(host, "ProxyJump")
 		controlPath = ssh_config.Get(host, "ControlPath")
 	}
@@ -48,7 +48,7 @@ func (m authApp) Get(host string) (credentials.Credentials, error) {
 		login = newLogin
 	}
 
-	if len(m.config.SshConfig) > 0 {
+	if m.config.SshConfig {
 		sshConfigPassphrase := "" // TODO: pass it
 		// here we read ssh config each call
 		cred, err := BuildCredsFromSSHConfig(login, "", host, sshConfigPassphrase, m.log)
