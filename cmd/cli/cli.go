@@ -200,7 +200,7 @@ func buildCreds(login, password, host, sshConfigPassphrase string, useSSHConfig 
 	}
 
 	if useSSHConfig {
-		return server.BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, logger)
+		return server.BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, "", logger)
 	}
 	return buildBasicCreds(login, password, logger), nil
 }

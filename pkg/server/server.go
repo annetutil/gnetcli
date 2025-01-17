@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net/netip"
 	"os"
@@ -683,7 +682,6 @@ func BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, private
 	if len(privateKeyPath) > 0 {
 		key, err := os.ReadFile(privateKeyPath)
 		if err != nil {
-			log.Fatalf("Unable to read private key: %v", err)
 			return nil, err
 		}
 		privateKeys = [][]byte{key}
