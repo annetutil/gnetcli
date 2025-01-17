@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"net/netip"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -606,7 +608,7 @@ func BuildCreds(host, login, password string, enableAgent bool, sshConfig string
 	if len(sshConfig) > 0 {
 		sshConfigPassphrase := "" // TODO: pass it
 		// here we read ssh config each call
-		cred, err := BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, logger)
+		cred, err := BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, "", logger)
 		if err != nil {
 			return nil, err
 		}
@@ -676,10 +678,21 @@ func makeFilesResult(files map[string]streamer.File) *pb.FilesResult {
 	return &res
 }
 
-func BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase string, logger *zap.Logger) (credentials.Credentials, error) {
-	privateKeys, err := credentials.GetPrivateKeysFromConfig(host)
-	if err != nil {
-		return nil, err
+func BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, privateKeyPath string, logger *zap.Logger) (credentials.Credentials, error) {
+	var privateKeys [][]byte
+	if len(privateKeyPath) > 0 {
+		key, err := os.ReadFile(privateKeyPath)
+		if err != nil {
+			log.Fatalf("Unable to read private key: %v", err)
+			return nil, err
+		}
+		privateKeys = [][]byte{key}
+	} else {
+		var err error
+		privateKeys, err = credentials.GetPrivateKeysFromConfig(host)
+		if err != nil {
+			return nil, err
+		}
 	}
 	configLogin := credentials.GetUsernameFromConfig(host)
 	if configLogin != "" {
