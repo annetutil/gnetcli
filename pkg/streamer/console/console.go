@@ -774,7 +774,7 @@ func (m *Streamer) DiscoveryAllPorts(ctx context.Context) (CommandsInfoResult, e
 		for _, line := range lines {
 			lineRes, err := parseInfoLine(line)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("parse line='%s' error: %s", line, err)
 			}
 			res[lineRes.GetPortName()] = lineRes
 		}
