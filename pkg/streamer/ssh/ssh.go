@@ -884,18 +884,19 @@ func (m *Streamer) passwordCallbackWrapper(passwords []credentials.Secret) func(
 }
 
 func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), err error) {
-	sessionTemplate, err := m.newSessionTemplate()
-	if err != nil {
-		err = fmt.Errorf("failed to init session template: %w", err)
-		return
-	}
+	var sessionTemplate *sshSessionTemplate
 	defer func() {
-		if err != nil {
+		if err != nil && sessionTemplate != nil {
 			_ = sessionTemplate.session.Close()
 		}
 	}()
 
 	if !useSudo {
+		sessionTemplate, err = m.newSessionTemplate()
+		if err != nil {
+			err = fmt.Errorf("failed to init session template: %w", err)
+			return
+		}
 		err = sessionTemplate.session.RequestSubsystem("sftp")
 		if err != nil {
 			err = fmt.Errorf("failed to request sftp subsystem: %w", err)
@@ -923,6 +924,11 @@ func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), e
 	cmd := strings.TrimSpace(string(res.Output()))
 	m.logger.Debug("resolved sftp-server", zap.String("path", cmd))
 
+	sessionTemplate, err = m.newSessionTemplate()
+	if err != nil {
+		err = fmt.Errorf("failed to init session template: %w", err)
+		return
+	}
 	err = sessionTemplate.session.Start("sudo " + cmd)
 	if err != nil {
 		m.logger.Warn("cannot run sudo sftp-server", zap.Error(err))
