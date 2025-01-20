@@ -651,8 +651,8 @@ const commandInfoPattern = `^(?P<server>[^:]+?):` +
 	`(?P<baud>[\d]+?)(?P<flow_control>.),` +
 	`(?P<parity>[-\d]+?):` +
 	// :%s:%s:%s,%s,%s,%s,%s,%d,%d:%d:%s:
-	`(?P<pCLwr>[^:]*?)` + // client that is writting on console. Format "w@%s@%ld",
-	`:(?P<iostate>[^:]+?):` + // up, init or down
+	`(?P<pCLwr>.*?):` + // client that is writing on console. Format "w@%s@%ld",
+	`(?P<iostate>(up|down|init)):` + // up, init or down
 	`(?P<fronly>[^:]+?):` + // ro rw
 	`(?P<logfile>[^,]*?),` +
 	`(?P<nolog>[^,]+?),` + // "nolog" : "log"),
