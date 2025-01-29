@@ -917,7 +917,7 @@ func (m *Streamer) makeSftpClient(useSudo bool) (sc *sftp.Client, stop func(), e
 		err = fmt.Errorf("failed to resolve sftp-server path: %w", err)
 		return
 	} else if res.Status() != 0 {
-		err = fmt.Errorf("sftp-server status %d error %s", res.Status(), res.Error())
+		err = fmt.Errorf("which sftp-server: status %d error %s", res.Status(), res.Error())
 		return
 	}
 
