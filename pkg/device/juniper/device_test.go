@@ -9,6 +9,7 @@ import (
 func TestPrompt(t *testing.T) {
 	cases := [][]byte{
 		[]byte("\r\nloginlog@lab-xdc-d1> "),
+		[]byte("\r\nlogin.login@lab.d1> "),
 		[]byte("\r\n{master}\r\nloginlog@xdc-13f3> "),
 		[]byte("\r\n[edit]\r\nlogin-login@host-dc-1d# "),
 		[]byte("\r\n{master}[edit]\r\nlogin-login@hosth# "),
