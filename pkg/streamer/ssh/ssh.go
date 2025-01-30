@@ -533,11 +533,14 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 			if len(passphrase) > 0 {
 				signer, err = ssh.ParsePrivateKeyWithPassphrase(pk, []byte(passphrase))
 			} else {
-				m.logger.Info("passphrase missing error", zap.Error(err))
+				m.logger.Warn("skipping key, missing passphrase")
 				// suppress passphrase protected error
 				// maybe another method will work
-				err = nil
+				continue
 			}
+		} else if err.Error() == "ssh: unhandled key type" {
+			m.logger.Warn("skipping key, unhandled key type")
+			continue
 		}
 		if err != nil {
 			return nil, err
