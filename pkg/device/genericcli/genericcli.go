@@ -620,5 +620,6 @@ func checkError(errorExpression expr.Expr, data []byte) error {
 func normalizeNewlines(data []byte) []byte {
 	data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
 	data = bytes.ReplaceAll(data, []byte(" \n"), []byte("\n"))
+	data = bytes.ReplaceAll(data, []byte("\r"), nil)
 	return data
 }
