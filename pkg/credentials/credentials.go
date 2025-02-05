@@ -167,13 +167,16 @@ func GetAgentSocketFromConfig(host string) (string, error) {
 	// TODO:
 	// IdentityAgent and IdentityFile accept the tokens %%, %d, %h, %l, %r, and %u.
 	// use ExpandTokens()
-	ia := ssh_config.Get(host, "IdentityAgent")
-	expandedIa, err := homedir.Expand(ia)
+	ia, err := ssh_config.GetStrict(host, "IdentityAgent")
 	if err != nil {
 		return "", err
 	}
-	if expandedIa == "none" {
+	if ia == "none" {
 		return "", nil
+	}
+	expandedIa, err := homedir.Expand(ia)
+	if err != nil {
+		return "", err
 	}
 	if expandedIa == "SSH_AUTH_SOCK" || len(expandedIa) == 0 {
 		return GetDefaultAgentSocket(), nil
