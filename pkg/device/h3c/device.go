@@ -16,19 +16,18 @@ import (
 
 const (
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(\r\n|^)(?P<prompt>(<[\w\-]+>|\[[~*]?[/\w\-.:]+\]))$`
+	promptExpression   = `(\r\n|^)(?P<prompt>((\(M\))?<[\w\-]+>|\[[~*]?[/\w\-.:]+\]))$`
 	errorExpression    = `(` +
-		`\^\r\n( % )?Error: (?P<error>.+) at '\^' position\.` +
-		// check expr bellow on h3c
-		`|\ +\^\nError(?:\[\d+\])?:\s*(?P<msg>.*?) found at '\^' position.` +
-		`|^Error:\s*(?P<msg>(No|You do not have) permission.*)` +
-		`|Error(?:\[\d+\])?:\s*(?P<msg>.+?)` +
+		`(\^\r\n)?( % )?Error:(?P<error>.+) at '\^' position\.` +
+		`|\r\n % (Unrecognized command|Too many parameters|Incomplete command) found at '\^' position\.` +
+		// check expr bellow on h3c  % Unrecognized command found at '^' position
 		`)`
 	pagerExpression = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
 
 var autoCommands = []cmd.Cmd{
 	cmd.NewCmd("screen-length disable", cmd.WithErrorIgnore()),
+	cmd.NewCmd("terminal mmi-mode enable", cmd.WithErrorIgnore()),
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
