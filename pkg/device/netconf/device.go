@@ -80,6 +80,7 @@ type NetconfDevice struct {
 	sessionID          string
 	serverCapabilities []string
 	clientCapabilities []string
+	XMLNS              map[string]string
 	messageID          uint64
 	log                *zap.Logger
 }
@@ -114,6 +115,12 @@ func WithCapabilities(caps []string) DeviceOption {
 	}
 }
 
+func WithXMLNS(prefix, namespace string) DeviceOption {
+	return func(h *NetconfDevice) {
+		h.XMLNS[prefix] = namespace
+	}
+}
+
 func BindDeviceOpts(fn func(connection streamer.Connector, opts ...DeviceOption) device.Device, opts ...DeviceOption) func(connection streamer.Connector) device.Device {
 	return func(connection streamer.Connector) device.Device {
 		return fn(connection, opts...)
@@ -127,6 +134,7 @@ func NewDevice(connection streamer.Connector, opts ...DeviceOption) device.Devic
 		sessionID:          "",
 		clientCapabilities: []string{},
 		serverCapabilities: []string{},
+		XMLNS:              map[string]string{},
 		messageID:          0,
 		log:                zap.NewNop(),
 	}
@@ -195,7 +203,11 @@ func (m *NetconfDevice) GetServerCapabilities() []string {
 func (m *NetconfDevice) formatCmd(command gcmd.Cmd) []byte {
 	messageID := atomic.AddUint64(&m.messageID, 1)
 	commandVal := []byte(netconfXMLBegin)
-	rpcHead := fmt.Sprintf("<rpc xmlns=\"%s\" message-id=\"%d\">", netconfXMLNS, messageID)
+	ns := `xmlns="` + netconfXMLNS + `"`
+	for pref, namespace := range m.XMLNS {
+		ns += fmt.Sprintf(` xmlns:%s="%s"`, pref, namespace)
+	}
+	rpcHead := fmt.Sprintf("<rpc %s message-id=\"%d\">", ns, messageID)
 	commandVal = append(commandVal, []byte(rpcHead)...)
 	commandVal = append(commandVal, command.Value()...)
 	commandVal = append(commandVal, []byte("</rpc>")...)
