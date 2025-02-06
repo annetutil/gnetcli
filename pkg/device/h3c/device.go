@@ -20,7 +20,6 @@ const (
 	errorExpression    = `(` +
 		`(\^\r\n)?( % )?Error:(?P<error>.+) at '\^' position\.` +
 		`|\r\n % (Unrecognized command|Too many parameters|Incomplete command) found at '\^' position\.` +
-		// check expr bellow on h3c  % Unrecognized command found at '^' position
 		`)`
 	pagerExpression = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
