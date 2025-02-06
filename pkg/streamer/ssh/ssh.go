@@ -528,22 +528,25 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	keys := creds.GetPrivateKeys()
 	for _, pk := range keys {
 		signer, err := ssh.ParsePrivateKey(pk)
-		if _, ok := err.(*ssh.PassphraseMissingError); ok {
-			passphrase := creds.GetPassphrase()
-			if len(passphrase) > 0 {
-				signer, err = ssh.ParsePrivateKeyWithPassphrase(pk, []byte(passphrase))
-			} else {
-				m.logger.Warn("skipping key, missing passphrase")
-				// suppress passphrase protected error
-				// maybe another method will work
+		if err != nil { // try to encode with passphrase
+			if _, ok := err.(*ssh.PassphraseMissingError); ok {
+				passphrase := creds.GetPassphrase()
+				if len(passphrase) > 0 {
+					signer, err = ssh.ParsePrivateKeyWithPassphrase(pk, []byte(passphrase))
+					if err != nil {
+						return nil, fmt.Errorf("failed to parse private key with passphrase: %w", err)
+					}
+					err = nil
+				} else {
+					m.logger.Warn("skipping key, missing passphrase")
+					// suppress passphrase protected error
+					// maybe another method will work
+					continue
+				}
+			} else if err.Error() == "ssh: unhandled key type" {
+				m.logger.Warn("skipping key, unhandled key type")
 				continue
 			}
-		} else if err.Error() == "ssh: unhandled key type" {
-			m.logger.Warn("skipping key, unhandled key type")
-			continue
-		}
-		if err != nil {
-			return nil, err
 		}
 		signers = append(signers, wrapSigner(signer, m.logger))
 	}
