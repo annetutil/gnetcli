@@ -18,7 +18,7 @@ const (
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
 	promptExpression   = `(\r\n|^)(?P<prompt>((\(M\))?<[\w\-]+>|\[[~*]?[/\w\-.:]+\]))$`
 	errorExpression    = `(` +
-		`\^\r\n( % )?Error: (?P<error>.+) at '\^' position\.` +
+		`(\^\r\n)?( % )?Error:(?P<error>.+) at '\^' position\.` +
 		`|\r\n % (Unrecognized command|Too many parameters|Incomplete command) found at '\^' position\.` +
 		// check expr bellow on h3c  % Unrecognized command found at '^' position
 		`)`
