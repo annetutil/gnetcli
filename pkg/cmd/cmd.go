@@ -163,7 +163,7 @@ func NewCmd(command string, opts ...CmdOption) Cmd {
 		readTimeout:     defaultReadTimeout,
 		cmdTimeout:      0,
 		forward:         false,
-		questionAnswers: nil,
+		questionAnswers: []Answer{},
 		exprCallbacks:   nil,
 		errorHandler: func(err error) error {
 			return err
@@ -186,6 +186,12 @@ func NewCmdList(commands []string, opts ...CmdOption) []Cmd {
 func WithReadTimeout(timeout time.Duration) CmdOption {
 	return func(h *CmdImpl) {
 		h.readTimeout = timeout
+	}
+}
+
+func WithAddAnswers(answers ...Answer) CmdOption {
+	return func(h *CmdImpl) {
+		h.questionAnswers = append(h.questionAnswers, answers...)
 	}
 }
 

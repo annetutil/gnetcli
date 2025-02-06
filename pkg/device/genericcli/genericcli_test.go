@@ -77,7 +77,7 @@ func TestQuestionCmdOverlap(t *testing.T) {
 
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
-		cmd.NewCmd("ack", cmd.WithAnswers(cmd.NewAnswer("/Are.+\\? \\[Y/N\\]:/", "Y"))),
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("/Are.+\\? \\[Y/N\\]:/", "Y"))),
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
@@ -108,7 +108,7 @@ func TestQuestionWithAnswer(t *testing.T) {
 
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
-		cmd.NewCmd("ack", cmd.WithAnswers(cmd.NewAnswer("Are you sure? [Y/N]:", "Y"))),
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("Are you sure? [Y/N]:", "Y"))),
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
@@ -141,7 +141,7 @@ func TestMultipleQuestionsWithAnswer(t *testing.T) {
 
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
-		cmd.NewCmd("ack", cmd.WithAnswers(
+		cmd.NewCmd("ack", cmd.WithAddAnswers(
 			cmd.NewAnswer("Are you sure? [Y/N]:", "Y"),
 			cmd.NewAnswer("Are you really sure? [Y/N]:", "Y"),
 		)),
@@ -173,7 +173,7 @@ func TestQuestionCmdAnswerDontMatchDeviceQuestion(t *testing.T) {
 
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
-		cmd.NewCmd("ack", cmd.WithAnswers(cmd.NewAnswer("/Are.+\\? \\[Y/N\\]:/", "Y"))),
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("/Are.+\\? \\[Y/N\\]:/", "Y"))),
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {

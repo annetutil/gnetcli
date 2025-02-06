@@ -548,8 +548,7 @@ func gnetcliTraceToTrace(tr gtrace.Trace) []*pb.CMDTraceItem {
 func makeGnetcliCmd(cmd *pb.CMD) gcmd.Cmd {
 	opts := make([]gcmd.CmdOption, 0, len(cmd.Qa))
 	for _, qa := range cmd.Qa {
-		opts = append(opts, gcmd.WithAnswers(gcmd.NewAnswer(qa.GetQuestion(), qa.GetAnswer())))
-		gcmd.NewCmd(cmd.GetCmd(), gcmd.WithAnswers())
+		opts = append(opts, gcmd.WithAddAnswers(gcmd.NewAnswer(qa.GetQuestion(), qa.GetAnswer())))
 	}
 	if cmdTimeout := cmd.GetCmdTimeout(); cmdTimeout != 0 {
 		opts = append(opts, gcmd.WithCmdTimeout(time.Duration(cmdTimeout*float64(time.Second))))
