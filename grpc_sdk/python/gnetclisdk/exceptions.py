@@ -119,7 +119,7 @@ def parse_grpc_error(grpc_error: grpc.aio.AioRpcError) -> Tuple[Type[GnetcliExce
     if grpc_error.details():
         detail = grpc_error.details()  # type: ignore
     reason = error_info.reason
-    metadata=dict(error_info.metadata)
+    metadata = dict(error_info.metadata)
     if code == grpc.StatusCode.UNAVAILABLE and detail == "not ready":
         return NotReady, ""
     if code == grpc.StatusCode.UNAUTHENTICATED:
