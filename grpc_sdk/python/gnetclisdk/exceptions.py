@@ -1,5 +1,5 @@
 from typing import Optional, Sequence, Tuple, Type, Union
-
+from google.rpc import error_details_pb2, status_pb2
 import grpc.aio
 
 MetadataType = Sequence[Tuple[str, Union[str, bytes]]]
@@ -65,6 +65,14 @@ class ExecError(GnetcliException):
     pass
 
 
+class EOFError(GnetcliException):
+    """
+    EOF error.
+    """
+
+    pass
+
+
 class NotReady(GnetcliException):
     """
     Server is not ready.
@@ -90,10 +98,28 @@ class PermissionDenied(GnetcliException):
 
 
 def parse_grpc_error(grpc_error: grpc.aio.AioRpcError) -> Tuple[Type[GnetcliException], str]:
+    rich_statuses = []
+    for key, value in grpc_error.trailing_metadata():
+        if key == "grpc-status-details-bin":
+            rich_status = status_pb2.Status.FromString(value)
+            for rdetail in rich_status.details:
+                if rdetail.Is(error_details_pb2.ErrorInfo.DESCRIPTOR):
+                    error_info = error_details_pb2.ErrorInfo()
+                    rdetail.Unpack(error_info)
+                    rich_statuses.append(error_info)
+            break
+    error_info = None
+    if len(rich_statuses) > 1:
+        raise Exception("unexpected rich_statuses len %s", len(rich_statuses))
+    elif len(rich_statuses) == 1:
+        error_info = rich_statuses[0]
+
     code = grpc_error.code()
     detail = ""
     if grpc_error.details():
         detail = grpc_error.details()  # type: ignore
+    reason = error_info.reason
+    metadata=dict(error_info.metadata)
     if code == grpc.StatusCode.UNAVAILABLE and detail == "not ready":
         return NotReady, ""
     if code == grpc.StatusCode.UNAUTHENTICATED:
@@ -103,10 +129,13 @@ def parse_grpc_error(grpc_error: grpc.aio.AioRpcError) -> Tuple[Type[GnetcliExce
     if code == grpc.StatusCode.OUT_OF_RANGE:
         return UnknownDevice, detail
     if code == grpc.StatusCode.INTERNAL:
-        if detail == "auth_device_error":
+        if reason == "error_eof":  # new way: pass errors using error_details
+            verbose = str(metadata)
+            return EOFError, verbose
+        elif detail == "auth_device_error":
             verbose = ""
             return DeviceAuthError, verbose
-        if detail in {"connection_error", "busy_error"}:
+        elif detail in {"connection_error", "busy_error"}:
             verbose = ""
             return DeviceConnectError, verbose
         elif detail in {"exec_error", "generic_error"}:
