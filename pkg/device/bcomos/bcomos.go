@@ -15,7 +15,7 @@ import (
 
 const (
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(?P<prompt>[\w\-]+(\(\w+(-\w+)*\))?)(>|#)$`
+	promptExpression   = `(?P<prompt>[\w\-]+(\(\w+(-\w+)*\))?)(>|#)\s?$`
 	errorExpression    = `(` +
 		`\r\n% Invalid input detected at '\^' marker.\r\n\r\n` +
 		`|^\r? +\^\n(% )?Invalid [\w ()]+ at '\^' marker\.` +
@@ -43,7 +43,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			expr.NewSimpleExprLast200().FromPattern(questionExpression)),
 		genericcli.WithAutoCommands(autoCommands),
 		genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
-			return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s *\r\r\n`, regexp.QuoteMeta(string(c.Value()))))
+			return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s *\r\r?\n`, regexp.QuoteMeta(string(c.Value()))))
 		}),
 		genericcli.WithTerminalParams(400, 0),
 	)
