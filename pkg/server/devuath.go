@@ -43,20 +43,20 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 }
 
 func (m authApp) Get(host string) (credentials.Credentials, error) {
-	login := m.config.Login
-	if len(login) == 0 { // use current login
-		newLogin := credentials.GetLogin()
-		login = newLogin
-	}
-
 	if m.config.SshConfig {
 		sshConfigPassphrase := "" // TODO: pass it
 		// here we read ssh config each call
-		cred, err := BuildCredsFromSSHConfig(login, m.config.Password.String(), host, sshConfigPassphrase, m.config.PrivateKey, m.log)
+		cred, err := BuildCredsFromSSHConfig(m.config.Login, m.config.Password.String(), host, sshConfigPassphrase, m.config.PrivateKey, m.log)
 		if err != nil {
 			return nil, err
 		}
 		return cred, nil
+	}
+
+	login := m.config.Login
+	if len(login) == 0 { // use current login
+		newLogin := credentials.GetLogin()
+		login = newLogin
 	}
 	opts := []credentials.CredentialsOption{
 		credentials.WithUsername(login),
