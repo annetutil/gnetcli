@@ -715,9 +715,18 @@ func BuildCredsFromSSHConfig(login, password, host, sshConfigPassphrase, private
 			return nil, err
 		}
 	}
-	configLogin := credentials.GetUsernameFromConfig(host)
-	if configLogin != "" {
-		login = configLogin
+	if len(login) == 0 {
+		configLogin := credentials.GetUsernameFromConfig(host)
+		if len(configLogin) == 0 { // use current login
+			newLogin := credentials.GetLogin()
+			logger.Debug("Use system login", zap.String("configLogin", newLogin))
+			login = newLogin
+		} else {
+			login = configLogin
+			logger.Debug("Use login from config", zap.String("configLogin", configLogin))
+		}
+	} else {
+		logger.Debug("Use login from input", zap.String("login", login))
 	}
 	agentSocket, err := credentials.GetAgentSocketFromConfig(host)
 	if err != nil {
