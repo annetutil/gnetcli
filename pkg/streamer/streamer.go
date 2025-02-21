@@ -278,7 +278,24 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 			return nil, buffer, buffer[len(inBuffer):], multierr.Combine(ctx.Err(), ThrowReadTimeoutException(GetLastBytes(buffer, readSize)))
 		case readData, ok := <-readCh:
 			StopTimer(readIterTimeout)
-			buffer = append(buffer, readData...)
+			if ok {
+				buffer = append(buffer, readData...)
+				// check whether if we have something else in channel
+				// maybe we spent long time between GenericReadX() calls
+			L:
+				for {
+					select {
+					case readData, ok := <-readCh:
+						if ok {
+							buffer = append(buffer, readData...)
+						} else {
+							break L
+						}
+					default:
+						break L
+					}
+				}
+			}
 			if !ok {
 				return NewReadXRes(EOF, buffer, nil, []byte{}), buffer, buffer[len(inBuffer):], nil
 			}
