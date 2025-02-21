@@ -40,9 +40,9 @@ func TestGenericReadNBuff(t *testing.T) {
 	left := readAll(ch)
 	assert.NoError(t, err)
 	assert.Equal(t, []byte("1te"), res.BytesRes)
-	assert.Equal(t, []byte{}, extra)
-	assert.Equal(t, []byte("st"), left)
-	assert.Equal(t, []byte("te"), read)
+	assert.Equal(t, []byte("st"), extra)
+	assert.Equal(t, []byte{}, left)
+	assert.Equal(t, []byte("test"), read)
 }
 
 func readAll(ch chan []byte) []byte {
@@ -63,16 +63,16 @@ func TestGenericReadToSimple(t *testing.T) {
 	buffer := []byte(nil)
 	readSize := 2
 	readTimeout := 2 * time.Second
-	ch := setupChan([]byte("test"))
+	ch := setupChan([]byte("aest"))
 	pat := expr.NewSimpleExpr().FromPattern("es")
 	res, extra, read, err := GenericReadX(ctx, buffer, ch, readSize, readTimeout, pat, 0, 0)
 
 	left := readAll(ch)
 	assert.NoError(t, err)
-	assert.Equal(t, NewReadXRes(Expr, []byte("tes"), NewReadResImpl([]byte("t"), []byte{}, map[string][]byte{}, []byte("es"), 0), []byte{}), res)
-	assert.Equal(t, []byte{}, extra)
-	assert.Equal(t, []byte("t"), left)
-	assert.Equal(t, []byte("tes"), read)
+	assert.Equal(t, NewReadXRes(Expr, []byte("aest"), NewReadResImpl([]byte("a"), []byte("t"), map[string][]byte{}, []byte("es"), 0), []byte("t")), res)
+	assert.Equal(t, []byte("t"), extra)
+	assert.Equal(t, []byte(""), left)
+	assert.Equal(t, []byte("aest"), read)
 }
 
 func setupChan(data []byte) chan []byte {
