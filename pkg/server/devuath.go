@@ -46,7 +46,7 @@ func (m authApp) Get(host string) (credentials.Credentials, error) {
 	if m.config.SshConfig {
 		sshConfigPassphrase := "" // TODO: pass it
 		// here we read ssh config each call
-		cred, err := BuildCredsFromSSHConfig(m.config.Login, m.config.Password.String(), host, sshConfigPassphrase, m.config.PrivateKey, m.log)
+		cred, err := BuildCredsFromSSHConfig(m.config.Login, m.config.Password.Value(), host, sshConfigPassphrase, m.config.PrivateKey, m.log)
 		if err != nil {
 			return nil, err
 		}
