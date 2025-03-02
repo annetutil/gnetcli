@@ -232,6 +232,7 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	if err != nil {
 		return status.Errorf(codes.Internal, err.Error())
 	}
+	defer devInited.Close()
 
 	cmd := firstCmd
 	for {
