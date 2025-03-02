@@ -5,13 +5,15 @@ PROTOC_VERSION = 3.17.3
 # BUF_VERSION = 0.43.2
 
 # https://golang.org/doc/devel/release.html
-GO_VERSION = 1.16.5
+GO_VERSION = 1.21.5
 
 # https://github.com/protocolbuffers/protobuf-go/releases
 PROTOC_GEN_GO_VERSION = 1.26.0
 
 # https://github.com/grpc/grpc-go/releases
 PROTOC_GEN_GO_GRPC_VERSION = 1.1.0
+
+PROTOC_GATEWAY_GO_GRPC_VERSION = 2.19.1
 
 .PHONY: help check build push
 
@@ -35,4 +37,5 @@ build: check
 	--build-arg GO_VERSION=$(GO_VERSION) \
 	--build-arg PROTOC_GEN_GO_VERSION=$(PROTOC_GEN_GO_VERSION) \
 	--build-arg PROTOC_GEN_GO_GRPC_VERSION=$(PROTOC_GEN_GO_GRPC_VERSION) \
+	--build-arg PROTOC_GATEWAY_GO_GRPC_VERSION=$(PROTOC_GATEWAY_GO_GRPC_VERSION) \
 	.

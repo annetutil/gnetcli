@@ -21,6 +21,11 @@ proto:
 			--go-grpc_out=./pkg/server/proto/ \
 			'./pkg/server/proto/server.proto'
 	docker run --rm -v `pwd`:/home/docker/app --workdir /home/docker/app proto_builder:tag \
+		protoc -I ./pkg/server/proto/ --grpc-gateway_out ./pkg/server/proto/ \
+			--grpc-gateway_opt paths=source_relative \
+			--grpc-gateway_opt generate_unbound_methods=true \
+			pkg/server/proto/server.proto
+	docker run --rm -v `pwd`:/home/docker/app --workdir /home/docker/app proto_builder:tag \
 		$(protoc_cmd) -I ./pkg/server/proto/ \
 			 --python_out=./pkg/server/proto/ \
 			 --pyi_out=./pkg/server/proto/ \

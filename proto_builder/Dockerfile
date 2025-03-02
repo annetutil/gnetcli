@@ -4,6 +4,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates \
     clang-format \
     unzip \
+    git \
     wget \
     python3-pip \
     && rm -rf /var/lib/apt/lists/*
@@ -44,6 +45,9 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v${PROTOC_GEN_GO_VER
 
 ARG PROTOC_GEN_GO_GRPC_VERSION
 RUN go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v${PROTOC_GEN_GO_GRPC_VERSION}
+
+ARG PROTOC_GATEWAY_GO_GRPC_VERSION
+RUN go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v${PROTOC_GATEWAY_GO_GRPC_VERSION}
 
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install --break-system-packages grpcio==1.62.3 grpcio-tools==1.62.3 protobuf==4.25.5
