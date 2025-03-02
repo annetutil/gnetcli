@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -11,12 +12,15 @@ import (
 	"strings"
 	"syscall"
 
+	gateway "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
 
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
@@ -59,7 +63,7 @@ func main() {
 	if cfg.DevUseAgent {
 		cfg.DevAuth.UseAgent = cfg.DevUseAgent
 	}
-	var listeners []net.Listener
+	var grpcListeners []net.Listener
 
 	logConfig = zap.NewDevelopmentConfig()
 	if cfg.Logging.Json {
@@ -74,8 +78,9 @@ func main() {
 		if err != nil {
 			logger.Panic("unix socket error", zap.Error(err))
 		}
-		listeners = append(listeners, unixSocketLn)
+		grpcListeners = append(grpcListeners, unixSocketLn)
 	}
+	var gatewayServer *http.Server
 	if !cfg.DisableTcp {
 		address := cfg.Listen
 		if !strings.Contains(cfg.Listen, ":") { // just port
@@ -86,9 +91,15 @@ func main() {
 			logger.Panic("tcp socket error", zap.Error(err))
 		}
 		logger.Debug("init tcp socket", zap.String("address", tcpSocketLn.Addr().String()))
-		listeners = append(listeners, tcpSocketLn)
+		grpcListeners = append(grpcListeners, tcpSocketLn)
+		if cfg.HttpListen != "" {
+			logger.Debug("init http gateway socket", zap.String("address", cfg.HttpListen))
+			mux := gateway.NewServeMux()
+			pb.RegisterGnetcliHandlerFromEndpoint(context.Background(), mux, address, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
+			gatewayServer = &http.Server{Addr: cfg.HttpListen, Handler: mux}
+		}
 	}
-	if len(listeners) == 0 {
+	if len(grpcListeners) == 0 {
 		logger.Panic("specify tcp or unix socket")
 	}
 	var opts []grpc.ServerOption
@@ -134,7 +145,7 @@ func main() {
 	reflection.Register(grpcServer)
 	ctx := context.Background()
 	wg, wCtx := errgroup.WithContext(ctx)
-	for _, listener := range listeners {
+	for _, listener := range grpcListeners {
 		wListener := listener
 		wg.Go(func() error {
 			return grpcServer.Serve(wListener)
@@ -143,6 +154,11 @@ func main() {
 			<-wCtx.Done()
 			_ = wListener.Close()
 			return nil
+		})
+	}
+	if gatewayServer != nil {
+		wg.Go(func() error {
+			return gatewayServer.ListenAndServe()
 		})
 	}
 	wg.Go(func() error {

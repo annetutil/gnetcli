@@ -18,8 +18,9 @@ import (
 )
 
 type Config struct {
-	Logging LogConfig `yaml:"logging"`
-	Listen  string    `config:"port,description=Listen address" yaml:"port"`
+	Logging    LogConfig `yaml:"logging"`
+	Listen     string    `config:"port,description=Listen address" yaml:"port"`
+	HttpListen string    `config:"http_port,description=Http listen address" yaml:"http_port"`
 	// FIXME: Dev* in DevAuth, drop it
 	DevLogin    string        `config:"dev-login,description=Default device login" yaml:"dev_login"`
 	DevPass     string        `config:"dev-pass,description=Default device password" yaml:"dev_pass"`
