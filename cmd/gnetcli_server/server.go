@@ -90,10 +90,10 @@ func main() {
 		if err != nil {
 			logger.Panic("tcp socket error", zap.Error(err))
 		}
-		logger.Debug("init tcp socket", zap.String("address", tcpSocketLn.Addr().String()))
+		logger.Warn("init tcp socket", zap.String("address", tcpSocketLn.Addr().String()))
 		grpcListeners = append(grpcListeners, tcpSocketLn)
 		if cfg.HttpListen != "" {
-			logger.Debug("init http gateway socket", zap.String("address", cfg.HttpListen))
+			logger.Warn("init http gateway socket", zap.String("address", cfg.HttpListen))
 			mux := gateway.NewServeMux()
 			pb.RegisterGnetcliHandlerFromEndpoint(context.Background(), mux, address, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
 			gatewayServer = &http.Server{Addr: cfg.HttpListen, Handler: mux}
