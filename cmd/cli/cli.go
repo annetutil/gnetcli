@@ -173,7 +173,11 @@ type cmdResJSONs []cmdResJSON
 func formatText(commands []string, inputs []cmd.CmdRes) (string, error) {
 	var res []string
 	for i, input := range inputs {
-		res = append(res, fmt.Sprintf("cmd=%s output=%s status=%d error=%s\n", commands[i], input.Output(), input.Status(), input.Error()))
+		if input == nil {
+			res = append(res, fmt.Sprintf("cmd=%s nil result\n", commands[i]))
+		} else {
+			res = append(res, fmt.Sprintf("cmd=%s output=%s status=%d error=%s\n", commands[i], input.Output(), input.Status(), input.Error()))
+		}
 	}
 	return strings.Join(res, "\n"), nil
 }
@@ -226,7 +230,8 @@ func exec(ctx context.Context, dev device.Device, commands []string, cmdopts []c
 	for _, cmdIter := range commands {
 		cRes, err := dev.Execute(cmd.NewCmd(cmdIter, cmdopts...))
 		if err != nil {
-			logger.Warn("error", zap.Error(err))
+			logger.Error("error", zap.Any("cmd", cmdIter), zap.Error(err))
+			return nil, fmt.Errorf("error executing command %s: %w", cmdIter, err)
 		}
 		res = append(res, cRes)
 	}
