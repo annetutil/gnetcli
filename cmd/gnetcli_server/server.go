@@ -73,7 +73,8 @@ func main() {
 	logger = zap.Must(logConfig.Build())
 
 	if len(cfg.UnixSocket) > 0 {
-		logger.Debug("init unix socket", zap.String("path", cfg.UnixSocket))
+		// log level and "init unix socket", "path" is used in gnetcli_adapter
+		logger.Warn("init unix socket", zap.String("path", cfg.UnixSocket))
 		unixSocketLn, err := newUnixSocket(cfg.UnixSocket)
 		if err != nil {
 			logger.Panic("unix socket error", zap.Error(err))
@@ -90,6 +91,7 @@ func main() {
 		if err != nil {
 			logger.Panic("tcp socket error", zap.Error(err))
 		}
+		// log level and "init tcp socket", "address" is used in gnetcli_adapter
 		logger.Warn("init tcp socket", zap.String("address", tcpSocketLn.Addr().String()))
 		grpcListeners = append(grpcListeners, tcpSocketLn)
 		if cfg.HttpListen != "" {
