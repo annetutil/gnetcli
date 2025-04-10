@@ -2,6 +2,7 @@ package devconf
 
 import (
 	"fmt"
+	"os"
 	"regexp"
 
 	"go.uber.org/zap"
@@ -197,15 +198,23 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 	return deviceMaps
 }
 
-func LoadYamlDeviceConfigs(content []byte) (map[string]*genericcli.GenericCLI, error) {
+func LoadDevice(path string) (map[string]*genericcli.GenericCLI, *Conf, error) {
+	yamlFile, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	return LoadYamlDeviceConfigs(yamlFile)
+}
+
+func LoadYamlDeviceConfigs(content []byte) (map[string]*genericcli.GenericCLI, *Conf, error) {
 	conf := NewConf()
 	err := yaml.Unmarshal(content, &conf)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	res, err := conf.Devices.Make()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return res, nil
+	return res, conf, nil
 }

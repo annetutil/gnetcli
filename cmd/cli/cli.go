@@ -5,22 +5,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
-
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/devconf"
 	"github.com/annetutil/gnetcli/pkg/device"
-	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/server"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
 	"github.com/annetutil/gnetcli/pkg/testutils"
+	"go.uber.org/zap"
 )
 
 type questionFlags []string
@@ -76,7 +72,7 @@ func main() {
 	deviceMaps = devconf.InitDefaultDeviceMapping(zap.NewNop())
 
 	if len(*deviceFiles) > 0 {
-		res, _, err := loadDevice(*deviceFiles)
+		res, _, err := devconf.LoadDevice(*deviceFiles)
 		if err != nil {
 			panic(err)
 		}
@@ -90,7 +86,7 @@ func main() {
 		}
 	}
 	if *test && len(*deviceFiles) > 0 {
-		_, conf, err := loadDevice(*deviceFiles)
+		_, conf, err := devconf.LoadDevice(*deviceFiles)
 		if err != nil {
 			panic(err)
 		}
@@ -236,21 +232,4 @@ func exec(ctx context.Context, dev device.Device, commands []string, cmdopts []c
 		res = append(res, cRes)
 	}
 	return res, nil
-}
-
-func loadDevice(path string) (map[string]*genericcli.GenericCLI, *devconf.Conf, error) {
-	yamlFile, err := os.ReadFile(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	conf := devconf.NewConf()
-	err = yaml.Unmarshal(yamlFile, &conf)
-	if err != nil {
-		return nil, nil, err
-	}
-	res, err := conf.Devices.Make()
-	if err != nil {
-		return nil, nil, err
-	}
-	return res, conf, nil
 }
