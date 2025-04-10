@@ -192,12 +192,13 @@ func GetEmbeddedDeviceTypeList() string {
 	return strings.Join(knownDevs, ", ")
 }
 
-func InitDeviceMapping(logger *zap.Logger, deviceFiles *string) map[string]func(streamer.Connector) device.Device {
+func InitDeviceMapping(logger *zap.Logger, deviceFilePath string) map[string]func(streamer.Connector) device.Device {
 	deviceMaps := InitDefaultDeviceMapping(logger)
-	if len(*deviceFiles) > 0 {
-		res, err := loadExternalDeviceMap(*deviceFiles)
+	if len(deviceFilePath) > 0 {
+		res, err := loadExternalDeviceMap(deviceFilePath)
 		if err != nil {
-			panic(err)
+			logger.Fatal("failed to load external device map. Check your config!", zap.Error(err))
+			return deviceMaps
 		}
 		for name, devType := range res {
 			_, ok := deviceMaps[name]

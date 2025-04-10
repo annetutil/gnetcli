@@ -140,7 +140,7 @@ func main() {
 
 	serverOpts := []server.Option{server.WithLogger(logger)}
 	devAuthApp := server.NewAuthApp(cfg.DevAuth, logger)
-	s := server.New(devAuthApp, &cfg.DevConf, serverOpts...)
+	s := server.New(devAuthApp, cfg.DevConf, serverOpts...)
 	pb.RegisterGnetcliServer(grpcServer, s)
 	reflection.Register(grpcServer)
 	ctx := context.Background()

@@ -545,7 +545,7 @@ func (m *Server) Upload(ctx context.Context, req *pb.FileUploadRequest) (*emptyp
 	return &emptypb.Empty{}, err
 }
 
-func New(devAuthApp authApp, deviceFiles *string, opts ...Option) *Server {
+func New(devAuthApp authApp, deviceFiles string, opts ...Option) *Server {
 	s := &Server{
 		UnimplementedGnetcliServer: pb.UnimplementedGnetcliServer{},
 		log:                        zap.NewNop(),
