@@ -5,22 +5,18 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"os"
+	"github.com/annetutil/gnetcli/pkg/testutils"
 	"strings"
 	"testing"
 	"time"
-
-	"go.uber.org/zap"
-	"gopkg.in/yaml.v3"
 
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/devconf"
 	"github.com/annetutil/gnetcli/pkg/device"
-	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/server"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
-	"github.com/annetutil/gnetcli/pkg/testutils"
+	"go.uber.org/zap"
 )
 
 type questionFlags []string
@@ -46,13 +42,8 @@ func parseQuestions(input []string) []cmd.CmdOption {
 }
 
 func main() {
-	var knownDevs []string
-	deviceMaps := devconf.InitDefaultDeviceMapping(zap.NewNop())
-	for dName := range deviceMaps {
-		knownDevs = append(knownDevs, dName)
-	}
 	var question questionFlags
-	dt := strings.Join(knownDevs, ", ")
+	dt := devconf.GetEmbeddedDeviceTypeList()
 	hostname := flag.String("hostname", "", "Hostname")
 	port := flag.Int("port", 22, "Port")
 	command := flag.String("command", "", "Command")
@@ -72,50 +63,16 @@ func main() {
 		logConfig = zap.NewDevelopmentConfig()
 	}
 	logger := zap.Must(logConfig.Build())
-	// reinit with proper logger
-	deviceMaps = devconf.InitDefaultDeviceMapping(zap.NewNop())
-
-	if len(*deviceFiles) > 0 {
-		res, _, err := loadDevice(*deviceFiles)
-		if err != nil {
-			panic(err)
-		}
-		for name, devType := range res {
-			_, ok := deviceMaps[name]
-			if ok {
-				panic(fmt.Errorf("dev %s duplicate", name))
-			}
-			logger.Debug("add device", zap.String("name", name))
-			deviceMaps[name] = devconf.GenericCLIDevToDev(devType)
-		}
+	deviceMaps, err := devconf.InitDeviceMapping(zap.NewNop(), *deviceFiles)
+	if err != nil {
+		logger.Panic("failed to load device maps", zap.Error(err))
 	}
-	if *test && len(*deviceFiles) > 0 {
-		_, conf, err := loadDevice(*deviceFiles)
-		if err != nil {
-			panic(err)
-		}
-		var tests []testing.InternalTest
-		for _, vendorConf := range conf.Devices {
-			for i, errExpTestData := range vendorConf.Tests.ErrorExpressionVariants {
-				tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_err_%d", vendorConf.Name, i), func(t *testing.T) {
-					testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.ErrorExpression)
-				}})
-			}
-			for i, errExpTestData := range vendorConf.Tests.PromptExpressionVariants {
-				tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_prompt_%d", vendorConf.Name, i), func(t *testing.T) {
-					testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.PromptExpression)
-				}})
-			}
-			for i, errExpTestData := range vendorConf.Tests.PagerExpressionVariants {
-				tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_pager_%d", vendorConf.Name, i), func(t *testing.T) {
-					testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.PagerExpression)
-				}})
-			}
 
-		}
-		testing.Main(nil, tests, nil, nil)
+	if *test && len(*deviceFiles) > 0 {
+		makeExternalDeviceConfigTests(deviceFiles)
 		return
 	}
+
 	if len(*hostname) == 0 {
 		panic("empty hostname")
 	}
@@ -159,6 +116,33 @@ func main() {
 		resOut = textResOut
 	}
 	fmt.Println(resOut)
+}
+
+func makeExternalDeviceConfigTests(deviceFiles *string) {
+	conf, err := devconf.LoadExternalDeviceConfig(*deviceFiles)
+	if err != nil {
+		panic(err)
+	}
+	var tests []testing.InternalTest
+	for _, vendorConf := range conf.Devices {
+		for i, errExpTestData := range vendorConf.Tests.ErrorExpressionVariants {
+			tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_err_%d", vendorConf.Name, i), func(t *testing.T) {
+				testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.ErrorExpression)
+			}})
+		}
+		for i, errExpTestData := range vendorConf.Tests.PromptExpressionVariants {
+			tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_prompt_%d", vendorConf.Name, i), func(t *testing.T) {
+				testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.PromptExpression)
+			}})
+		}
+		for i, errExpTestData := range vendorConf.Tests.PagerExpressionVariants {
+			tests = append(tests, testing.InternalTest{fmt.Sprintf("vendor_%s_pager_%d", vendorConf.Name, i), func(t *testing.T) {
+				testutils.ExprTester(t, [][]byte{[]byte(errExpTestData)}, vendorConf.PagerExpression)
+			}})
+		}
+
+	}
+	testing.Main(nil, tests, nil, nil)
 }
 
 type cmdResJSON struct {
@@ -236,21 +220,4 @@ func exec(ctx context.Context, dev device.Device, commands []string, cmdopts []c
 		res = append(res, cRes)
 	}
 	return res, nil
-}
-
-func loadDevice(path string) (map[string]*genericcli.GenericCLI, *devconf.Conf, error) {
-	yamlFile, err := os.ReadFile(path)
-	if err != nil {
-		return nil, nil, err
-	}
-	conf := devconf.NewConf()
-	err = yaml.Unmarshal(yamlFile, &conf)
-	if err != nil {
-		return nil, nil, err
-	}
-	res, err := conf.Devices.Make()
-	if err != nil {
-		return nil, nil, err
-	}
-	return res, conf, nil
 }

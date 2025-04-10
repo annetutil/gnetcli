@@ -140,7 +140,10 @@ func main() {
 
 	serverOpts := []server.Option{server.WithLogger(logger)}
 	devAuthApp := server.NewAuthApp(cfg.DevAuth, logger)
-	s := server.New(devAuthApp, serverOpts...)
+	s, err := server.New(devAuthApp, cfg.DevConf, serverOpts...)
+	if err != nil {
+		logger.Panic("failed to load external device map. Check your config!", zap.Error(err))
+	}
 	pb.RegisterGnetcliServer(grpcServer, s)
 	reflection.Register(grpcServer)
 	ctx := context.Background()

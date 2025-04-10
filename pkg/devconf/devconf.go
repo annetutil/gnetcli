@@ -2,7 +2,9 @@ package devconf
 
 import (
 	"fmt"
+	"os"
 	"regexp"
+	"strings"
 
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
@@ -181,6 +183,34 @@ func GenericCLIWrapper(cliFn func(connector streamer.Connector, opts ...genericc
 	}
 }
 
+func GetEmbeddedDeviceTypeList() string {
+	var knownDevs []string
+	deviceMaps := InitDefaultDeviceMapping(zap.NewNop())
+	for dName := range deviceMaps {
+		knownDevs = append(knownDevs, dName)
+	}
+	return strings.Join(knownDevs, ", ")
+}
+
+func InitDeviceMapping(logger *zap.Logger, deviceFilePath string) (map[string]func(streamer.Connector) device.Device, error) {
+	deviceMaps := InitDefaultDeviceMapping(logger)
+	if len(deviceFilePath) > 0 {
+		res, err := loadExternalDeviceMap(deviceFilePath)
+		if err != nil {
+			return nil, err
+		}
+		for name, devType := range res {
+			_, ok := deviceMaps[name]
+			if ok {
+				return nil, fmt.Errorf("dev %s duplicate", name)
+			}
+			logger.Debug("add device", zap.String("name", name))
+			deviceMaps[name] = GenericCLIDevToDev(devType)
+		}
+	}
+	return deviceMaps, nil
+}
+
 func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Connector) device.Device {
 	deviceMaps := map[string]func(streamer.Connector) device.Device{
 		"juniper": GenericCLIWrapper(juniper.NewDevice, logger),
@@ -197,15 +227,43 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 	return deviceMaps
 }
 
-func LoadYamlDeviceConfigs(content []byte) (map[string]*genericcli.GenericCLI, error) {
-	conf := NewConf()
-	err := yaml.Unmarshal(content, &conf)
+func loadExternalDeviceMap(path string) (map[string]*genericcli.GenericCLI, error) {
+	yamlFile, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
+	conf, err := loadYamlDeviceConfigs(yamlFile)
+	if err != nil {
+		return nil, err
+	}
+	res, err := prepareDeviceCliMap(conf)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+func LoadExternalDeviceConfig(path string) (*Conf, error) {
+	yamlFile, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return loadYamlDeviceConfigs(yamlFile)
+}
+
+func prepareDeviceCliMap(conf *Conf) (map[string]*genericcli.GenericCLI, error) {
 	res, err := conf.Devices.Make()
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
+}
+
+func loadYamlDeviceConfigs(content []byte) (*Conf, error) {
+	conf := NewConf()
+	err := yaml.Unmarshal(content, &conf)
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
 }

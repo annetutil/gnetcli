@@ -545,7 +545,7 @@ func (m *Server) Upload(ctx context.Context, req *pb.FileUploadRequest) (*emptyp
 	return &emptypb.Empty{}, err
 }
 
-func New(devAuthApp authApp, opts ...Option) *Server {
+func New(devAuthApp authApp, deviceFilePath string, opts ...Option) (*Server, error) {
 	s := &Server{
 		UnimplementedGnetcliServer: pb.UnimplementedGnetcliServer{},
 		log:                        zap.NewNop(),
@@ -558,8 +558,14 @@ func New(devAuthApp authApp, opts ...Option) *Server {
 	for _, opt := range opts {
 		opt(s)
 	}
-	s.deviceMaps = devconf.InitDefaultDeviceMapping(s.log)
-	return s
+
+	deviceMap, err := devconf.InitDeviceMapping(s.log, deviceFilePath)
+	if err != nil {
+		return nil, err
+	} else {
+		s.deviceMaps = deviceMap
+	}
+	return s, nil
 }
 
 func gnetcliTraceToTrace(tr gtrace.Trace) []*pb.CMDTraceItem {
