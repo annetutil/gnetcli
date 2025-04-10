@@ -68,6 +68,7 @@ func main() {
 
 	if *test && len(*deviceFiles) > 0 {
 		makeExternalDeviceConfigTests(deviceFiles)
+		return
 	}
 
 	if len(*hostname) == 0 {
