@@ -196,7 +196,7 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	authData, ok := getAuthFromContext(stream.Context())
 	if !ok {
-		return errors.New("empty auth")
+		return errors.New("empty auth in exec chat")
 	}
 	logger := zap.New(m.log.Core()).With(zap.String("cmd_login", authData.GetUser()))
 	logger.Info("start chat")

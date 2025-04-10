@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"strings"
 
 	grpcmiddleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -68,11 +67,13 @@ func (m *Auth) AuthenticateStream(srv interface{}, ss grpc.ServerStream, info *g
 }
 
 func (m *Auth) authenticate(ctx context.Context) (context.Context, error) {
-	srcIp, err := extractIP(ctx)
-	if err != nil {
-		return nil, err
+	var logger *zap.Logger
+	if src, err := extractPeerAddr(ctx); err == nil {
+		logger = zap.New(m.log.Core()).With(zap.String("src", src.String()))
+	} else {
+		logger = zap.New(m.log.Core())
+
 	}
-	logger := zap.New(m.log.Core()).With(zap.String("src", srcIp.String()))
 	logger.Debug("authenticate")
 
 	authRes, err := m.checkToken(ctx)
@@ -89,20 +90,18 @@ func (m *Auth) authenticate(ctx context.Context) (context.Context, error) {
 	return newCtx, nil
 }
 
-func extractIP(ctx context.Context) (*netip.Addr, error) {
+func extractPeerAddr(ctx context.Context) (net.Addr, error) {
 	peerAddr, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("unable to extrace addr from context")
 	}
-	addr, ok := peerAddr.Addr.(*net.TCPAddr)
-	if !ok {
-		return nil, fmt.Errorf("unable to switch type %v", addr)
+	if addr, ok := peerAddr.Addr.(*net.TCPAddr); ok {
+		return addr, nil
 	}
-	srcIP, ok := netip.AddrFromSlice(addr.IP)
-	if !ok {
-		return nil, fmt.Errorf("unable to extract addr %v", addr.IP)
+	if addr, ok := peerAddr.Addr.(*net.UnixAddr); ok {
+		return addr, nil
 	}
-	return &srcIP, nil
+	return nil, fmt.Errorf("unable to determine peer addr type %v", peerAddr.Addr)
 }
 
 func (m *Auth) checkToken(ctx context.Context) (*authInfo, error) {
