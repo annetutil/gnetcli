@@ -140,7 +140,6 @@ func makeExternalDeviceConfigTests(deviceFiles *string) {
 
 	}
 	testing.Main(nil, tests, nil, nil)
-	return
 }
 
 type cmdResJSON struct {
