@@ -63,8 +63,10 @@ func main() {
 		logConfig = zap.NewDevelopmentConfig()
 	}
 	logger := zap.Must(logConfig.Build())
-	// reinit with proper logger
-	deviceMaps := devconf.InitDeviceMapping(zap.NewNop(), *deviceFiles)
+	deviceMaps, err := devconf.InitDeviceMapping(zap.NewNop(), *deviceFiles)
+	if err != nil {
+		logger.Panic("failed to load device maps", zap.Error(err))
+	}
 
 	if *test && len(*deviceFiles) > 0 {
 		makeExternalDeviceConfigTests(deviceFiles)
