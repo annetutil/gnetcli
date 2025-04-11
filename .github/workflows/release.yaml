@@ -1,7 +1,7 @@
 name: Build and publish gnetcli-server
 
 env:
-  GORELEASER_VER: v1.20.4
+  GORELEASER_VER: v1.24.0
 
 on:
   release:
