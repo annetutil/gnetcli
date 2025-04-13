@@ -1,4 +1,5 @@
 //lint:file-ignore SA4006 imported file
+//lint:file-ignore SA1019 uses legacy elliptic method
 // Copyright 2010 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -221,7 +222,6 @@ NextCandidate:
 	if err != nil {
 		return nil, err
 	}
-	//nolint:sa1019
 	ecdhePublic = elliptic.Marshal(curve, x, y)
 
 	// http://tools.ietf.org/html/rfc4492#section-5.4
@@ -300,7 +300,6 @@ func (ka *ecdheKeyAgreement) processClientKeyExchange(config *Config, cert *Cert
 	if !ok {
 		panic("internal error")
 	}
-	//nolint:sa1019
 	x, y := elliptic.Unmarshal(curve, ckx.ciphertext[1:])
 	if x == nil {
 		return nil, errClientKeyExchange
@@ -348,7 +347,6 @@ func (ka *ecdheKeyAgreement) processServerKeyExchange(config *Config, clientHell
 			return errors.New("tls: server selected unsupported curve")
 		}
 
-		//nolint:sa1019
 		ka.x, ka.y = elliptic.Unmarshal(curve, publicKey)
 		if ka.x == nil {
 			return errServerKeyExchange
@@ -426,7 +424,6 @@ func (ka *ecdheKeyAgreement) generateClientKeyExchange(config *Config, clientHel
 	if !ok {
 		panic("internal error")
 	}
-	//nolint:sa1019
 	priv, mx, my, err := elliptic.GenerateKey(curve, config.rand())
 	if err != nil {
 		return nil, nil, err
@@ -436,7 +433,6 @@ func (ka *ecdheKeyAgreement) generateClientKeyExchange(config *Config, clientHel
 	xBytes := x.Bytes()
 	copy(preMasterSecret[len(preMasterSecret)-len(xBytes):], xBytes)
 
-	//nolint:sa1019
 	serialized = elliptic.Marshal(curve, mx, my)
 
 	ckx := new(clientKeyExchangeMsg)
