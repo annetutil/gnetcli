@@ -21,6 +21,11 @@ TOKEN=$(echo -n "$LOGIN:$PASSWORD" | base64)
 grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "juniper", "credentials": {"login": "test", "password": "test"}}, "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
 ```
 
+Using http-gateway:
+
+```
+curl -v -X POST -k 'http://localhost:50052/api/v1/exec' -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "juniper", "credentials": {"login": "test", "password": "test"}}, "string_result": true}'
+```
 
 ### Help
 
