@@ -155,12 +155,17 @@ func main() {
 		wg.Go(func() error {
 			return grpcServer.Serve(wListener)
 		})
-		wg.Go(func() error {
-			<-wCtx.Done()
+		context.AfterFunc(ctx, func() {
+			logger.Debug("close ", zap.Any("wListener", wListener))
 			_ = wListener.Close()
-			return nil
 		})
 	}
+	context.AfterFunc(wCtx, func() {
+		grpcServer.Stop()
+		if gatewayServer != nil {
+			gatewayServer.Close()
+		}
+	})
 	if gatewayServer != nil {
 		wg.Go(func() error {
 			return gatewayServer.ListenAndServe()
