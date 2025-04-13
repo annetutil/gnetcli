@@ -221,6 +221,7 @@ NextCandidate:
 	if err != nil {
 		return nil, err
 	}
+	//nolint:sa1019
 	ecdhePublic = elliptic.Marshal(curve, x, y)
 
 	// http://tools.ietf.org/html/rfc4492#section-5.4
@@ -299,6 +300,7 @@ func (ka *ecdheKeyAgreement) processClientKeyExchange(config *Config, cert *Cert
 	if !ok {
 		panic("internal error")
 	}
+	//nolint:sa1019
 	x, y := elliptic.Unmarshal(curve, ckx.ciphertext[1:])
 	if x == nil {
 		return nil, errClientKeyExchange
@@ -346,6 +348,7 @@ func (ka *ecdheKeyAgreement) processServerKeyExchange(config *Config, clientHell
 			return errors.New("tls: server selected unsupported curve")
 		}
 
+		//nolint:sa1019
 		ka.x, ka.y = elliptic.Unmarshal(curve, publicKey)
 		if ka.x == nil {
 			return errServerKeyExchange
@@ -423,6 +426,7 @@ func (ka *ecdheKeyAgreement) generateClientKeyExchange(config *Config, clientHel
 	if !ok {
 		panic("internal error")
 	}
+	//nolint:sa1019
 	priv, mx, my, err := elliptic.GenerateKey(curve, config.rand())
 	if err != nil {
 		return nil, nil, err
@@ -432,6 +436,7 @@ func (ka *ecdheKeyAgreement) generateClientKeyExchange(config *Config, clientHel
 	xBytes := x.Bytes()
 	copy(preMasterSecret[len(preMasterSecret)-len(xBytes):], xBytes)
 
+	//nolint:sa1019
 	serialized = elliptic.Marshal(curve, mx, my)
 
 	ckx := new(clientKeyExchangeMsg)
