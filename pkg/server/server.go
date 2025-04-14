@@ -67,6 +67,7 @@ type hostParams struct {
 	ip          netip.Addr
 	proxyJump   string
 	controlPath string
+	host        string
 }
 
 func makeGRPCDeviceExecError(err error) error {
@@ -85,7 +86,7 @@ func makeGRPCDeviceExecError(err error) error {
 	return rv.Err()
 }
 
-func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath string) hostParams {
+func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string) hostParams {
 	return hostParams{
 		port:        port,
 		device:      device,
@@ -93,6 +94,7 @@ func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, 
 		ip:          ip,
 		proxyJump:   proxyJump,
 		controlPath: controlPath,
+		host:        host,
 	}
 }
 
@@ -172,6 +174,7 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 		if len(jumpHostParams.controlPath) > 0 {
 			opts = append(opts, ssh.SSHTunnelWithControlFIle(jumpHostParams.controlPath))
 		}
+		connHost = params.host
 		tun := ssh.NewSSHTunnel(params.proxyJump, jumpHostParams.GetCredentials(), opts...)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -402,7 +405,7 @@ func (m *Server) SetupHostParams(ctx context.Context, cmdHostParams *pb.HostPara
 	if err != nil {
 		return nil, err
 	}
-	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "", "")
+	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "", "", "")
 	m.updateHostParams(cmdHostParams.GetHost(), params)
 	return &emptypb.Empty{}, nil
 }
@@ -480,6 +483,7 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 	// proxyJump only supported in defaultHostParams
 	if defaultHostParams.proxyJump != "" {
 		res.proxyJump = defaultHostParams.proxyJump
+		res.host = defaultHostParams.host
 	}
 	if defaultHostParams.controlPath != "" {
 		res.controlPath = defaultHostParams.controlPath

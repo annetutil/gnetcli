@@ -3,9 +3,11 @@ package ssh
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
+	"strconv"
 	"sync"
 	"syscall"
 
@@ -24,14 +26,15 @@ type Tunnel interface {
 }
 
 type SSHTunnel struct {
-	Server      Endpoint
-	Config      *ssh.ClientConfig
-	svrConn     *ssh.Client
-	isOpen      bool
-	credentials credentials.Credentials
-	logger      *zap.Logger
-	mu          sync.Mutex
-	controlFile string
+	Server       Endpoint
+	Config       *ssh.ClientConfig
+	svrConn      *ssh.Client
+	stdioForward *ControlConn
+	isOpen       bool
+	credentials  credentials.Credentials
+	logger       *zap.Logger
+	mu           sync.Mutex
+	controlFile  string
 }
 
 func NewSSHTunnel(host string, credentials credentials.Credentials, opts ...SSHTunnelOption) *SSHTunnel {
@@ -97,7 +100,12 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	var conn *ssh.Client
 
 	if len(m.controlFile) != 0 {
-		conn, err = dialControlMasterConf(ctx, m.controlFile, m.Server, conf, m.logger)
+		mConn, err := dialControlMasterConf(ctx, m.controlFile, m.Server, conf, m.logger)
+		if err != nil {
+			return err
+		}
+		m.stdioForward = mConn
+		conn = nil
 	} else {
 		conn, err = DialCtx(ctx, m.Server, nil, m.Config, m.logger)
 	}
@@ -115,6 +123,21 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 }
 
 func (m *SSHTunnel) StartForward(network Network, remoteAddr string) (net.Conn, error) {
+	if m.stdioForward != nil {
+		host, port, err := net.SplitHostPort(remoteAddr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port: %s", port)
+		}
+		portVal, err := strconv.ParseInt(port, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port: %s", port)
+		}
+		connForward, err := m.stdioForward.DialControlStdioForward(host, int(portVal))
+		if err != nil {
+			return nil, err
+		}
+		return connForward, nil
+	}
 	if !m.isOpen {
 		return nil, errors.New("connection is closed")
 	}
@@ -169,11 +192,18 @@ func (m *SSHTunnel) Close() {
 	m.isOpen = false
 
 	m.logger.Debug("closing the serverConn")
-	err := m.svrConn.Close()
-	if err != nil {
-		m.logger.Error(err.Error())
+	if m.svrConn != nil {
+		err := m.svrConn.Close()
+		if err != nil {
+			m.logger.Error(err.Error())
+		}
 	}
-
+	if m.stdioForward != nil {
+		err := m.stdioForward.Close()
+		if err != nil {
+			m.logger.Error(err.Error())
+		}
+	}
 	m.logger.Debug("tunnel closed")
 }
 
