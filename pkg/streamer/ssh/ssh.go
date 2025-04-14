@@ -126,7 +126,7 @@ type Streamer struct {
 	additionalEndpoints    []Endpoint
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
-	conn                   *ssh.Client
+	conn                   sshClient
 	program                string // session params
 	programData            string
 	env                    map[string]string
@@ -605,18 +605,23 @@ func wrapSigner(signer ssh.Signer, logger *zap.Logger) ssh.Signer {
 	return NewSSHSignersLogger(signer, logger)
 }
 
-func (m *Streamer) openConnect(ctx context.Context) (*ssh.Client, error) {
+type sshClient interface {
+	Close() error
+	NewSession() (*ssh.Session, error)
+}
+
+func (m *Streamer) openConnect(ctx context.Context) (sshClient, error) {
 	conf, err := m.GetConfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var conn *ssh.Client
+	var conn sshClient
 	if m.tunnel != nil {
 		conn, err = m.dialTunnel(ctx, conf)
 	} else if len(m.controlFile) > 0 {
 		m.logger.Debug("dial control master", zap.String("controlFile", m.controlFile))
 		// TODO: add support additionalEndpoints
-		conn, err = dialControlMasterConf(ctx, m.controlFile, m.endpoint, conf, m.logger)
+		conn, err = OpenControl(m.controlFile)
 	} else {
 		conn, err = DialCtx(ctx, m.endpoint, m.additionalEndpoints, conf, m.logger)
 	}
@@ -652,7 +657,7 @@ func (m *Streamer) dialTunnel(ctx context.Context, conf *ssh.ClientConfig) (*ssh
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to host %s: %w", connectedEndpoint.String(), err)
 	}
-	return res, err
+	return res, nil
 }
 
 func (m *Streamer) onSessionOpen(sess *ssh.Session) error {
@@ -831,7 +836,11 @@ func (m *Streamer) startForwarding(sess *ssh.Session) error {
 	if err := agent.RequestAgentForwarding(sess); err != nil {
 		return fmt.Errorf("error RequestAgentForwarding: %w", err)
 	}
-	if err := agent.ForwardToAgent(m.conn, keyring); err != nil {
+	sshC, ok := m.conn.(*ssh.Client)
+	if !ok {
+		return fmt.Errorf("unexpected connection type %T", m.conn)
+	}
+	if err := agent.ForwardToAgent(sshC, keyring); err != nil {
 		return fmt.Errorf("error ForwardToAgent: %w", err)
 	}
 	m.forwardAgent = keyring

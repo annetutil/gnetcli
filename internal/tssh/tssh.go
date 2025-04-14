@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"sync"
+	"syscall"
+	"time"
 
 	_ "unsafe"
 
@@ -90,6 +93,12 @@ type connection struct {
 	*mux
 }
 
+type ConnectionForward struct {
+	transport *net.UnixConn
+	Stdin     net.Conn
+	Stdout    net.Conn
+}
+
 func (c *connection) Close() error {
 	return c.sshConn.conn.Close()
 }
@@ -166,6 +175,52 @@ func NewControlClientConn(c net.Conn) (ssh.Conn, <-chan ssh.NewChannel, <-chan *
 	return conn, conn.mux.incomingChannels, conn.mux.incomingRequests, nil
 }
 
+// NewControlStdioForward establishes tunnel over an ControlMaster socket c in Stdio Forward mode.
+func NewControlStdioForward(c *net.UnixConn, host string, port int) (*ConnectionForward, error) {
+	stdin, stdout, err := handshakeControlStdioForward(c, host, port)
+	if err != nil {
+		return nil, fmt.Errorf("ssh: control forward handshake failed; %v", err)
+	}
+
+	return &ConnectionForward{
+		transport: c,
+		Stdin:     stdin,
+		Stdout:    stdout,
+	}, nil
+}
+
+func (m *ConnectionForward) Close() error {
+	return m.transport.Close()
+}
+
+func (m *ConnectionForward) LocalAddr() net.Addr {
+	return m.transport.LocalAddr()
+}
+
+func (m *ConnectionForward) RemoteAddr() net.Addr {
+	return m.transport.RemoteAddr()
+}
+
+func (m *ConnectionForward) Read(b []byte) (int, error) {
+	return m.Stdout.Read(b)
+}
+
+func (m *ConnectionForward) Write(b []byte) (int, error) {
+	return m.Stdin.Write(b)
+}
+
+func (m *ConnectionForward) SetDeadline(t time.Time) error {
+	return m.Stdin.SetReadDeadline(t)
+}
+
+func (m *ConnectionForward) SetReadDeadline(t time.Time) error {
+	return m.Stdin.SetReadDeadline(t)
+}
+
+func (m *ConnectionForward) SetWriteDeadline(t time.Time) error {
+	return m.Stdin.SetWriteDeadline(t)
+}
+
 const (
 	muxMsgHello   = 0x00000001
 	muxAliveCheck = 0x10000004
@@ -212,6 +267,101 @@ func handshakeControlProxy(rw io.ReadWriteCloser) (connTransport, error) {
 		return nil, fmt.Errorf("expected server proxy response got %d", m.messageType)
 	}
 	return &controlProxyTransport{rw}, nil
+}
+
+func handshakeControlStdioForward(rw *net.UnixConn, host string, port int) (net.Conn, net.Conn, error) {
+	// https://github.com/openssh/openssh-portable/blob/8725dbc5b5fcc3e326fc71189ef8dba4333362cc/mux.c#L2135
+	// 3. Requesting passenger-mode stdio forwarding
+
+	// A client may request the master to establish a stdio forwarding:
+
+	// uint32	MUX_C_NEW_STDIO_FWD
+	// uint32	request id
+	// string	reserved
+	// string	connect host
+	// string	connect port (sic, it's wrong type) https://github.com/openssh/openssh-portable/blob/8725dbc5b5fcc3e326fc71189ef8dba4333362cc/mux.c#L2135
+
+	// The client then sends its standard input and output file descriptors
+	// (in that order) using Unix domain socket control messages.
+
+	// The contents of "reserved" are currently ignored.
+
+	// A server may reply with a MUX_S_SESSION_OPENED, a MUX_S_PERMISSION_DENIED
+	// or a MUX_S_FAILURE.
+	// https://github.com/openssh/openssh-portable/blob/6575859d7acb110acf408707f98ed9744ca7d692/PROTOCOL.mux#L5
+	b := &controlBuffer{}
+	b.writeUint32(muxMsgHello)
+	b.writeUint32(4) // Protocol Version
+	if _, err := rw.Write(b.lengthPrefixedBytes()); err != nil {
+		return nil, nil, fmt.Errorf("mux hello write failed: %v", err)
+	}
+	stdin, _, _, stdinFD, err := makeSocketFromSocketPair()
+	if err != nil {
+		return nil, nil, err
+	}
+	stdout, _, _, stdoutFD, err := makeSocketFromSocketPair()
+	if err != nil {
+		return nil, nil, err
+	}
+	b.Reset()
+	b.writeUint32(muxStdioFwd)
+	b.writeUint32(0)  // Request ID
+	b.writeString("") // Reserved
+	b.writeString(host)
+	b.writeUint32(uint32(port))
+
+	if _, err := rw.Write(b.lengthPrefixedBytes()); err != nil {
+		return nil, nil, fmt.Errorf("mux client forward write failed: %v", err)
+	}
+	err = sendFd(rw, stdinFD)
+	if err != nil {
+		return nil, nil, fmt.Errorf("sendFd err: %w", err)
+	}
+	err = sendFd(rw, stdoutFD)
+	if err != nil {
+		return nil, nil, fmt.Errorf("stdoutFD err: %w", err)
+	}
+	r := controlReader{rw}
+	m, err := r.next()
+	if err != nil {
+		return nil, nil, fmt.Errorf("mux hello read failed: %w", err)
+	}
+	if m.messageType != muxMsgHello {
+		return nil, nil, fmt.Errorf("mux reply not hello")
+	}
+	if v, err := m.readUint32(); err != nil || v != 4 {
+		return nil, nil, fmt.Errorf("mux reply hello has bad protocol version")
+	}
+	return stdin, stdout, nil
+}
+
+func makeSocketFromSocketPair() (net.Conn, uintptr, net.Conn, uintptr, error) {
+	fds, err := syscall.Socketpair(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
+	if err != nil {
+		return nil, 0, nil, 0, err
+	}
+
+	f0 := os.NewFile(uintptr(fds[0]), "socketpair-0")
+	c0, err := net.FileConn(f0)
+	if err != nil {
+		f0.Close()
+		return nil, 0, nil, 0, err
+	}
+	f1 := os.NewFile(uintptr(fds[1]), "socketpair-0")
+	c1, err := net.FileConn(f1)
+	if err != nil {
+		f0.Close()
+		f1.Close()
+		return nil, 0, nil, 0, err
+	}
+
+	return c0, f0.Fd(), c1, f1.Fd(), nil
+}
+
+func sendFd(conn *net.UnixConn, fd uintptr) error {
+	oob := syscall.UnixRights(int(fd))
+	_, _, err := conn.WriteMsgUnix([]byte{}, oob, nil)
+	return err
 }
 
 // controlProxyTransport implements the connTransport interface for
@@ -264,6 +414,11 @@ type controlBuffer struct {
 
 func (b *controlBuffer) writeUint32(i uint32) {
 	_ = binary.Write(b, binary.BigEndian, i)
+}
+
+func (b *controlBuffer) writeString(s string) {
+	_ = binary.Write(b, binary.BigEndian, uint32(len(s)))
+	b.WriteString(s)
 }
 
 func (b *controlBuffer) lengthPrefixedBytes() []byte {
