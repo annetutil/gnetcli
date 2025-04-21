@@ -166,7 +166,7 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 		streamerOpts = append(streamerOpts, ssh.WithPort(port))
 	}
 	if params.proxyJump != "" {
-		jumpHostParams, err := m.getHostParams(params.proxyJump, &pb.HostParams{})
+		jumpHostParams, err := m.getHostParams(params.proxyJump, nil)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get host params for ssh tunnel to %s:%w", params.proxyJump, err)
 		}
@@ -175,7 +175,7 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 			opts = append(opts, ssh.SSHTunnelWithControlFIle(jumpHostParams.controlPath))
 		}
 		connHost = params.host
-		tun := ssh.NewSSHTunnel(params.proxyJump, jumpHostParams.GetCredentials(), opts...)
+		tun := ssh.NewSSHTunnel(jumpHostParams.host, jumpHostParams.GetCredentials(), opts...)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		err = tun.CreateConnect(ctx)
@@ -475,9 +475,12 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 	} else {
 		res = hostParams{
 			port:   0,
-			device: cmdParams.Device,
+			device: "",
 			creds:  defaultCreds,
 			ip:     netip.Addr{},
+		}
+		if cmdParams != nil {
+			res.device = cmdParams.Device
 		}
 	}
 	// proxyJump only supported in defaultHostParams
@@ -487,6 +490,9 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 	}
 	if defaultHostParams.controlPath != "" {
 		res.controlPath = defaultHostParams.controlPath
+	}
+	if defaultHostParams.host != "" {
+		res.host = defaultHostParams.host
 	}
 	return res, nil
 }
