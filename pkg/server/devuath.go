@@ -28,6 +28,7 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 	}
 	proxyJump := ""
 	controlPath := ""
+	connectHost := host
 	if len(m.config.ProxyJump) > 0 {
 		proxyJump = m.config.ProxyJump
 	} else if m.config.SshConfig {
@@ -35,14 +36,14 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 		controlPath = ssh_config.Get(host, "ControlPath")
 		realHost := ssh_config.Get(host, "Hostname")
 		if len(realHost) > 0 {
-			host = realHost
+			connectHost = realHost
 		}
 	}
 	creds, err := m.Get(host)
 	if err != nil {
 		return hostParams{}, err
 	}
-	res := NewHostParams(creds, params.GetDevice(), ip, port, proxyJump, controlPath, host)
+	res := NewHostParams(creds, params.GetDevice(), ip, port, proxyJump, controlPath, connectHost)
 	return res, nil
 }
 
