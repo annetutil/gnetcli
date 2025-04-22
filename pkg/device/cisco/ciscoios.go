@@ -32,7 +32,10 @@ const (
 )
 
 var autoCommands = []cmd.Cmd{
+	cmd.NewCmd("terminal no monitor", cmd.WithErrorIgnore()),      // ios, ios-xe
+	cmd.NewCmd("terminal monitor disable", cmd.WithErrorIgnore()), // ios xr
 	cmd.NewCmd("terminal length 0", cmd.WithErrorIgnore()),
+	cmd.NewCmd("terminal width 0", cmd.WithErrorIgnore()),
 	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAddAnswers(cmd.NewAnswer("Password: ", ""))),
 }
 
