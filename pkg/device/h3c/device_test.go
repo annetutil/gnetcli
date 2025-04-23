@@ -21,6 +21,7 @@ func TestDevicePrompt(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\n<test>"),
 		[]byte("\r\n(M)<test-test>"), // mmi-mode
+		[]byte("\r\n(M)[test-test]"), // mmi-mode system-view
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
