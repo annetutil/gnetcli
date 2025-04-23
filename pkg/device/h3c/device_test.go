@@ -20,8 +20,9 @@ func TestDeviceErrors(t *testing.T) {
 func TestDevicePrompt(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\n<test>"),
-		[]byte("\r\n(M)<test-test>"), // mmi-mode
-		[]byte("\r\n(M)[test-test]"), // mmi-mode system-view
+		[]byte("\r\n(M)<test-test>"),                  // mmi-mode
+		[]byte("\r\n(M)[test-test]"),                  // mmi-mode system-view
+		[]byte("\r\n(M)[5-1-1-GigabitEthernet1/0/1]"), // mmi-mode system-view
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
