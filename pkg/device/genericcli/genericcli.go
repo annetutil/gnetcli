@@ -27,6 +27,16 @@ var ErrorCLILogin = errors.New("CLI login is not supported")
 const AnyNLPattern = `(\r\n|\n)`
 const DefaultCLIConnectTimeout = 15 * time.Second
 
+const (
+	promptExprName    = "prompt"
+	passwdErrExprName = "passwordError"
+	questionExprName  = "question"
+	passwordExprName  = "password"
+	loginExprName     = "login"
+	pagerExprName     = "pager"
+	echoExprName      = "echo"
+)
+
 var defaultWriteNewLine = []byte("\n") // const
 
 type terminalParams struct {
@@ -214,15 +224,15 @@ func (m *GenericDevice) Connect(ctx context.Context) (err error) {
 func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 	m.cliConnected = true
 	if m.connector.HasFeature(streamer.AutoLogin) && !m.cli.forceManualAuth {
-		exprs := expr.NewSimpleExprListNamed(map[string][]expr.Expr{"prompt": {m.cli.prompt}, "question": {m.cli.question}})
+		exprs := expr.NewSimpleExprListNamed(map[string][]expr.Expr{promptExprName: {m.cli.prompt}, questionExprName: {m.cli.question}})
 		match, err := m.connector.ReadTo(ctx, exprs)
 		if err != nil {
 			return err
 		}
 		matchName := exprs.GetName(match.GetPatternNo())
 		switch matchName {
-		case "prompt":
-		case "question":
+		case promptExprName:
+		case questionExprName:
 			seenOk := false
 			question := match.GetMatched()
 			for _, cmdAnswer := range m.cli.defaultAnswers {
@@ -357,10 +367,10 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 
 	i := 0
 	checkExprs := []expr.NamedExpr{
-		{Name: "login", Exprs: []expr.Expr{cli.login}},
-		{Name: "password", Exprs: []expr.Expr{cli.password}},
-		{Name: "prompt", Exprs: []expr.Expr{cli.prompt}},
-		{Name: "passwordError", Exprs: []expr.Expr{cli.passwordError}},
+		{Name: loginExprName, Exprs: []expr.Expr{cli.login}},
+		{Name: passwordExprName, Exprs: []expr.Expr{cli.password}},
+		{Name: promptExprName, Exprs: []expr.Expr{cli.prompt}},
+		{Name: passwdErrExprName, Exprs: []expr.Expr{cli.passwordError}},
 	}
 
 	for i < len(passwords) {
@@ -372,7 +382,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		}
 
 		matchedExprNameLogin := exprsLogin.GetName(readResLogin.GetPatternNo())
-		if matchedExprNameLogin == "login" {
+		if matchedExprNameLogin == loginExprName {
 			username, err := connector.GetCredentials().GetUsername()
 			if err != nil {
 				return err
@@ -389,7 +399,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 					return fmt.Errorf("write error %w", err)
 				}
 			}
-		} else if matchedExprNameLogin == "password" {
+		} else if matchedExprNameLogin == passwordExprName {
 			err = connector.Write([]byte(passwords[i].Value()))
 			if err != nil {
 				return err
@@ -402,9 +412,9 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 				}
 			}
 			i++
-		} else if matchedExprNameLogin == "passwordError" {
+		} else if matchedExprNameLogin == passwdErrExprName {
 			continue
-		} else if matchedExprNameLogin == "prompt" {
+		} else if matchedExprNameLogin == promptExprName {
 			return nil
 		}
 	}
@@ -415,7 +425,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	}
 
 	matchedExprNameLogin := exprs.GetName(readResLogin.GetPatternNo())
-	if matchedExprNameLogin == "prompt" {
+	if matchedExprNameLogin == promptExprName {
 		return nil
 	}
 
@@ -463,10 +473,10 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		questions = append(cmdQuestions, questions...)
 	}
 	checkExprs := []expr.NamedExpr{
-		{Name: "echo", Exprs: []expr.Expr{expCmdEcho}},
-		{Name: "prompt", Exprs: []expr.Expr{cli.prompt}},
-		{Name: "pager", Exprs: []expr.Expr{cli.pager}},
-		{Name: "question", Exprs: questions},
+		{Name: echoExprName, Exprs: []expr.Expr{expCmdEcho}},
+		{Name: promptExprName, Exprs: []expr.Expr{cli.prompt}},
+		{Name: pagerExprName, Exprs: []expr.Expr{cli.pager}},
+		{Name: questionExprName, Exprs: questions},
 	}
 	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
 
@@ -492,14 +502,14 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		matchId := match.GetPatternNo()
 		matchName := exprs.GetName(matchId)
 
-		if matchName == "echo" {
+		if matchName == echoExprName {
 			seenEcho = true
-			exprs.Delete("echo")
+			exprs.Delete(echoExprName)
 			continue
 		}
 		mbefore := match.GetBefore()
 		if !seenEcho {
-			promptFound := matchName == "prompt"
+			promptFound := matchName == promptExprName
 			// case where we caught prompt before echo because of term codes in echo
 			if len(mbefore) < 2 || !promptFound { // don't bother to do complex logic
 				return nil, device.ThrowEchoReadException(mbefore, promptFound)
@@ -525,24 +535,24 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 			}
 			// assuring that it is echo
-			if exprs.GetName(mres.PatternNo) != "echo" {
+			if exprs.GetName(mres.PatternNo) != echoExprName {
 				return nil, device.ThrowEchoReadException(mbefore, promptFound)
 			}
 			if mres.End > len(termParsedEcho) {
 				return nil, errors.New("termParsedEcho len less than mres.End")
 			}
 			seenEcho = true
-			exprs.Delete("echo")
+			exprs.Delete(echoExprName)
 			// delete echo
 			mbefore = termParsedEcho[mres.End:]
 		}
-		if matchName == "prompt" {
+		if matchName == promptExprName {
 			buffer.Write(mbefore)
 			if store, ok := match.GetMatchedGroups()["store"]; ok {
 				buffer.Write(store)
 			}
 			break
-		} else if matchName == "pager" { // next page
+		} else if matchName == pagerExprName { // next page
 			buffer.Write(mbefore)
 			if store, ok := match.GetMatchedGroups()["store"]; ok {
 				buffer.Write(store)
@@ -552,7 +562,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
 			}
-		} else if matchName == "question" { // question
+		} else if matchName == questionExprName { // question
 			question := match.GetMatched()
 			answer, err := command.QuestionHandler(question)
 			if err != nil {
