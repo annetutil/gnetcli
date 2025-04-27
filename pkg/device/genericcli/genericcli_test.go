@@ -244,3 +244,37 @@ func TestEscTermInEchoEmptyCmd(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
 }
+
+func TestLoginCallback(t *testing.T) {
+	logger := zap.Must(zap.NewDevelopmentConfig().Build())
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>*Mar  1 00:04:21.011: %Login: Someone logged in"),
+			gmock.Expect("\n"),
+			gmock.Send("<device>"),
+			gmock.Expect("test\n"),
+			gmock.SendEcho("test\r\n"),
+			gmock.Send("test ok\r\n"),
+			gmock.Send("<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmds := []cmd.Cmd{cmd.NewCmd("test")}
+
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		promptExpression := `(\r\n|^)(?P<prompt>(<\w+>))$`
+		cli := MakeGenericCLI(
+			expr.NewSimpleExprLast200().FromPattern(promptExpression),
+			expr.NewSimpleExprLast200().FromPattern(``),
+			WithLoginCallbacks([]cmd.ExprCallback{cmd.NewExprCallback(`/\*.+Login: Someone logged in/`, "\n")}),
+		)
+		dev := MakeGenericDevice(cli, connector, WithDevLogger(logger))
+		return &dev
+	}, actions, cmds, logger)
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, resErr)
+	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes([]byte("test ok"))})
+}

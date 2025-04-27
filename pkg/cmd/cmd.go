@@ -278,3 +278,17 @@ type ExprCallback struct {
 func NewExprCallback(expr, write string) ExprCallback {
 	return ExprCallback{expr: expr, write: write}
 }
+
+func (m *ExprCallback) GetAns() []byte {
+	return []byte(m.write)
+}
+
+func (m *ExprCallback) GetExpr() expr.Expr {
+	var res expr.Expr
+	if m.expr[0] == '/' && m.expr[len(m.expr)-1] == '/' {
+		res = expr.NewSimpleExpr().FromPattern(m.expr[1 : len(m.expr)-1])
+	} else {
+		res = expr.NewSimpleExpr().FromPattern(regexp.QuoteMeta(m.expr))
+	}
+	return res
+}
