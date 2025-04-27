@@ -215,7 +215,7 @@ func WithDevAdditionalLoginCallbacks(cb []cmd.ExprCallback) GenericDeviceOption 
 	}
 }
 
-func WithDevLoginCallback(cb []cmd.ExprCallback) GenericDeviceOption {
+func WithDevLoginCallbacks(cb []cmd.ExprCallback) GenericDeviceOption {
 	return func(h *GenericDevice) {
 		h.cli.loginCB = cb
 	}
