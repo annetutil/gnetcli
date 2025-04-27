@@ -28,13 +28,15 @@ const AnyNLPattern = `(\r\n|\n)`
 const DefaultCLIConnectTimeout = 15 * time.Second
 
 const (
-	promptExprName    = "prompt"
-	passwdErrExprName = "passwordError"
-	questionExprName  = "question"
-	passwordExprName  = "password"
-	loginExprName     = "login"
-	pagerExprName     = "pager"
-	echoExprName      = "echo"
+	promptExprName        = "prompt"
+	passwdErrExprName     = "passwordError"
+	questionExprName      = "question"
+	loginQuestionExprName = "loginQuestion"
+	passwordExprName      = "password"
+	loginExprName         = "login"
+	pagerExprName         = "pager"
+	echoExprName          = "echo"
+	cbExprName            = "cb"
 )
 
 var defaultWriteNewLine = []byte("\n") // const
@@ -50,6 +52,7 @@ type GenericCLI struct {
 	password         expr.Expr
 	error            expr.Expr
 	question         expr.Expr
+	loginCB          []cmd.ExprCallback // used only during login, before first prompt
 	passwordError    expr.Expr
 	pager            expr.Expr
 	autoCommands     []cmd.Cmd
@@ -129,6 +132,18 @@ func WithQuestion(question expr.Expr) GenericCLIOption {
 	}
 }
 
+func WithAdditionalLoginCallbacks(cb []cmd.ExprCallback) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.loginCB = append(h.loginCB, cb...)
+	}
+}
+
+func WithLoginCallbacks(cb []cmd.ExprCallback) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.loginCB = cb
+	}
+}
+
 func WithCredentialInterceptor(inter func(credentials.Credentials) credentials.Credentials) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.credsInterceptor = inter
@@ -169,6 +184,7 @@ func MakeGenericCLI(prompt, error expr.Expr, opts ...GenericCLIOption) GenericCL
 		sftpEnabled:      false,
 		defaultAnswers:   nil,
 		terminalParams:   &terminalParams{w: 400, h: 0},
+		loginCB:          []cmd.ExprCallback{},
 	}
 	for _, opt := range opts {
 		opt(&res)
@@ -190,6 +206,18 @@ type GenericDeviceOption func(*GenericDevice)
 func WithDevLogger(logger *zap.Logger) GenericDeviceOption {
 	return func(h *GenericDevice) {
 		h.logger = logger
+	}
+}
+
+func WithDevAdditionalLoginCallbacks(cb []cmd.ExprCallback) GenericDeviceOption {
+	return func(h *GenericDevice) {
+		h.cli.loginCB = append(h.cli.loginCB, cb...)
+	}
+}
+
+func WithDevLoginCallback(cb []cmd.ExprCallback) GenericDeviceOption {
+	return func(h *GenericDevice) {
+		h.cli.loginCB = cb
 	}
 }
 
@@ -224,40 +252,64 @@ func (m *GenericDevice) Connect(ctx context.Context) (err error) {
 func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 	m.cliConnected = true
 	if m.connector.HasFeature(streamer.AutoLogin) && !m.cli.forceManualAuth {
-		exprs := expr.NewSimpleExprListNamed(map[string][]expr.Expr{promptExprName: {m.cli.prompt}, questionExprName: {m.cli.question}})
-		match, err := m.connector.ReadTo(ctx, exprs)
-		if err != nil {
-			return err
+		exprMap := map[string][]expr.Expr{
+			promptExprName:   {m.cli.prompt},
+			questionExprName: {m.cli.question},
 		}
-		matchName := exprs.GetName(match.GetPatternNo())
-		switch matchName {
-		case promptExprName:
-		case questionExprName:
-			seenOk := false
-			question := match.GetMatched()
-			for _, cmdAnswer := range m.cli.defaultAnswers {
-				ans, ok, err := cmdAnswer.Match(question)
-				if err != nil {
-					return err
-				}
-				if len(ans) > 0 {
-					err := m.connector.Write(ans)
-					if err != nil {
-						return fmt.Errorf("write error %w", err)
-					}
-				}
-				if ok {
-					seenOk = true
-					break
-				}
+		if len(m.cli.loginCB) > 0 {
+			cbExprs := []expr.Expr{}
+			for _, ex := range m.cli.loginCB {
+				cbExprs = append(cbExprs, ex.GetExpr())
 			}
-			if !seenOk {
-				return device.ThrowQuestionException(question)
-			}
-			_, err = m.connector.ReadTo(ctx, m.cli.prompt)
+			exprMap[cbExprName] = cbExprs
+		}
+		exprs := expr.NewSimpleExprListNamed(exprMap)
+		for i := 0; i < 10; i++ {
+			match, err := m.connector.ReadTo(ctx, exprs)
 			if err != nil {
 				return err
 			}
+			matchName := exprs.GetName(match.GetPatternNo())
+			switch matchName {
+			case promptExprName:
+			case questionExprName:
+				seenOk := false
+				question := match.GetMatched()
+				for _, cmdAnswer := range m.cli.defaultAnswers {
+					ans, ok, err := cmdAnswer.Match(question)
+					if err != nil {
+						return err
+					}
+					if len(ans) > 0 {
+						err := m.connector.Write(ans)
+						if err != nil {
+							return fmt.Errorf("write error %w", err)
+						}
+					}
+					if ok {
+						seenOk = true
+						break
+					}
+				}
+				if !seenOk {
+					return device.ThrowQuestionException(question)
+				}
+				_, err = m.connector.ReadTo(ctx, m.cli.prompt)
+				if err != nil {
+					return err
+				}
+			case cbExprName:
+				pos := match.GetUnderlyingRes().GetPatternNo()
+				f := m.cli.loginCB[pos]
+				err := m.connector.Write(f.GetAns())
+				if err != nil {
+					return fmt.Errorf("write error %w", err)
+				}
+				continue
+			default:
+				return fmt.Errorf("unknown expr name %q", matchName)
+			}
+			break
 		}
 	} else { // login by Device
 		if m.cli.login == nil {
