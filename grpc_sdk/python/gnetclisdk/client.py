@@ -29,6 +29,7 @@ default_grpc_options: List[Tuple[str, Any]] = [
     ("grpc.max_concurrent_streams", 900),
     ("grpc.max_send_message_length", GRPC_MAX_MESSAGE_LENGTH),
     ("grpc.max_receive_message_length", GRPC_MAX_MESSAGE_LENGTH),
+    ("grpc.max_metadata_size", GRPC_MAX_MESSAGE_LENGTH),
 ]
 
 
@@ -300,11 +301,7 @@ class GnetcliSession(ABC):
         self._stream: Optional[grpc.aio.StreamStreamCall] = None
         self._user_agent = user_agent
 
-        options: List[Tuple[str, Any]] = [
-            ("grpc.max_concurrent_streams", 900),
-            ("grpc.max_send_message_length", GRPC_MAX_MESSAGE_LENGTH),
-            ("grpc.max_receive_message_length", GRPC_MAX_MESSAGE_LENGTH),
-        ]
+        options: List[Tuple[str, Any]] = default_grpc_options
         if _grpc_channel_fn:
             grpc_channel_fn = _grpc_channel_fn
         else:
