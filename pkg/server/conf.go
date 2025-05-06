@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"time"
 
 	"github.com/heetch/confita"
 	"github.com/heetch/confita/backend"
@@ -22,19 +23,21 @@ type Config struct {
 	Listen     string    `config:"port,description=Listen address" yaml:"port"`
 	HttpListen string    `config:"http_port,description=Http listen address" yaml:"http_port"`
 	// FIXME: Dev* in DevAuth, drop it
-	DevLogin    string        `config:"dev-login,description=Default device login" yaml:"dev_login"`
-	DevPass     string        `config:"dev-pass,description=Default device password" yaml:"dev_pass"`
-	DevUseAgent bool          `config:"dev-use-agent" yaml:"dev_use_agent"`
-	DevAuth     authAppConfig `yaml:"dev_auth"`
-	ConfFile    string        `config:"conf-file,description=Path to config file. '-' for stdin"`
-	DevConf     string        `config:"dev-conf,Path to yaml with device types" yaml:"dev_conf"`
-	Tls         bool          `config:"tls,description=Connection uses TLS if true, else plain TCP" yaml:"tls"`
-	CertFile    string        `config:"cert-file,description=The TLS cert file" yaml:"cert_file"`
-	KeyFile     string        `config:"key-file,description=The TLS key file" yaml:"key_file"`
-	BasicAuth   string        `config:"basic-auth,description=Authenticate client using Basic auth" yaml:"basic_auth"`
-	DisableTcp  bool          `config:"disable_tcp,description=Disable TCP listener" yaml:"disable_tcp"`
-	UnixSocket  string        `config:"unix-socket,description=Unix socket path" yaml:"unix_socket"`
-	Debug       bool          `config:"debug,short=d,description=Set debug log level"`
+	DevLogin           string        `config:"dev-login,description=Default device login" yaml:"dev_login"`
+	DevPass            string        `config:"dev-pass,description=Default device password" yaml:"dev_pass"`
+	DevUseAgent        bool          `config:"dev-use-agent" yaml:"dev_use_agent"`
+	DevAuth            authAppConfig `yaml:"dev_auth"`
+	ConfFile           string        `config:"conf-file,description=Path to config file. '-' for stdin"`
+	DevConf            string        `config:"dev-conf,Path to yaml with device types" yaml:"dev_conf"`
+	Tls                bool          `config:"tls,description=Connection uses TLS if true, else plain TCP" yaml:"tls"`
+	CertFile           string        `config:"cert-file,description=The TLS cert file" yaml:"cert_file"`
+	KeyFile            string        `config:"key-file,description=The TLS key file" yaml:"key_file"`
+	BasicAuth          string        `config:"basic-auth,description=Authenticate client using Basic auth" yaml:"basic_auth"`
+	DisableTcp         bool          `config:"disable_tcp,description=Disable TCP listener" yaml:"disable_tcp"`
+	UnixSocket         string        `config:"unix-socket,description=Unix socket path" yaml:"unix_socket"`
+	Debug              bool          `config:"debug,short=d,description=Set debug log level"`
+	DefaultReadTimeout time.Duration `config:"default-read-timeout,description=Default read timeout"`
+	DefaultCmdTimeout  time.Duration `config:"default-cmd-timeout,description=Default command timeout"`
 }
 
 type LogConfig struct {

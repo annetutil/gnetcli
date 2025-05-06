@@ -141,6 +141,12 @@ func main() {
 	grpcServer := grpc.NewServer(opts...)
 
 	serverOpts := []server.Option{server.WithLogger(logger)}
+	if cfg.DefaultReadTimeout > 0 {
+		serverOpts = append(serverOpts, server.WithDefaultReadTimeout(cfg.DefaultReadTimeout))
+	}
+	if cfg.DefaultCmdTimeout > 0 {
+		serverOpts = append(serverOpts, server.WithDefaultCmdTimeout(cfg.DefaultCmdTimeout))
+	}
 	devAuthApp := server.NewAuthApp(cfg.DevAuth, logger)
 	s, err := server.New(devAuthApp, cfg.DevConf, serverOpts...)
 	if err != nil {
