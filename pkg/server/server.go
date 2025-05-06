@@ -52,12 +52,14 @@ const (
 
 type Server struct {
 	pb.UnimplementedGnetcliServer
-	log          *zap.Logger
-	deviceMaps   map[string]func(streamer.Connector) device.Device
-	deviceMapsMu sync.Mutex
-	hostParams   map[string]hostParams
-	hostParamsMu sync.Mutex
-	devAuthApp   authApp
+	log                *zap.Logger
+	deviceMaps         map[string]func(streamer.Connector) device.Device
+	deviceMapsMu       sync.Mutex
+	hostParams         map[string]hostParams
+	hostParamsMu       sync.Mutex
+	devAuthApp         authApp
+	defaultReadTimeout time.Duration
+	defaultCmdTimeout  time.Duration
 }
 
 type hostParams struct {
@@ -132,6 +134,18 @@ type Option func(*Server)
 func WithLogger(logger *zap.Logger) Option {
 	return func(h *Server) {
 		h.log = logger
+	}
+}
+
+func WithDefaultReadTimeout(timeout time.Duration) Option {
+	return func(h *Server) {
+		h.defaultReadTimeout = timeout
+	}
+}
+
+func WithDefaultCmdTimeout(timeout time.Duration) Option {
+	return func(h *Server) {
+		h.defaultCmdTimeout = timeout
 	}
 }
 
@@ -237,6 +251,13 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	}
 	defer devInited.Close()
 
+	opts := []gcmd.CmdOption{}
+	if m.defaultCmdTimeout > 0 {
+		opts = append(opts, gcmd.WithCmdTimeout(m.defaultCmdTimeout))
+	}
+	if m.defaultReadTimeout > 0 {
+		opts = append(opts, gcmd.WithReadTimeout(m.defaultReadTimeout))
+	}
 	cmd := firstCmd
 	for {
 		var traceRes []*pb.CMDTraceItem
@@ -247,7 +268,7 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 			traceIndex = devTraceMulti.AddTrace(cmdTr)
 		}
 
-		chatCmd := makeGnetcliCmd(cmd)
+		chatCmd := makeGnetcliCmd(cmd, opts...)
 		res, err := devInited.Execute(chatCmd)
 		if err != nil {
 			return makeGRPCDeviceExecError(err)
@@ -586,8 +607,9 @@ func gnetcliTraceToTrace(tr gtrace.Trace) []*pb.CMDTraceItem {
 	return traceRes
 }
 
-func makeGnetcliCmd(cmd *pb.CMD) gcmd.Cmd {
+func makeGnetcliCmd(cmd *pb.CMD, cmdOpts ...gcmd.CmdOption) gcmd.Cmd {
 	opts := make([]gcmd.CmdOption, 0, len(cmd.Qa))
+	opts = append(opts, cmdOpts...)
 	for _, qa := range cmd.Qa {
 		opts = append(opts, gcmd.WithAddAnswers(gcmd.NewAnswer(qa.GetQuestion(), qa.GetAnswer())))
 	}
