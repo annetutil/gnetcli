@@ -36,8 +36,8 @@ type Config struct {
 	DisableTcp         bool          `config:"disable_tcp,description=Disable TCP listener" yaml:"disable_tcp"`
 	UnixSocket         string        `config:"unix-socket,description=Unix socket path" yaml:"unix_socket"`
 	Debug              bool          `config:"debug,short=d,description=Set debug log level"`
-	DefaultReadTimeout time.Duration `config:"default-read-timeout,description=Default read timeout"`
-	DefaultCmdTimeout  time.Duration `config:"default-cmd-timeout,description=Default command timeout"`
+	DefaultReadTimeout time.Duration `config:"default-read-timeout,description=Default read timeout" yaml:"default_read_timeout"`
+	DefaultCmdTimeout  time.Duration `config:"default-cmd-timeout,description=Default command timeout" yaml:"default_cmd_timeout"`
 }
 
 type LogConfig struct {
