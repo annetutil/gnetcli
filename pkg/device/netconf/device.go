@@ -147,16 +147,16 @@ func NewDevice(connection streamer.Connector, opts ...DeviceOption) device.Devic
 func (m *NetconfDevice) Connect(ctx context.Context) (err error) {
 	err = m.connector.Init(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("dev init error: %w", err)
 	}
 	res, err := m.connector.ReadTo(ctx, expr.NewSimpleExprLast20().FromPattern(eom))
 	if err != nil {
-		return err
+		return fmt.Errorf("read to eom error: %w", err)
 	}
 	var hello Hello
 	err = xml.Unmarshal(res.GetBefore(), &hello)
 	if err != nil {
-		return err
+		return fmt.Errorf("xml unmarshal error: %w", err)
 	}
 	capabilities := []string{netconfVer10Cap, netconfVer11Cap}
 	capabilities = append(capabilities, m.clientCapabilities...)
