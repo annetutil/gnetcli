@@ -4,6 +4,10 @@ Package huawei implements huawei CLI using genericcli.
 package huawei
 
 import (
+	"bytes"
+	"fmt"
+	"regexp"
+
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/expr"
@@ -49,6 +53,15 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 		),
 		genericcli.WithSFTPEnabled(),
 		genericcli.WithTerminalParams(400, 0),
+		genericcli.WithEchoExprFn(func(command cmd.Cmd) expr.Expr {
+			if bytes.HasPrefix(command.Value(), []byte("startup patch")) {
+				// startup patch adds periods right after the command without newlines
+				// like echo: startup patch 1234.pat....
+				return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s.*(\r\n|\n)`, regexp.QuoteMeta(string(command.Value()))))
+			}
+			// default
+			return expr.NewSimpleExpr().FromPattern(fmt.Sprintf("%s(\r\n|\n)", regexp.QuoteMeta(string(command.Value()))))
+		}),
 	)
 	return genericcli.MakeGenericDevice(cli, connector, opts...)
 }
