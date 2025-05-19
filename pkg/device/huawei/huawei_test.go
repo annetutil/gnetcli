@@ -46,6 +46,7 @@ func TestHuaweiNotPrompt(t *testing.T) {
 func TestHuaweiQuestion(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nWarning: The current configuration will be written to the device. Continue? [Y/N]:"),
+		[]byte("\r\nWarning: This command will disable the function of verifying the old password when administrators changes their own passwords. Continue?[Y/N]"),
 	}
 	testutils.ExprTester(t, errorCases, questionExpression)
 }
