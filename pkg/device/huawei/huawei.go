@@ -17,7 +17,7 @@ import (
 const (
 	loginExpression    = `.*Username:$`
 	questionExpression = `(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(\r\n|^)(?P<prompt>(<[/\w\-\.:]+>|\[[~*]?[/\w\-\.:]+\]))$`
+	promptExpression   = `(\r\n|^)(?P<prompt>(<[/\w\-.:]+>|\[[~*]?[/\w\-.:]+\]))$`
 	errorExpression    = `(` +
 		`\^\r\nError: (?P<error>.+) at '\^' position\.` +
 		`|Error: You do not have permission to run the command or the command is incomplete` +
