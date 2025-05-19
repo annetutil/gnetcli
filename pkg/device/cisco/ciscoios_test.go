@@ -25,6 +25,9 @@ func TestPrompt(t *testing.T) {
 		[]byte("\r\nhost-s2(config-if)#"),
 		[]byte("\r\nhost-s2(config-if)#"),
 		[]byte("\r\nhost-s2(config-archive-log-cfg)#"),
+		[]byte("\r\nhost-s2.abc.def(config-archive-log-cfg)#"),
+		[]byte("\r\nhost-s2:abc.def(config-archive-log-cfg)#"),
+		[]byte("\r\nhost-s2/abc.def(config-archive-log-cfg)#"),
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
