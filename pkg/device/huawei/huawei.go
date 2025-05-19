@@ -16,7 +16,7 @@ import (
 
 const (
 	loginExpression    = `.*Username:$`
-	questionExpression = `(?P<question>.*(Continue)?\?\s?\[Y/N\]:?)$`
+	questionExpression = `(?P<question>.*(privilege level|Continue)\s?\?\s?\[Y/N\]:?)$`
 	promptExpression   = `(\r\n|^)(?P<prompt>(<[/\w\-.:]+>|\[[~*]?[/\w\-.:]+\]))$`
 	errorExpression    = `(` +
 		`\^\r\nError: (?P<error>.+) at '\^' position\.` +
