@@ -148,9 +148,13 @@ func (m CmdImpl) QuestionHandler(question []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if ok {
-			return ans, nil
+		if !ok {
+			continue
 		}
+		if !cmdAnswer.notSendNL {
+			ans = append(ans, []byte("\n")...)
+		}
+		return ans, nil
 	}
 	return nil, ErrNotFoundAnswer
 }
@@ -222,8 +226,9 @@ func WithForwarding(forward bool) CmdOption {
 }
 
 type Answer struct {
-	question string
-	answer   string
+	question  string
+	answer    string
+	notSendNL bool
 }
 
 func (m Answer) Match(question []byte) ([]byte, bool, error) {
@@ -260,8 +265,8 @@ func (m Answer) GetExpr() expr.Expr {
 	return res
 }
 
-func NewAnswer(question, answer string) Answer {
-	return Answer{question: question, answer: answer}
+func NewAnswer(question, answer string, notSendNL bool) Answer {
+	return Answer{question: question, answer: answer, notSendNL: notSendNL}
 }
 
 func WithExprCallback(exprCallbacks ...ExprCallback) CmdOption {

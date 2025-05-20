@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/annetutil/gnetcli/pkg/testutils"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/annetutil/gnetcli/pkg/testutils"
 
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
@@ -35,7 +36,7 @@ func parseQuestions(input []string) []cmd.CmdOption {
 	for _, question := range input {
 		splitRes := strings.SplitN(question, ":::", 2)
 		if len(splitRes) == 2 {
-			res = append(res, cmd.WithAddAnswers(cmd.NewAnswer(splitRes[0], splitRes[1])))
+			res = append(res, cmd.WithAddAnswers(cmd.NewAnswer(splitRes[0], splitRes[1], false)))
 		}
 	}
 	return res

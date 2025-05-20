@@ -27,7 +27,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			expr.NewSimpleExprLast200().FromPattern(pagerExpression),
 		),
 		genericcli.WithQuestion(expr.NewSimpleExprLast200().FromPattern("Password:")),
-		genericcli.WithAnswers([]cmd.Answer{cmd.NewAnswer("Password:", "\n\n")}),
+		genericcli.WithAnswers([]cmd.Answer{cmd.NewAnswer("Password:", "\n\n", false)}),
 		genericcli.WithAutoCommands(autoCommands),
 	)
 	return genericcli.MakeGenericDevice(cli, connector, opts...)

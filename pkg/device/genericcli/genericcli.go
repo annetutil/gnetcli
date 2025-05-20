@@ -616,6 +616,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 		} else if matchName == questionExprName { // question
 			question := match.GetMatched()
+			logger.Debug("QuestionHandler question", zap.ByteString("question", question))
 			answer, err := command.QuestionHandler(question)
 			if err != nil {
 				if errors.Is(err, cmd.ErrNotFoundAnswer) {
@@ -623,12 +624,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
-			logger.Debug("QuestionHandler answer to question")
+			logger.Debug("QuestionHandler answer", zap.ByteString("answer", answer))
 			err = connector.Write(answer)
-			if err != nil {
-				return nil, fmt.Errorf("write error %w", err)
-			}
-			err = connector.Write([]byte("\n"))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
 			}
