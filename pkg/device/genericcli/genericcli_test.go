@@ -278,3 +278,34 @@ func TestLoginCallback(t *testing.T) {
 	require.NoError(t, resErr)
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes([]byte("test ok"))})
 }
+
+func TestQuestionWithAnswerNullEnding(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("ack\n"),
+			gmock.SendEcho("ack\r\n"),
+			gmock.Send("Are you sure? [Y/N]:"),
+			gmock.Expect("Y"),
+			gmock.Send("<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmds := []cmd.Cmd{
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("Are you sure? [Y/N]:", "Y\x00"))),
+	}
+
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, actions, cmds, logger)
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, resErr)
+	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil)})
+}
