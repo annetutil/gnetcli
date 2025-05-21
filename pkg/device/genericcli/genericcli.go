@@ -616,6 +616,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 		} else if matchName == questionExprName { // question
 			question := match.GetMatched()
+			logger.Debug("QuestionHandler question", zap.ByteString("question", question))
 			answer, err := command.QuestionHandler(question)
 			if err != nil {
 				if errors.Is(err, cmd.ErrNotFoundAnswer) {
@@ -623,14 +624,22 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
-			logger.Debug("QuestionHandler answer to question")
+			logger.Debug("QuestionHandler answer", zap.ByteString("question", question), zap.ByteString("answer", answer))
+			// allows to emulate %send_nl=0 behaviour
+			// by client adding answer += "\x00"
+			endsWithNull := bytes.HasSuffix(answer, []byte("\x00"))
+			if endsWithNull {
+				answer = answer[:len(answer)-1]
+			}
 			err = connector.Write(answer)
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
 			}
-			err = connector.Write([]byte("\n"))
-			if err != nil {
-				return nil, fmt.Errorf("write error %w", err)
+			if !endsWithNull {
+				err = connector.Write([]byte("\n"))
+				if err != nil {
+					return nil, fmt.Errorf("write error %w", err)
+				}
 			}
 		} else if matchName == "cb" { // ExprCallback
 			if cbLimit == 0 { // reset cbLimit in other cases
