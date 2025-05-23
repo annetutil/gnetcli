@@ -42,12 +42,14 @@ FileStatus_not_found: FileStatus
 FileStatus_is_dir: FileStatus
 
 class QA(_message.Message):
-    __slots__ = ("question", "answer")
+    __slots__ = ("question", "answer", "not_send_nl")
     QUESTION_FIELD_NUMBER: _ClassVar[int]
     ANSWER_FIELD_NUMBER: _ClassVar[int]
+    NOT_SEND_NL_FIELD_NUMBER: _ClassVar[int]
     question: str
     answer: str
-    def __init__(self, question: _Optional[str] = ..., answer: _Optional[str] = ...) -> None: ...
+    not_send_nl: bool
+    def __init__(self, question: _Optional[str] = ..., answer: _Optional[str] = ..., not_send_nl: bool = ...) -> None: ...
 
 class Credentials(_message.Message):
     __slots__ = ("login", "password")

@@ -9,6 +9,7 @@ import "google/protobuf/empty.proto";
 message QA {
   string question = 1;
   string answer = 2;
+  bool not_send_nl = 3;
 }
 
 message Credentials {

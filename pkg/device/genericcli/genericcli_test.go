@@ -77,7 +77,7 @@ func TestQuestionCmdOverlap(t *testing.T) {
 
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
-		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("/Are.+\\? \\[Y/N\\]:/", "Y"))),
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswerWithNL("/Are.+\\? \\[Y/N\\]:/", "Y"))),
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
@@ -108,7 +108,7 @@ func TestQuestionWithAnswer(t *testing.T) {
 
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
-		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("Are you sure? [Y/N]:", "Y"))),
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswerWithNL("Are you sure? [Y/N]:", "Y"))),
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
@@ -142,8 +142,8 @@ func TestMultipleQuestionsWithAnswer(t *testing.T) {
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
 		cmd.NewCmd("ack", cmd.WithAddAnswers(
-			cmd.NewAnswer("Are you sure? [Y/N]:", "Y"),
-			cmd.NewAnswer("Are you really sure? [Y/N]:", "Y"),
+			cmd.NewAnswerWithNL("Are you sure? [Y/N]:", "Y"),
+			cmd.NewAnswerWithNL("Are you really sure? [Y/N]:", "Y"),
 		)),
 	}
 
@@ -173,7 +173,7 @@ func TestQuestionCmdAnswerDontMatchDeviceQuestion(t *testing.T) {
 
 	actions := gmock.ConcatMultipleSlices(dialog)
 	cmds := []cmd.Cmd{
-		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("/Are.+\\? \\[Y/N\\]:/", "Y"))),
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswerWithNL("/Are.+\\? \\[Y/N\\]:/", "Y"))),
 	}
 
 	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
@@ -277,4 +277,35 @@ func TestLoginCallback(t *testing.T) {
 	require.NoError(t, serverErr)
 	require.NoError(t, resErr)
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes([]byte("test ok"))})
+}
+
+func TestQuestionWithAnswerNotSendNL(t *testing.T) {
+	logConfig := zap.NewDevelopmentConfig()
+	logger := zap.Must(logConfig.Build())
+
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("ack\n"),
+			gmock.SendEcho("ack\r\n"),
+			gmock.Send("Are you sure? [Y/N]:"),
+			gmock.Expect("Y"),
+			gmock.Send("<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmds := []cmd.Cmd{
+		cmd.NewCmd("ack", cmd.WithAddAnswers(cmd.NewAnswer("Are you sure? [Y/N]:", "Y", true))),
+	}
+
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, actions, cmds, logger)
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, resErr)
+	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil)})
 }

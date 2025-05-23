@@ -16,7 +16,7 @@ from google.api import annotations_pb2 as google_dot_api_dot_annotations__pb2
 from google.protobuf import empty_pb2 as google_dot_protobuf_dot_empty__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cserver.proto\x12\x07gnetcli\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\"&\n\x02QA\x12\x10\n\x08question\x18\x01 \x01(\t\x12\x0e\n\x06\x61nswer\x18\x02 \x01(\t\".\n\x0b\x43redentials\x12\r\n\x05login\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"\xb4\x01\n\x03\x43MD\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0b\n\x03\x63md\x18\x02 \x01(\t\x12\r\n\x05trace\x18\x03 \x01(\x08\x12\x17\n\x02qa\x18\x04 \x03(\x0b\x32\x0b.gnetcli.QA\x12\x14\n\x0cread_timeout\x18\x05 \x01(\x01\x12\x13\n\x0b\x63md_timeout\x18\x06 \x01(\x01\x12\x15\n\rstring_result\x18\x08 \x01(\x08\x12(\n\x0bhost_params\x18\t \x01(\x0b\x32\x13.gnetcli.HostParams\"e\n\x06\x44\x65vice\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x19\n\x11prompt_expression\x18\x02 \x01(\t\x12\x18\n\x10\x65rror_expression\x18\x03 \x01(\t\x12\x18\n\x10pager_expression\x18\x04 \x01(\t\"`\n\nCMDNetconf\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0b\n\x03\x63md\x18\x02 \x01(\t\x12\x0c\n\x04json\x18\x03 \x01(\x08\x12\x14\n\x0cread_timeout\x18\x04 \x01(\x01\x12\x13\n\x0b\x63md_timeout\x18\x05 \x01(\x01\"H\n\x0c\x43MDTraceItem\x12*\n\toperation\x18\x01 \x01(\x0e\x32\x17.gnetcli.TraceOperation\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"o\n\nHostParams\x12\x0c\n\x04host\x18\x01 \x01(\t\x12)\n\x0b\x63redentials\x18\x02 \x01(\x0b\x32\x14.gnetcli.Credentials\x12\x0c\n\x04port\x18\x03 \x01(\x05\x12\x0e\n\x06\x64\x65vice\x18\x04 \x01(\t\x12\n\n\x02ip\x18\x05 \x01(\t\"\x81\x01\n\tCMDResult\x12\x0b\n\x03out\x18\x01 \x01(\x0c\x12\x0f\n\x07out_str\x18\x02 \x01(\t\x12\r\n\x05\x65rror\x18\x03 \x01(\x0c\x12\x11\n\terror_str\x18\x04 \x01(\t\x12$\n\x05trace\x18\x05 \x03(\x0b\x32\x15.gnetcli.CMDTraceItem\x12\x0e\n\x06status\x18\x06 \x01(\x05\"G\n\x0c\x44\x65viceResult\x12(\n\x03res\x18\x01 \x01(\x0e\x32\x1b.gnetcli.DeviceResultStatus\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"l\n\x13\x46ileDownloadRequest\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x0e\n\x06\x64\x65vice\x18\x03 \x01(\t\x12(\n\x0bhost_params\x18\x05 \x01(\x0b\x32\x13.gnetcli.HostParams\"K\n\x08\x46ileData\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12#\n\x06status\x18\x03 \x01(\x0e\x32\x13.gnetcli.FileStatus\"}\n\x11\x46ileUploadRequest\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0e\n\x06\x64\x65vice\x18\x04 \x01(\t\x12 \n\x05\x66iles\x18\x03 \x03(\x0b\x32\x11.gnetcli.FileData\x12(\n\x0bhost_params\x18\x06 \x01(\x0b\x32\x13.gnetcli.HostParams\"/\n\x0b\x46ilesResult\x12 \n\x05\x66iles\x18\x01 \x03(\x0b\x32\x11.gnetcli.FileData*f\n\x0eTraceOperation\x12\x14\n\x10Operation_notset\x10\x00\x12\x15\n\x11Operation_unknown\x10\x01\x12\x13\n\x0fOperation_write\x10\x02\x12\x12\n\x0eOperation_read\x10\x03*H\n\x12\x44\x65viceResultStatus\x12\x11\n\rDevice_notset\x10\x00\x12\r\n\tDevice_ok\x10\x01\x12\x10\n\x0c\x44\x65vice_error\x10\x02*}\n\nFileStatus\x12\x15\n\x11\x46ileStatus_notset\x10\x00\x12\x11\n\rFileStatus_ok\x10\x01\x12\x14\n\x10\x46ileStatus_error\x10\x02\x12\x18\n\x14\x46ileStatus_not_found\x10\x03\x12\x15\n\x11\x46ileStatus_is_dir\x10\x04\x32\x8c\x05\n\x07Gnetcli\x12\x64\n\x0fSetupHostParams\x12\x13.gnetcli.HostParams\x1a\x16.google.protobuf.Empty\"$\x82\xd3\xe4\x93\x02\x1e\"\x19/api/v1/setup_host_params:\x01*\x12\x41\n\x04\x45xec\x12\x0c.gnetcli.CMD\x1a\x12.gnetcli.CMDResult\"\x17\x82\xd3\xe4\x93\x02\x11\"\x0c/api/v1/exec:\x01*\x12\x32\n\x08\x45xecChat\x12\x0c.gnetcli.CMD\x1a\x12.gnetcli.CMDResult\"\x00(\x01\x30\x01\x12R\n\tAddDevice\x12\x0f.gnetcli.Device\x1a\x15.gnetcli.DeviceResult\"\x1d\x82\xd3\xe4\x93\x02\x17\"\x12/api/v1/add_device:\x01*\x12W\n\x0b\x45xecNetconf\x12\x13.gnetcli.CMDNetconf\x1a\x12.gnetcli.CMDResult\"\x1f\x82\xd3\xe4\x93\x02\x19\"\x14/api/v1/exec_netconf:\x01*\x12@\n\x0f\x45xecNetconfChat\x12\x13.gnetcli.CMDNetconf\x1a\x12.gnetcli.CMDResult\"\x00(\x01\x30\x01\x12\\\n\x08\x44ownload\x12\x1c.gnetcli.FileDownloadRequest\x1a\x14.gnetcli.FilesResult\"\x1c\x82\xd3\xe4\x93\x02\x16\"\x11/api/v1/downloads:\x01*\x12W\n\x06Upload\x12\x1a.gnetcli.FileUploadRequest\x1a\x16.google.protobuf.Empty\"\x19\x82\xd3\xe4\x93\x02\x13\"\x0e/api/v1/upload:\x01*B7Z5github.com/annetutil/gnetcli/pkg/server/proto;gnetclib\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0cserver.proto\x12\x07gnetcli\x1a\x1cgoogle/api/annotations.proto\x1a\x1bgoogle/protobuf/empty.proto\";\n\x02QA\x12\x10\n\x08question\x18\x01 \x01(\t\x12\x0e\n\x06\x61nswer\x18\x02 \x01(\t\x12\x13\n\x0bnot_send_nl\x18\x03 \x01(\x08\".\n\x0b\x43redentials\x12\r\n\x05login\x18\x01 \x01(\t\x12\x10\n\x08password\x18\x02 \x01(\t\"\xb4\x01\n\x03\x43MD\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0b\n\x03\x63md\x18\x02 \x01(\t\x12\r\n\x05trace\x18\x03 \x01(\x08\x12\x17\n\x02qa\x18\x04 \x03(\x0b\x32\x0b.gnetcli.QA\x12\x14\n\x0cread_timeout\x18\x05 \x01(\x01\x12\x13\n\x0b\x63md_timeout\x18\x06 \x01(\x01\x12\x15\n\rstring_result\x18\x08 \x01(\x08\x12(\n\x0bhost_params\x18\t \x01(\x0b\x32\x13.gnetcli.HostParams\"e\n\x06\x44\x65vice\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x19\n\x11prompt_expression\x18\x02 \x01(\t\x12\x18\n\x10\x65rror_expression\x18\x03 \x01(\t\x12\x18\n\x10pager_expression\x18\x04 \x01(\t\"`\n\nCMDNetconf\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0b\n\x03\x63md\x18\x02 \x01(\t\x12\x0c\n\x04json\x18\x03 \x01(\x08\x12\x14\n\x0cread_timeout\x18\x04 \x01(\x01\x12\x13\n\x0b\x63md_timeout\x18\x05 \x01(\x01\"H\n\x0c\x43MDTraceItem\x12*\n\toperation\x18\x01 \x01(\x0e\x32\x17.gnetcli.TraceOperation\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\"o\n\nHostParams\x12\x0c\n\x04host\x18\x01 \x01(\t\x12)\n\x0b\x63redentials\x18\x02 \x01(\x0b\x32\x14.gnetcli.Credentials\x12\x0c\n\x04port\x18\x03 \x01(\x05\x12\x0e\n\x06\x64\x65vice\x18\x04 \x01(\t\x12\n\n\x02ip\x18\x05 \x01(\t\"\x81\x01\n\tCMDResult\x12\x0b\n\x03out\x18\x01 \x01(\x0c\x12\x0f\n\x07out_str\x18\x02 \x01(\t\x12\r\n\x05\x65rror\x18\x03 \x01(\x0c\x12\x11\n\terror_str\x18\x04 \x01(\t\x12$\n\x05trace\x18\x05 \x03(\x0b\x32\x15.gnetcli.CMDTraceItem\x12\x0e\n\x06status\x18\x06 \x01(\x05\"G\n\x0c\x44\x65viceResult\x12(\n\x03res\x18\x01 \x01(\x0e\x32\x1b.gnetcli.DeviceResultStatus\x12\r\n\x05\x65rror\x18\x02 \x01(\t\"l\n\x13\x46ileDownloadRequest\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\r\n\x05paths\x18\x02 \x03(\t\x12\x0e\n\x06\x64\x65vice\x18\x03 \x01(\t\x12(\n\x0bhost_params\x18\x05 \x01(\x0b\x32\x13.gnetcli.HostParams\"K\n\x08\x46ileData\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0c\n\x04\x64\x61ta\x18\x02 \x01(\x0c\x12#\n\x06status\x18\x03 \x01(\x0e\x32\x13.gnetcli.FileStatus\"}\n\x11\x46ileUploadRequest\x12\x0c\n\x04host\x18\x01 \x01(\t\x12\x0e\n\x06\x64\x65vice\x18\x04 \x01(\t\x12 \n\x05\x66iles\x18\x03 \x03(\x0b\x32\x11.gnetcli.FileData\x12(\n\x0bhost_params\x18\x06 \x01(\x0b\x32\x13.gnetcli.HostParams\"/\n\x0b\x46ilesResult\x12 \n\x05\x66iles\x18\x01 \x03(\x0b\x32\x11.gnetcli.FileData*f\n\x0eTraceOperation\x12\x14\n\x10Operation_notset\x10\x00\x12\x15\n\x11Operation_unknown\x10\x01\x12\x13\n\x0fOperation_write\x10\x02\x12\x12\n\x0eOperation_read\x10\x03*H\n\x12\x44\x65viceResultStatus\x12\x11\n\rDevice_notset\x10\x00\x12\r\n\tDevice_ok\x10\x01\x12\x10\n\x0c\x44\x65vice_error\x10\x02*}\n\nFileStatus\x12\x15\n\x11\x46ileStatus_notset\x10\x00\x12\x11\n\rFileStatus_ok\x10\x01\x12\x14\n\x10\x46ileStatus_error\x10\x02\x12\x18\n\x14\x46ileStatus_not_found\x10\x03\x12\x15\n\x11\x46ileStatus_is_dir\x10\x04\x32\x8c\x05\n\x07Gnetcli\x12\x64\n\x0fSetupHostParams\x12\x13.gnetcli.HostParams\x1a\x16.google.protobuf.Empty\"$\x82\xd3\xe4\x93\x02\x1e\"\x19/api/v1/setup_host_params:\x01*\x12\x41\n\x04\x45xec\x12\x0c.gnetcli.CMD\x1a\x12.gnetcli.CMDResult\"\x17\x82\xd3\xe4\x93\x02\x11\"\x0c/api/v1/exec:\x01*\x12\x32\n\x08\x45xecChat\x12\x0c.gnetcli.CMD\x1a\x12.gnetcli.CMDResult\"\x00(\x01\x30\x01\x12R\n\tAddDevice\x12\x0f.gnetcli.Device\x1a\x15.gnetcli.DeviceResult\"\x1d\x82\xd3\xe4\x93\x02\x17\"\x12/api/v1/add_device:\x01*\x12W\n\x0b\x45xecNetconf\x12\x13.gnetcli.CMDNetconf\x1a\x12.gnetcli.CMDResult\"\x1f\x82\xd3\xe4\x93\x02\x19\"\x14/api/v1/exec_netconf:\x01*\x12@\n\x0f\x45xecNetconfChat\x12\x13.gnetcli.CMDNetconf\x1a\x12.gnetcli.CMDResult\"\x00(\x01\x30\x01\x12\\\n\x08\x44ownload\x12\x1c.gnetcli.FileDownloadRequest\x1a\x14.gnetcli.FilesResult\"\x1c\x82\xd3\xe4\x93\x02\x16\"\x11/api/v1/downloads:\x01*\x12W\n\x06Upload\x12\x1a.gnetcli.FileUploadRequest\x1a\x16.google.protobuf.Empty\"\x19\x82\xd3\xe4\x93\x02\x13\"\x0e/api/v1/upload:\x01*B7Z5github.com/annetutil/gnetcli/pkg/server/proto;gnetclib\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,38 +36,38 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _globals['_GNETCLI'].methods_by_name['Download']._serialized_options = b'\202\323\344\223\002\026\"\021/api/v1/downloads:\001*'
   _globals['_GNETCLI'].methods_by_name['Upload']._options = None
   _globals['_GNETCLI'].methods_by_name['Upload']._serialized_options = b'\202\323\344\223\002\023\"\016/api/v1/upload:\001*'
-  _globals['_TRACEOPERATION']._serialized_start=1311
-  _globals['_TRACEOPERATION']._serialized_end=1413
-  _globals['_DEVICERESULTSTATUS']._serialized_start=1415
-  _globals['_DEVICERESULTSTATUS']._serialized_end=1487
-  _globals['_FILESTATUS']._serialized_start=1489
-  _globals['_FILESTATUS']._serialized_end=1614
+  _globals['_TRACEOPERATION']._serialized_start=1332
+  _globals['_TRACEOPERATION']._serialized_end=1434
+  _globals['_DEVICERESULTSTATUS']._serialized_start=1436
+  _globals['_DEVICERESULTSTATUS']._serialized_end=1508
+  _globals['_FILESTATUS']._serialized_start=1510
+  _globals['_FILESTATUS']._serialized_end=1635
   _globals['_QA']._serialized_start=84
-  _globals['_QA']._serialized_end=122
-  _globals['_CREDENTIALS']._serialized_start=124
-  _globals['_CREDENTIALS']._serialized_end=170
-  _globals['_CMD']._serialized_start=173
-  _globals['_CMD']._serialized_end=353
-  _globals['_DEVICE']._serialized_start=355
-  _globals['_DEVICE']._serialized_end=456
-  _globals['_CMDNETCONF']._serialized_start=458
-  _globals['_CMDNETCONF']._serialized_end=554
-  _globals['_CMDTRACEITEM']._serialized_start=556
-  _globals['_CMDTRACEITEM']._serialized_end=628
-  _globals['_HOSTPARAMS']._serialized_start=630
-  _globals['_HOSTPARAMS']._serialized_end=741
-  _globals['_CMDRESULT']._serialized_start=744
-  _globals['_CMDRESULT']._serialized_end=873
-  _globals['_DEVICERESULT']._serialized_start=875
-  _globals['_DEVICERESULT']._serialized_end=946
-  _globals['_FILEDOWNLOADREQUEST']._serialized_start=948
-  _globals['_FILEDOWNLOADREQUEST']._serialized_end=1056
-  _globals['_FILEDATA']._serialized_start=1058
-  _globals['_FILEDATA']._serialized_end=1133
-  _globals['_FILEUPLOADREQUEST']._serialized_start=1135
-  _globals['_FILEUPLOADREQUEST']._serialized_end=1260
-  _globals['_FILESRESULT']._serialized_start=1262
-  _globals['_FILESRESULT']._serialized_end=1309
-  _globals['_GNETCLI']._serialized_start=1617
-  _globals['_GNETCLI']._serialized_end=2269
+  _globals['_QA']._serialized_end=143
+  _globals['_CREDENTIALS']._serialized_start=145
+  _globals['_CREDENTIALS']._serialized_end=191
+  _globals['_CMD']._serialized_start=194
+  _globals['_CMD']._serialized_end=374
+  _globals['_DEVICE']._serialized_start=376
+  _globals['_DEVICE']._serialized_end=477
+  _globals['_CMDNETCONF']._serialized_start=479
+  _globals['_CMDNETCONF']._serialized_end=575
+  _globals['_CMDTRACEITEM']._serialized_start=577
+  _globals['_CMDTRACEITEM']._serialized_end=649
+  _globals['_HOSTPARAMS']._serialized_start=651
+  _globals['_HOSTPARAMS']._serialized_end=762
+  _globals['_CMDRESULT']._serialized_start=765
+  _globals['_CMDRESULT']._serialized_end=894
+  _globals['_DEVICERESULT']._serialized_start=896
+  _globals['_DEVICERESULT']._serialized_end=967
+  _globals['_FILEDOWNLOADREQUEST']._serialized_start=969
+  _globals['_FILEDOWNLOADREQUEST']._serialized_end=1077
+  _globals['_FILEDATA']._serialized_start=1079
+  _globals['_FILEDATA']._serialized_end=1154
+  _globals['_FILEUPLOADREQUEST']._serialized_start=1156
+  _globals['_FILEUPLOADREQUEST']._serialized_end=1281
+  _globals['_FILESRESULT']._serialized_start=1283
+  _globals['_FILESRESULT']._serialized_end=1330
+  _globals['_GNETCLI']._serialized_start=1638
+  _globals['_GNETCLI']._serialized_end=2290
 # @@protoc_insertion_point(module_scope)

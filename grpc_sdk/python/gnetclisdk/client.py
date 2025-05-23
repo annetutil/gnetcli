@@ -37,11 +37,13 @@ default_grpc_options: List[Tuple[str, Any]] = [
 class QA:
     question: str
     answer: str
+    not_send_nl: bool = False
 
     def make_pb(self) -> server_pb2.QA:
         pb = server_pb2.QA()
         pb.question = self.question
         pb.answer = self.answer
+        pb.not_send_nl = self.not_send_nl
         return pb
 
 

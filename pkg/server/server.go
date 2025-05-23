@@ -611,7 +611,7 @@ func makeGnetcliCmd(cmd *pb.CMD, cmdOpts ...gcmd.CmdOption) gcmd.Cmd {
 	opts := make([]gcmd.CmdOption, 0, len(cmd.Qa))
 	opts = append(opts, cmdOpts...)
 	for _, qa := range cmd.Qa {
-		opts = append(opts, gcmd.WithAddAnswers(gcmd.NewAnswer(qa.GetQuestion(), qa.GetAnswer())))
+		opts = append(opts, gcmd.WithAddAnswers(gcmd.NewAnswer(qa.GetQuestion(), qa.GetAnswer(), qa.GetNotSendNl())))
 	}
 	if cmdTimeout := cmd.GetCmdTimeout(); cmdTimeout != 0 {
 		opts = append(opts, gcmd.WithCmdTimeout(time.Duration(cmdTimeout*float64(time.Second))))
