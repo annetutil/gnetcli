@@ -36,7 +36,7 @@ var autoCommands = []cmd.Cmd{
 	cmd.NewCmd("terminal monitor disable", cmd.WithErrorIgnore()), // ios xr
 	cmd.NewCmd("terminal length 0", cmd.WithErrorIgnore()),
 	cmd.NewCmd("terminal width 0", cmd.WithErrorIgnore()),
-	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAddAnswers(cmd.NewAnswer("Password: ", "", false))),
+	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAddAnswers(cmd.NewAnswerWithNL("Password: ", ""))),
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {

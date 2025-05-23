@@ -36,7 +36,7 @@ func parseQuestions(input []string) []cmd.CmdOption {
 	for _, question := range input {
 		splitRes := strings.SplitN(question, ":::", 2)
 		if len(splitRes) == 2 {
-			res = append(res, cmd.WithAddAnswers(cmd.NewAnswer(splitRes[0], splitRes[1], false)))
+			res = append(res, cmd.WithAddAnswers(cmd.NewAnswerWithNL(splitRes[0], splitRes[1])))
 		}
 	}
 	return res

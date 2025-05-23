@@ -269,6 +269,10 @@ func NewAnswer(question, answer string, notSendNL bool) Answer {
 	return Answer{question: question, answer: answer, notSendNL: notSendNL}
 }
 
+func NewAnswerWithNL(question, answer string) Answer {
+	return Answer{question: question, answer: answer, notSendNL: false}
+}
+
 func WithExprCallback(exprCallbacks ...ExprCallback) CmdOption {
 	return func(h *CmdImpl) {
 		h.exprCallbacks = exprCallbacks

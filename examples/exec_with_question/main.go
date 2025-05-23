@@ -43,8 +43,8 @@ func main() {
 	_, _ = dev.Execute(cmd.NewCmd("aaa"))
 	_, _ = dev.Execute(cmd.NewCmd("local-user "+changeUser+" password",
 		cmd.WithAddAnswers(
-			cmd.NewAnswer("Enter Password:", newPass, false),
-			cmd.NewAnswer("Confirm Password:", newPass, false),
+			cmd.NewAnswerWithNL("Enter Password:", newPass),
+			cmd.NewAnswerWithNL("Confirm Password:", newPass),
 		),
 	))
 	_, _ = dev.Execute(cmd.NewCmd("commit"))
