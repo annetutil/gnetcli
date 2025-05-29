@@ -26,6 +26,10 @@ var (
 		m.SendEcho("terminal echo-mode line\r\n"),
 		m.Send("\r\n"),
 		m.Send("<some-device>"),
+		m.Expect("undo terminal monitor\n"),
+		m.SendEcho("undo terminal monitor\r\n"),
+		m.Send("\r\n"),
+		m.Send("<some-device>"),
 	}
 
 	everyDayHuaweiByeBye = []m.Action{
