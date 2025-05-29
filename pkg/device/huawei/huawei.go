@@ -33,6 +33,7 @@ const (
 var autoCommands = []cmd.Cmd{
 	cmd.NewCmd("screen-length 0 temporary", cmd.WithErrorIgnore()),
 	cmd.NewCmd("terminal echo-mode line", cmd.WithErrorIgnore()),
+	cmd.NewCmd("undo terminal monitor", cmd.WithErrorIgnore()), // suppress logs in terminal
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
