@@ -1,6 +1,7 @@
 /*
 Package streamer describes interface for interaction on network level.
 */
+
 package streamer
 
 import (
@@ -11,15 +12,12 @@ import (
 	"os"
 	"time"
 
-	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
-
-	"go.uber.org/multierr"
-
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/trace"
+	"go.uber.org/multierr"
+	"go.uber.org/zap"
 )
 
 var ErrNotSupported = errors.New("not supported")
@@ -244,7 +242,7 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 	if maxDuration == 0 && maxReadSize == 0 && regExpr == nil {
 		return nil, nil, nil, fmt.Errorf("specify maxDuration, maxReadSize or regExpr")
 	}
-	buffer := slices.Clone(inBuffer)
+	buffer := inBuffer
 	maxDurationTimeout := NewTimerWithDefault(maxDuration)
 	for {
 		readIterTimeout := NewTimerWithDefault(readTimeout)
