@@ -792,6 +792,16 @@ func (m *Streamer) Init(ctx context.Context) error {
 		return err
 	}
 
+	// trigger 0x03 (ctrl-c) to start login prompt at console
+	r, err := m.SendCharacter(ctx, 0x03) // send ctrl-c to console
+	if err != nil {
+		return err
+	}
+	// after getting response we need to exec command
+	if string(r) == `[quote \003` {
+		m.Write([]byte("\r"))
+	}
+
 	return nil
 }
 
