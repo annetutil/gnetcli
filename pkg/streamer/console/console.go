@@ -234,7 +234,7 @@ func (m *Streamer) ConsoleCmd(ctx context.Context, command string, sendNewLine b
 
 func (m *Streamer) SendCharacter(ctx context.Context, char byte) ([]byte, error) {
 	//  \ooo    send character by octal code
-	command := fmt.Sprintf("\x05c\\%03d", char)
+	command := fmt.Sprintf("\x05c\\%03o", char)
 	err := m.Write([]byte(command))
 	if err != nil {
 		return nil, err
