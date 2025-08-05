@@ -109,3 +109,12 @@ Exec a command on a device using GRPC
 TOKEN=$(echo -n "$LOGIN:$PASSWORD" | base64)
 grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "huawei", "credentials": {"login": "test", "password": "test"}}, "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
 ```
+
+## Start GRPC-server via docker
+Clone the repository, build the image and run the container:
+```shell
+git clone https://github.com/annetutil/gnetcli.git
+cd gnetcli
+docker build -f image/Dockerfile -t gnetcli_server .
+docker run -p 50051:50051 gnetcli_server
+```
