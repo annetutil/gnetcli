@@ -561,6 +561,24 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		}
 		mbefore := match.GetBefore()
 		if !seenEcho {
+			if matchName == questionExprName { // caught question before echo
+				// check for echo, drop it and proceed with question
+				termParsedEcho, err := terminal.ParseDropLastReturn(mbefore)
+				if err != nil {
+					return nil, fmt.Errorf("echo terminal parse error %w", err)
+				}
+				mres, ok := exprs.Match(termParsedEcho)
+				if !ok {
+					return nil, device.ThrowEchoReadException(mbefore, true)
+				}
+				if exprs.GetName(mres.PatternNo) == echoExprName {
+					seenEcho = true
+				}
+				mbefore = termParsedEcho[mres.End:]
+			}
+		}
+
+		if !seenEcho {
 			promptFound := matchName == promptExprName
 			// case where we caught prompt before echo because of term codes in echo
 			if len(mbefore) < 2 || !promptFound { // don't bother to do complex logic
