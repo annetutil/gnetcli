@@ -824,8 +824,7 @@ func (m *Streamer) closeForChangePort() error {
 func (m *Streamer) ReadTo(ctx context.Context, exp expr.Expr) (streamer.ReadRes, error) {
 	m.logger.Debug("read to", zap.String("expr", exp.Repr()))
 	exprs := expr.NewSimpleExprList(exp, expr.NewSimpleExpr().FromPattern(regExErrors))
-	// defaultReadTimeout нужен как таймаут последней надежды, таймаут на команду делается через ctx
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, exprs, 0, defaultReadTimeout)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, exprs, 0, 0)
 	if m.trace != nil {
 		m.trace(trace.Read, read)
 	}
@@ -868,7 +867,7 @@ func (m *Streamer) CheckConsoleError(readRes streamer.ReadRes) error {
 
 func (m *Streamer) Read(ctx context.Context, size int) ([]byte, error) {
 	m.logger.Debug("read", zap.Int("size", size))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, 0, nil, size, defaultReadTimeout)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, nil, size, 0)
 	if err == nil && res.RetType != streamer.Size {
 		return nil, fmt.Errorf("unexpected res type %d", res.RetType)
 	}
