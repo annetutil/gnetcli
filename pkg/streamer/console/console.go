@@ -893,6 +893,9 @@ func (m *Streamer) Cmd(ctx context.Context, str string) (cmd.CmdRes, error) {
 }
 
 func (m *Streamer) Write(text []byte) error {
+	if m.conn == nil {
+		return errors.New("no connection")
+	}
 	if m.trace != nil {
 		m.trace(trace.Write, text)
 	}
