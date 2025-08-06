@@ -14,25 +14,43 @@ import (
 )
 
 func ExprTester(t *testing.T, cases [][]byte, expressions ...string) {
-	var errorExpr expr.Expr
+	extCases := make([]ExprCase, 0, len(cases))
+	for _, tCase := range cases {
+		extCases = append(extCases, ExprCase{Input: tCase, BeforeIgnore: true})
+	}
+	ExprTesterExtended(t, extCases, expressions...)
+}
+
+type ExprCase struct {
+	Input        []byte
+	Before       []byte
+	BeforeIgnore bool
+}
+
+func ExprTesterExtended(t *testing.T, cases []ExprCase, expressions ...string) {
+	var testExpr expr.Expr
 
 	if len(expressions) == 0 {
 
 	} else if len(expressions) == 1 {
-		errorExpr = expr.NewSimpleExpr().FromPattern(expressions[0])
+		testExpr = expr.NewSimpleExpr().FromPattern(expressions[0])
 	} else {
 		var errorExprList []expr.Expr
 		for _, expression := range expressions {
 			errorExprList = append(errorExprList, expr.NewSimpleExpr().FromPattern(expression))
 		}
-		errorExpr = expr.NewSimpleExprList(errorExprList...)
+		testExpr = expr.NewSimpleExprList(errorExprList...)
 	}
 
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
-			res, ok := errorExpr.Match(tc)
-			require.True(t, ok, fmt.Sprintf("regex: %s not matched\ndata: %q", errorExpr.Repr(), tc))
+			res, ok := testExpr.Match(tc.Input)
+			require.True(t, ok, fmt.Sprintf("regex: %s not matched\ndata: %v", testExpr.Repr(), tc))
 			require.NotNil(t, res)
+			if !tc.BeforeIgnore {
+				before := tc.Input[:res.Start]
+				require.Equal(t, tc.Before, before)
+			}
 		})
 	}
 }
