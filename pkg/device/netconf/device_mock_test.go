@@ -846,6 +846,43 @@ func TestNetconf11Command(t *testing.T) {
 	}, actions, command, expected)
 }
 
+func TestNetconfNotAllowdChracter(t *testing.T) {
+	dialog := [][]m.Action{
+		{
+			m.Send("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">" +
+				"<capabilities>" +
+				"<capability>urn:ietf:params:netconf:base:1.0</capability>" +
+				"<capability>urn:ietf:params:netconf:base:1.1</capability>" +
+				"</capabilities>" +
+				"<session-id>1</session-id>" +
+				"</hello>\n]]>]]>"),
+			m.Expect("<?xml version=\"1.0\" encoding=\"UTF-8\"?><hello xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\"><capabilities><capability>urn:ietf:params:netconf:base:1.0</capability><capability>urn:ietf:params:netconf:base:1.1</capability></capabilities></hello>"),
+			m.Expect("]]>]]>"),
+			m.Expect("\n#123\n"),
+			m.Expect("<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
+				"<rpc xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\" message-id=\"1\">" +
+				"<get></get>" +
+				"</rpc>"),
+			m.Expect("\n##\n"),
+			m.Send("\n#10\n"),
+			m.Send("<rpc-reply"),
+			m.Send("\n#16\n"),
+			m.Send(" message-id=\"1\"\n"),
+			m.Send("\n#98\n"),
+			m.Send("     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n"),
+			m.Send("  <data><olo>11111\x0B</olo></data>\n"),
+			m.Send("</rpc-reply>"),
+			m.Send("\n##\n"),
+		},
+	}
+	expected := "<rpc-reply message-id=\"1\"\n     xmlns=\"urn:ietf:params:xml:ns:netconf:base:1.0\">\n  <data><olo>11111</olo></data>\n</rpc-reply>"
+	command := "<get></get>"
+	actions := m.ConcatMultipleSlices(dialog)
+	m.RunDialogWithDefaultCreds(t, func(connector streamer.Connector) device.Device {
+		return NewDevice(connector)
+	}, actions, command, expected)
+}
+
 func TestNetconf11CommandSimple(t *testing.T) {
 	dialog := [][]m.Action{
 		{

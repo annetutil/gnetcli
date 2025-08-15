@@ -4,10 +4,13 @@ Package netconf implements netconf.
 package netconf
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"go.uber.org/zap"
@@ -237,7 +240,29 @@ func (m *NetconfDevice) Execute(command gcmd.Cmd) (gcmd.CmdRes, error) {
 	var reply RPCReply
 	err = xml.Unmarshal(res, &reply)
 	if err != nil {
-		return nil, fmt.Errorf("xml unmarshal error %w", err)
+		var xmlErr *xml.SyntaxError
+		if errors.As(err, &xmlErr) && strings.HasPrefix(xmlErr.Msg, "illegal character code") {
+			origRes := bytes.Runes(res)
+			validRes := slices.DeleteFunc(origRes, func(r rune) bool {
+				// the same as validation: encoding/xml/xml.go:func isInCharacterRange(r rune)
+				return !(r == 0x09 ||
+					r == 0x0A ||
+					r == 0x0D ||
+					r >= 0x20 && r <= 0xD7FF ||
+					r >= 0xE000 && r <= 0xFFFD ||
+					r >= 0x10000 && r <= 0x10FFFF)
+			})
+			validResBytes := []byte(string(validRes))
+			err = xml.Unmarshal(validResBytes, &reply)
+			if err != nil {
+				// return original error
+				return nil, xmlErr
+			}
+			m.log.Error("dropping forbidden characters", zap.Int("dropped", len(validRes)-len(origRes)))
+			res = validResBytes
+		} else {
+			return nil, fmt.Errorf("xml unmarshal error %w", err)
+		}
 	}
 	err = m.checkError(reply)
 	status := 0
