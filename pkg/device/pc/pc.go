@@ -5,7 +5,6 @@ package pc
 
 import (
 	"context"
-	"time"
 
 	gcmd "github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/credentials"
@@ -29,10 +28,6 @@ func NewDevice(connector streamer.Connector) device.Device {
 		connector:   connector,
 		credentials: nil,
 	}
-}
-
-func (m *Device) SetCLIConnectTimeout(timeout time.Duration) time.Duration {
-	return 0
 }
 
 func (m *Device) Connect(ctx context.Context) error {

@@ -21,7 +21,6 @@ type Device interface {
 	Upload(paths map[string]streamer.File) error
 	Close()
 	GetAux() map[string]any
-	SetCLIConnectTimeout(timeout time.Duration) time.Duration
 	// get any additional data
 }
 
