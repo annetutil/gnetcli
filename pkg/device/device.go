@@ -6,7 +6,6 @@ package device
 import (
 	"context"
 	"errors"
-	"time"
 
 	gcmd "github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/streamer"
