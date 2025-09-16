@@ -45,6 +45,12 @@ type terminalParams struct {
 	h int
 }
 
+type ResultCBType int
+
+const (
+	CBRaw ResultCBType = iota
+)
+
 type GenericCLI struct {
 	prompt           expr.Expr
 	login            expr.Expr
@@ -54,6 +60,7 @@ type GenericCLI struct {
 	loginCB          []cmd.ExprCallback // used only during login, before first prompt
 	passwordError    expr.Expr
 	pager            expr.Expr
+	resultCB         func(ResultCBType, []byte) ([]byte, error)
 	autoCommands     []cmd.Cmd
 	initWait         time.Duration
 	echoExprFormat   func(cmd.Cmd) expr.Expr
@@ -100,6 +107,12 @@ func WithManualAuth() GenericCLIOption {
 func WithPager(pager expr.Expr) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.pager = pager
+	}
+}
+
+func WithResultCB(cb func(ResultCBType, []byte) ([]byte, error)) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.resultCB = cb
 	}
 }
 
@@ -682,6 +695,13 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	}
 
 	res := buffer.Bytes()
+	if cli.resultCB != nil {
+		cbRes, err := cli.resultCB(CBRaw, res)
+		if err != nil {
+			return nil, err
+		}
+		res = cbRes
+	}
 	fondErr := checkError(cli.error, res)
 	if fondErr != nil {
 		fondErr = command.ErrorHandler(fondErr)
