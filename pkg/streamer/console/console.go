@@ -824,7 +824,7 @@ func (m *Streamer) closeForChangePort() error {
 func (m *Streamer) ReadTo(ctx context.Context, exp expr.Expr) (streamer.ReadRes, error) {
 	m.logger.Debug("read to", zap.String("expr", exp.Repr()))
 	exprs := expr.NewSimpleExprList(exp, expr.NewSimpleExpr().FromPattern(regExErrors))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, exprs, 0, 0)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.GetBuffer(), m.buffer, readBufferSize, m.readTimeout, exprs, 0, 0)
 	if m.trace != nil {
 		m.trace(trace.Read, read)
 	}

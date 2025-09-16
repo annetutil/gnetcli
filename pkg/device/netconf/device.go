@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
@@ -145,6 +146,10 @@ func NewDevice(connection streamer.Connector, opts ...DeviceOption) device.Devic
 		opt(res)
 	}
 	return res
+}
+
+func (m *NetconfDevice) SetCLIConnectTimeout(timeout time.Duration) time.Duration {
+	return 0
 }
 
 func (m *NetconfDevice) Connect(ctx context.Context) (err error) {

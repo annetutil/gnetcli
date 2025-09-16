@@ -6,6 +6,7 @@ package device
 import (
 	"context"
 	"errors"
+	"time"
 
 	gcmd "github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/streamer"
@@ -20,6 +21,7 @@ type Device interface {
 	Upload(paths map[string]streamer.File) error
 	Close()
 	GetAux() map[string]any
+	SetCLIConnectTimeout(timeout time.Duration) time.Duration
 	// get any additional data
 }
 
