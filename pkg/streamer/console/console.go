@@ -54,10 +54,9 @@ const (
 	ansOk                = "[ok]" + newLine
 	ansUp                = "[up]" + newLine
 
-	readBufferSize      = 256
-	readBufferLen       = 100
-	readErrorBufferSize = 60
-	defaultReadTimeout  = 10 * time.Minute
+	readBufferSize     = 256
+	readBufferLen      = 100
+	defaultReadTimeout = 10 * time.Minute
 
 	regExErrors = `\[((spying|no|line down|read-only|forced to|up|attached|connected|down|unknown|bumped)[^\[\]]*)\]\r\n`
 )

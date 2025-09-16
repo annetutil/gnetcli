@@ -28,15 +28,14 @@ const AnyNLPattern = `(\r\n|\n)`
 const DefaultCLIConnectTimeout = 15 * time.Second
 
 const (
-	promptExprName        = "prompt"
-	passwdErrExprName     = "passwordError"
-	questionExprName      = "question"
-	loginQuestionExprName = "loginQuestion"
-	passwordExprName      = "password"
-	loginExprName         = "login"
-	pagerExprName         = "pager"
-	echoExprName          = "echo"
-	cbExprName            = "cb"
+	promptExprName    = "prompt"
+	passwdErrExprName = "passwordError"
+	questionExprName  = "question"
+	passwordExprName  = "password"
+	loginExprName     = "login"
+	pagerExprName     = "pager"
+	echoExprName      = "echo"
+	cbExprName        = "cb"
 )
 
 var defaultWriteNewLine = []byte("\n") // const
