@@ -20,7 +20,7 @@ const (
 	promptExpression   = `(?P<store>(\r\n|\n|\r|^))` + hiddenPrompt + visiblePrompt
 	errorExpression    = `(\r|^)(bad command name.*\(line \d+ column \d+\).*$|syntax error.*\(line \d+ column \d+\).*$|\[(?P<question>Safe mode released by another user)\]|expected end of command \(line \d+ column \d+\)|expected command name \(line \d+ column \d+\)|failure: duplicate address)`
 	questionExpression = `((?P<question>.+\?)\s*\[y/N\]: \r\n$|(?P<question>\x1b\[c)|\rnumbers: )`
-	pagerExpression    = `-- \[Q quit\|D dump\|down\]$`
+	pagerExpression    = `-- \[Q quit\|D dump\|(right\|)?(up\|)?down\]$`
 )
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
