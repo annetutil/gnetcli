@@ -190,6 +190,8 @@ func NewControlStdioForward(c *net.UnixConn, host string, port int) (*Connection
 }
 
 func (m *ConnectionForward) Close() error {
+	_ = m.Stdin.Close()
+	_ = m.Stdout.Close()
 	return m.transport.Close()
 }
 
