@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net"
 	"sync/atomic"
 
@@ -18,12 +19,13 @@ import (
 func main() {
 	debug := flag.Bool("debug", false, "Set debug log level")
 	host := flag.String("host", "localhost", "Server host")
-	port := flag.Int("port", 2223, "SSH server port")
+	sshPort := flag.Int("port", 2223, "SSH server port")
 	telnetPort := flag.Int("telnet-port", 2223, "Telnet server port")
-	enableTelnet := flag.Bool("enable-telnet", true, "Enable Telnet server")
+	enableTelnet := flag.Bool("enable-telnet", false, "Enable Telnet server")
 	enableSSH := flag.Bool("enable-ssh", true, "Enable SSH server")
 	username := flag.String("username", "cisco", "Username for authentication")
 	password := flag.String("password", "cisco", "Password for authentication")
+	connectionErrorProb := flag.Float64("connection-error-prob", 0.0, "Probability of connection error after accept (0.0-1.0)")
 	flag.Parse()
 
 	logConfig := zap.NewProductionConfig()
@@ -34,11 +36,10 @@ func main() {
 
 	ctx := context.Background()
 	wg, wCtx := errgroup.WithContext(ctx)
-	conns := newConnections(*username, *password)
-	// SSH Server
+	conns := newConnections(*username, *password, *connectionErrorProb)
 	if *enableSSH {
-		// SSH server configuration
 		config := &ssh.ServerConfig{
+			ServerVersion: "SSH-gswitch",
 			PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 				if c.User() == *username && string(pass) == *password {
 					return nil, nil
@@ -73,7 +74,7 @@ wSD0v0RcmkITP1ZR0AAAAYcHF1ZXJuYUBMdWNreUh5ZHJvLmxvY2FsAQID
 		config.AddHostKey(private)
 
 		// Listen for SSH connections
-		sshAddr := fmt.Sprintf("%s:%d", *host, *port)
+		sshAddr := fmt.Sprintf("%s:%d", *host, *sshPort)
 		sshListener, err := net.Listen("tcp", sshAddr)
 		if err != nil {
 			log.Fatal("Failed to listen on SSH ", sshAddr, ": ", err)
@@ -85,10 +86,15 @@ wSD0v0RcmkITP1ZR0AAAAYcHF1ZXJuYUBMdWNreUh5ZHJvLmxvY2FsAQID
 			for {
 				tcpConn, err := sshListener.Accept()
 				if err != nil {
-					logger.Error("Failed to accept SSH connection", zap.Error(err))
+					logger.Error("failed to accept SSH connection", zap.Error(err))
 					continue
 				}
-
+				logger.Debug("new connection", zap.String("addr", tcpConn.RemoteAddr().String()))
+				if conns.shouldSimulateConnectionError() {
+					logger.Debug("Simulating SSH connection error after accept")
+					tcpConn.Close()
+					continue
+				}
 				go func() {
 					err := conns.handleSSHConnection(wCtx, tcpConn, config, logger)
 					if err != nil {
@@ -116,6 +122,11 @@ wSD0v0RcmkITP1ZR0AAAAYcHF1ZXJuYUBMdWNreUh5ZHJvLmxvY2FsAQID
 					logger.Error("Failed to accept Telnet connection", zap.Error(err))
 					continue
 				}
+				if conns.shouldSimulateConnectionError() {
+					logger.Debug("Simulating Telnet connection error after accept")
+					tcpConn.Close()
+					continue
+				}
 
 				go func() {
 					err := conns.handleTelnetConnection(wCtx, tcpConn, logger)
@@ -138,19 +149,29 @@ wSD0v0RcmkITP1ZR0AAAAYcHF1ZXJuYUBMdWNreUh5ZHJvLmxvY2FsAQID
 }
 
 type connections struct {
-	inFlight atomic.Int32
-	done     atomic.Int32
-	username string
-	password string
+	inFlight            atomic.Int32
+	done                atomic.Int32
+	username            string
+	password            string
+	connectionErrorProb float64
 }
 
-func newConnections(username, password string) *connections {
+func newConnections(username, password string, connectionErrorProb float64) *connections {
 	return &connections{
-		inFlight: atomic.Int32{},
-		done:     atomic.Int32{},
-		username: username,
-		password: password,
+		inFlight:            atomic.Int32{},
+		done:                atomic.Int32{},
+		username:            username,
+		password:            password,
+		connectionErrorProb: connectionErrorProb,
 	}
+}
+
+// shouldSimulateConnectionError returns true if a connection error should be simulated
+func (c *connections) shouldSimulateConnectionError() bool {
+	if c.connectionErrorProb <= 0 {
+		return false
+	}
+	return rand.Float64() < c.connectionErrorProb
 }
 
 func (c *connections) handleSSHConnection(ctx context.Context, tcpConn net.Conn, config *ssh.ServerConfig, logger *zap.Logger) error {
