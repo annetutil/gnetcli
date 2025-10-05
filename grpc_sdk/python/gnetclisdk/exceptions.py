@@ -33,13 +33,19 @@ class GnetcliException(Exception):
         super().__init__(self.message)
 
 
-class DeviceConnectError(GnetcliException):
+class DeviceConnectionError(GnetcliException):
     """
     Problem with connection to a device.
     """
 
     pass
 
+class DeviceConnectError(GnetcliException):
+    """
+    Problem with connecting to a device.
+    """
+
+    pass
 
 class UnknownDevice(GnetcliException):
     """
@@ -49,7 +55,7 @@ class UnknownDevice(GnetcliException):
     pass
 
 
-class DeviceAuthError(DeviceConnectError):
+class DeviceAuthError(DeviceConnectionError):
     """
     Unable to authenticate on a device.
     """
@@ -140,9 +146,12 @@ def parse_grpc_error(grpc_error: grpc.aio.AioRpcError) -> Tuple[Type[GnetcliExce
             return DeviceAuthError, verbose
         elif detail in {"connection_error", "busy_error"}:
             verbose = ""
-            return DeviceConnectError, verbose
+            return DeviceConnectionError, verbose
         elif detail in {"exec_error", "generic_error"}:
             verbose = ""
             return ExecError, verbose
+        elif detail == "connect_error":
+            verbose = str(error_info)
+            return DeviceConnectError, verbose
 
     return GnetcliException, ""
