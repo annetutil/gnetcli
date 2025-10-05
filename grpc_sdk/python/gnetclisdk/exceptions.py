@@ -40,12 +40,14 @@ class DeviceConnectionError(GnetcliException):
 
     pass
 
+
 class DeviceConnectError(GnetcliException):
     """
     Problem with connecting to a device.
     """
 
     pass
+
 
 class UnknownDevice(GnetcliException):
     """
