@@ -18,14 +18,24 @@ import (
 	grpczap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/server"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
+)
+
+type ExecErrorType string
+
+const (
+	ErrorTypeGeneric    ExecErrorType = "generic_error"
+	ErrorTypeConnection ExecErrorType = "connection_error"
 )
 
 func path(rel string) string {
@@ -44,6 +54,38 @@ func parseAuth(basicAuth string) (string, gcred.Secret) {
 		panic("wrong basicAuth format")
 	}
 	return basicAuthSplit[0], gcred.Secret(basicAuthSplit[1])
+}
+
+func connectionErrorUnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	resp, err := handler(ctx, req)
+	return resp, connectionErrorInterceptor(err)
+}
+
+func connectionErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	err := handler(srv, ss)
+	return connectionErrorInterceptor(err)
+}
+
+func connectionErrorInterceptor(inErr error) error {
+	if inErr == nil {
+		return nil
+	}
+	msg := string(ErrorTypeGeneric)
+	reason := string(ErrorTypeGeneric)
+
+	if strings.Contains(inErr.Error(), "failed to connect to host") {
+		msg = "connect_error"
+		reason = string(ErrorTypeConnection)
+	}
+
+	st := status.New(codes.Internal, msg)
+	rv, _ := st.WithDetails(
+		&errdetails.ErrorInfo{
+			Reason:   reason,
+			Metadata: map[string]string{"err": inErr.Error()},
+		},
+	)
+	return rv.Err()
 }
 
 func main() {
@@ -132,10 +174,12 @@ func main() {
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpczap.UnaryServerInterceptor(logger),
 			auth.AuthenticateUnary,
+			connectionErrorUnaryInterceptor,
 		)),
 		grpc.StreamInterceptor(grpcmiddleware.ChainStreamServer(
 			grpczap.StreamServerInterceptor(logger),
 			auth.AuthenticateStream,
+			connectionErrorStreamInterceptor,
 		)),
 	)
 	grpcServer := grpc.NewServer(opts...)
