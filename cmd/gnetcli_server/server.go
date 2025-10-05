@@ -36,6 +36,7 @@ type ExecErrorType string
 const (
 	ErrorTypeGeneric    ExecErrorType = "generic_error"
 	ErrorTypeConnection ExecErrorType = "connection_error"
+	ErrorTypeConnect    ExecErrorType = "connect_error"
 )
 
 func path(rel string) string {
@@ -70,15 +71,15 @@ func connectionErrorInterceptor(inErr error) error {
 	if inErr == nil {
 		return nil
 	}
-	msg := string(ErrorTypeGeneric)
+	msg := ErrorTypeGeneric
 	reason := string(ErrorTypeGeneric)
 
 	if strings.Contains(inErr.Error(), "failed to connect to host") {
-		msg = "connect_error"
+		msg = ErrorTypeConnect
 		reason = string(ErrorTypeConnection)
 	}
 
-	st := status.New(codes.Internal, msg)
+	st := status.New(codes.Internal, string(msg))
 	rv, _ := st.WithDetails(
 		&errdetails.ErrorInfo{
 			Reason:   reason,
