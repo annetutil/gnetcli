@@ -1151,10 +1151,11 @@ func DialConnCtx(ctx context.Context, conn net.Conn, addr string, config *ssh.Cl
 	defer cancel()
 
 	go func() {
-		select {
-		case <-lctx.Done():
-		case <-ctx.Done():
-			_ = conn.SetDeadline(time.Now())
+		<-lctx.Done()
+		if err := lctx.Err(); err != nil {
+			if err != context.Canceled {
+				conn.Close()
+			}
 		}
 	}()
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
