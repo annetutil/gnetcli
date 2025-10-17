@@ -23,17 +23,16 @@ class AuthAppConfig:
 @dataclass
 class Config:
     logging: LogConfig = field(default_factory=LogConfig)
-    port: str = ""  # listen
-    http_port: str = ""  # http_listen
+    port: str = ""  # Listen address
+    http_port: str = ""  # Http listen address
     dev_auth: AuthAppConfig = field(default_factory=AuthAppConfig)
-    dev_conf: str = ""
+    dev_conf: str = ""  # Path to yaml with device types
     tls: bool = False
     cert_file: str = ""
     key_file: str = ""
     basic_auth: str = ""
     disable_tcp: bool = False
-    unix_socket: str = ""
-    debug: bool = False
+    unix_socket: str = ""  # Unix socket pat
     default_read_timeout: timedelta = timedelta(seconds=0)
     default_cmd_timeout: timedelta = timedelta(seconds=0)
 
