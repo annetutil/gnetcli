@@ -5,25 +5,21 @@ from asyncio.subprocess import Process
 from json import JSONDecodeError
 from subprocess import DEVNULL, PIPE, TimeoutExpired
 
+from gnetclisdk.config import Config, LogConfig, AuthAppConfig, config_to_yaml
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_GNETCLI_SERVER_CONF = """
-logging:
-  level: debug
-  json: true
-port: 0
-dev_auth:
-  use_agent: true
-  ssh_config: true
-"""
+DEFAULT_GNETCLI_SERVER_CONF = Config(
+    logging=LogConfig(level="debug", json=True),
+    dev_auth=AuthAppConfig(use_agent=True, ssh_config=True),
+)
 
 
 class GnetcliStarter:
     def __init__(
         self,
         server_path: str,
-        server_conf: str = DEFAULT_GNETCLI_SERVER_CONF,
+        server_conf: Config = DEFAULT_GNETCLI_SERVER_CONF,
         start_timeout: int = 5,
         stop_timeout: int = 10,
     ):
@@ -45,7 +41,8 @@ class GnetcliStarter:
             stdin=PIPE,
         )
         self._running = True
-        proc.stdin.write(self._server_conf.encode())
+        conf_yaml = config_to_yaml(self._server_conf)
+        proc.stdin.write(conf_yaml.encode())
         await proc.stdin.drain()
         proc.stdin.close()
         return proc
