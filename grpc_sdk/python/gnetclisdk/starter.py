@@ -3,7 +3,7 @@ import json
 import logging
 from asyncio.subprocess import Process
 from json import JSONDecodeError
-from subprocess import DEVNULL, PIPE, TimeoutExpired
+from subprocess import DEVNULL, PIPE
 
 from gnetclisdk.config import Config, LogConfig, AuthAppConfig, config_to_yaml
 
@@ -29,6 +29,7 @@ class GnetcliStarter:
         self._proc: Process | None = None
         self._start_timeout = start_timeout
         self._stop_timeout = stop_timeout
+        self._reader_task: asyncio.Task | None = None
 
     async def _start(self) -> Process:
         logger.debug("Starting Gnetcli server: %s", self._server_path)
@@ -50,7 +51,7 @@ class GnetcliStarter:
     async def _wait_url(self) -> str:
         while proc := self._proc:
             output = await proc.stderr.readline()
-            if output == "" and proc.returncode is not None:
+            if not output and proc.returncode is not None:
                 break
             if not output:
                 continue
@@ -73,13 +74,26 @@ class GnetcliStarter:
     async def __aenter__(self) -> str:
         self._proc = await self._start()
         try:
-            return await asyncio.wait_for(
+            url = await asyncio.wait_for(
                 self._wait_url(), timeout=self._start_timeout
             )
         except asyncio.TimeoutError:
             logger.error("gnetcli _wait_url timeout, terminating")
             await self._terminate()
             raise RuntimeError("gnetcli start failed")
+        logger.info("gnetcli started with url: %s", url)
+        self._reader_task = asyncio.create_task(self._communicate())
+        return url
+
+    async def _communicate(self) -> None:
+        while proc := self._proc:
+            output = await proc.stderr.readline()
+            if not output and proc.returncode is not None:
+                logger.debug("stop reading, gnetcli terminated")
+                return
+            if not output:
+                continue
+            logger.debug("gnetcli output: %s", output.strip())
 
     async def _terminate(self) -> None:
         if (proc := self._proc) is None:
@@ -89,12 +103,17 @@ class GnetcliStarter:
                 "gnetcli already terminated with code: %s", proc.returncode
             )
             return
+        logger.debug("terminate gnetcli")
         proc.terminate()
         try:
             await asyncio.wait_for(proc.wait(), timeout=self._stop_timeout)
-        except TimeoutExpired:
+        except TimeoutError:
             logger.debug("gnetcli terminate failed, killing")
             self._proc.kill()
+        logger.debug("gnetcli terminated with code: %s", proc.returncode)
+        if self._reader_task is not None and not self._reader_task.cancel() and not self._reader_task.cancelling():
+            self._reader_task.cancel()
+            self._reader_task = None
         self._proc = None
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
