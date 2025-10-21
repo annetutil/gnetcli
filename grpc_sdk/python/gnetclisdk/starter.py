@@ -51,10 +51,9 @@ class GnetcliStarter:
     async def _wait_url(self) -> str:
         while proc := self._proc:
             output = await proc.stderr.readline()
-            if not output and proc.returncode is not None:
-                break
             if not output:
-                continue
+                logger.debug("stop waiting url, eof found")
+                break
             logger.debug("gnetcli output: %s", output.strip())
             try:
                 data = json.loads(output)
@@ -88,11 +87,9 @@ class GnetcliStarter:
     async def _communicate(self) -> None:
         while proc := self._proc:
             output = await proc.stderr.readline()
-            if not output and proc.returncode is not None:
-                logger.debug("stop reading, gnetcli terminated")
-                return
             if not output:
-                continue
+                logger.debug("stop reading, eof found")
+                return
             logger.debug("gnetcli output: %s", output.strip())
 
     async def _terminate(self) -> None:
