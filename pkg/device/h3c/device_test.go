@@ -23,6 +23,7 @@ func TestDevicePrompt(t *testing.T) {
 		[]byte("\r\n(M)<test-test>"),                  // mmi-mode
 		[]byte("\r\n(M)[test-test]"),                  // mmi-mode system-view
 		[]byte("\r\n(M)[5-1-1-GigabitEthernet1/0/1]"), // mmi-mode system-view
+		[]byte("\r\n\x00<test>"),                      // banner terminated by a null byte
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
