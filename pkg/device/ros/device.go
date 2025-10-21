@@ -4,7 +4,9 @@ Package ros implements RouterOS CLI using genericcli.
 package ros
 
 import (
+	"bytes"
 	"context"
+	"regexp"
 	"strings"
 
 	"github.com/annetutil/gnetcli/pkg/credentials"
@@ -15,22 +17,38 @@ import (
 
 const (
 	// line may be like this "\r\n\r\r\r\r[admin@mk-rb3011-test] >   (~1000 space)   \r[admin@mk-rb3011-test] > "
-	hiddenPrompt       = `(\[\S+@\S+\]\s+(\/[\/\w\s-]+)?(<SAFE)?>\s+)?`
-	visiblePrompt      = `\[(?P<login>\S+)@(?P<hostname>\S+)\]\s+(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> $`
-	promptExpression   = `(?P<store>(\r\n|\n|\r|^))` + hiddenPrompt + visiblePrompt
-	errorExpression    = `(\r|^)(bad command name.*\(line \d+ column \d+\).*$|syntax error.*\(line \d+ column \d+\).*$|\[(?P<question>Safe mode released by another user)\]|expected end of command \(line \d+ column \d+\)|expected command name \(line \d+ column \d+\)|failure: duplicate address)`
+	hiddenPrompt       = `(?P<hidden>\[\S+@\S+\]\s{1,2}(\/[\/\w\s-]+)?(<SAFE)?>\s+)?`
+	visiblePrompt      = `\[(?P<login>\S+)@(?P<hostname>\S+)\]\s{1,2}(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> $`
+	promptExpression   = `(?P<store>(\r\n|\n|\r|^))` + visiblePrompt
+	errorExpression    = `(\r|^)(bad command name.*\(line \d+ column \d+\).*($|\r)|syntax error.*\(line \d+ column \d+\).*$|\[(?P<question>Safe mode released by another user)\]|expected end of command \(line \d+ column \d+\)|expected command name \(line \d+ column \d+\)|failure: duplicate address)`
 	questionExpression = `((?P<question>.+\?)\s*\[y/N\]: \r\n$|(?P<question>\x1b\[c)|\rnumbers: )`
-	pagerExpression    = `-- \[Q quit\|D dump\|down\]$`
+	pagerExpression    = `-- \[Q quit\|D dump\|(right\|)?(up\|)?down\]$`
 )
+
+var promptHack = regexp.MustCompile(`\r+\[(\S+)@(\S+)\]\s{1,2}(\/[\/\w\s-]+)?(<SAFE)?>  {100,}\r\[(\S+)@(\S+)\]\s{1,2}(\/[\/\w\s-]+)?(<SAFE)?> \r\[(\S+)@(\S+)\]\s{1,2}(\/[\/\w\s-]+)?(<SAFE)?> \r\n\r+\[(\S+)@(\S+)\]\s{1,2}(\/[\/\w\s-]+)?(<SAFE)?>  {100,}\r`)
+
+func dataCallback(cbType genericcli.ResultCBType, data []byte) ([]byte, error) {
+	// cli returns:
+	// new rw="DATA    \r\r\n\r\r\r\rPROMPT space * terminal width \rPROMPT\rPROMPT\r\n\r\r\r\r\rPROMPT space * terminal width \rPROMPT \r\n"
+	// try to drop
+	if cbType == genericcli.CBRaw {
+		if bytes.HasSuffix(data, []byte("                             \r")) {
+			data = promptHack.ReplaceAll(data, nil)
+		}
+		return data, nil
+	}
+	return data, nil
+}
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
 	cli := genericcli.MakeGenericCLI(
 		expr.NewSimpleExprLast(1500).FromPattern(promptExpression),
-		expr.NewSimpleExprLast200().FromPattern(errorExpression),
+		expr.NewSimpleExprLast(2500).FromPattern(errorExpression),
 		genericcli.WithQuestion(
 			expr.NewSimpleExprLast200().FromPattern(questionExpression),
 		),
 		genericcli.WithPager(expr.NewSimpleExprLast200().FromPattern(pagerExpression)),
+		genericcli.WithResultCB(dataCallback),
 		genericcli.WithCredentialInterceptor(credentialLoginModifier),
 		genericcli.WithWriteNewLine([]byte("\r\n")),
 	)

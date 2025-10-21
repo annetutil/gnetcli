@@ -17,6 +17,7 @@ nav:
   - Example:
     - Cisco CLI: examples_simple_exec.md
     - With question: examples_with_question.md
+  - gswitch: gswitch.md
 
 plugins:
   - mermaid2

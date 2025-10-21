@@ -13,7 +13,7 @@ import (
 const (
 	loginExpression    = `.*Username:\s?$`
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(?P<prompt>[\w\-.:/]+(\(config(-\w+)*\))?)(>|#)$`
+	promptExpression   = `(?P<prompt>[\w\-.:/]+(\(conf(ig)?(-[^)]+)*\))?)(>|#)$`
 	errorExpression    = `(` +
 		`\r\n% Invalid input detected at '\^' marker.\r\n` +
 		`|^\r? +\^\n(% )?Invalid [\w ()]+ at '\^' marker\.` +
@@ -36,7 +36,7 @@ var autoCommands = []cmd.Cmd{
 	cmd.NewCmd("terminal monitor disable", cmd.WithErrorIgnore()), // ios xr
 	cmd.NewCmd("terminal length 0", cmd.WithErrorIgnore()),
 	cmd.NewCmd("terminal width 0", cmd.WithErrorIgnore()),
-	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAddAnswers(cmd.NewAnswer("Password: ", ""))),
+	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAddAnswers(cmd.NewAnswerWithNL("Password: ", ""))),
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {

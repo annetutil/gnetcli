@@ -28,15 +28,14 @@ const AnyNLPattern = `(\r\n|\n)`
 const DefaultCLIConnectTimeout = 15 * time.Second
 
 const (
-	promptExprName        = "prompt"
-	passwdErrExprName     = "passwordError"
-	questionExprName      = "question"
-	loginQuestionExprName = "loginQuestion"
-	passwordExprName      = "password"
-	loginExprName         = "login"
-	pagerExprName         = "pager"
-	echoExprName          = "echo"
-	cbExprName            = "cb"
+	promptExprName    = "prompt"
+	passwdErrExprName = "passwordError"
+	questionExprName  = "question"
+	passwordExprName  = "password"
+	loginExprName     = "login"
+	pagerExprName     = "pager"
+	echoExprName      = "echo"
+	cbExprName        = "cb"
 )
 
 var defaultWriteNewLine = []byte("\n") // const
@@ -45,6 +44,12 @@ type terminalParams struct {
 	w int
 	h int
 }
+
+type ResultCBType int
+
+const (
+	CBRaw ResultCBType = iota
+)
 
 type GenericCLI struct {
 	prompt           expr.Expr
@@ -55,6 +60,7 @@ type GenericCLI struct {
 	loginCB          []cmd.ExprCallback // used only during login, before first prompt
 	passwordError    expr.Expr
 	pager            expr.Expr
+	resultCB         func(ResultCBType, []byte) ([]byte, error)
 	autoCommands     []cmd.Cmd
 	initWait         time.Duration
 	echoExprFormat   func(cmd.Cmd) expr.Expr
@@ -64,6 +70,13 @@ type GenericCLI struct {
 	sftpEnabled      bool
 	defaultAnswers   []cmd.Answer
 	terminalParams   *terminalParams
+	connectTimeout   time.Duration
+}
+
+func (m *GenericCLI) SetConnectTimeout(timeout time.Duration) time.Duration {
+	oldTimeout := m.connectTimeout
+	m.connectTimeout = timeout
+	return oldTimeout
 }
 
 type GenericCLIOption func(*GenericCLI)
@@ -94,6 +107,12 @@ func WithManualAuth() GenericCLIOption {
 func WithPager(pager expr.Expr) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.pager = pager
+	}
+}
+
+func WithResultCB(cb func(ResultCBType, []byte) ([]byte, error)) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.resultCB = cb
 	}
 }
 
@@ -160,9 +179,16 @@ func WithTerminalParams(width, height int) GenericCLIOption {
 		}
 	}
 }
+
 func WithWriteNewLine(newline []byte) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.writeNewline = newline
+	}
+}
+
+func WithConnectTimeout(connectTimeout time.Duration) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.connectTimeout = connectTimeout
 	}
 }
 
@@ -185,6 +211,7 @@ func MakeGenericCLI(prompt, error expr.Expr, opts ...GenericCLIOption) GenericCL
 		defaultAnswers:   nil,
 		terminalParams:   &terminalParams{w: 400, h: 0},
 		loginCB:          []cmd.ExprCallback{},
+		connectTimeout:   DefaultCLIConnectTimeout,
 	}
 	for _, opt := range opts {
 		opt(&res)
@@ -332,7 +359,7 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 }
 
 func (m *GenericDevice) Execute(command cmd.Cmd) (cmd.CmdRes, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), DefaultCLIConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), m.cli.connectTimeout)
 	defer cancel()
 	m.logger.Debug("exec", zap.ByteString("command", command.Value()))
 	if !m.cliConnected {
@@ -405,6 +432,10 @@ func MakeGenericDevice(cli GenericCLI, connector streamer.Connector, opts ...Gen
 		opt(&res)
 	}
 	return res
+}
+
+func (m *GenericDevice) SetCLIConnectTimeout(timeout time.Duration) time.Duration {
+	return m.cli.SetConnectTimeout(timeout)
 }
 
 func genericLogin(ctx context.Context, connector streamer.Connector, cli GenericCLI) (err error) {
@@ -561,6 +592,24 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		}
 		mbefore := match.GetBefore()
 		if !seenEcho {
+			if matchName == questionExprName { // caught question before echo
+				// check for echo, drop it and proceed with question
+				termParsedEcho, err := terminal.ParseDropLastReturn(mbefore)
+				if err != nil {
+					return nil, fmt.Errorf("echo terminal parse error %w", err)
+				}
+				mres, ok := exprs.Match(termParsedEcho)
+				if !ok {
+					return nil, device.ThrowEchoReadException(mbefore, true)
+				}
+				if exprs.GetName(mres.PatternNo) == echoExprName {
+					seenEcho = true
+				}
+				mbefore = termParsedEcho[mres.End:]
+			}
+		}
+
+		if !seenEcho {
 			promptFound := matchName == promptExprName
 			// case where we caught prompt before echo because of term codes in echo
 			if len(mbefore) < 2 || !promptFound { // don't bother to do complex logic
@@ -616,6 +665,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 		} else if matchName == questionExprName { // question
 			question := match.GetMatched()
+			logger.Debug("QuestionHandler question", zap.ByteString("question", question))
 			answer, err := command.QuestionHandler(question)
 			if err != nil {
 				if errors.Is(err, cmd.ErrNotFoundAnswer) {
@@ -623,12 +673,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				return nil, fmt.Errorf("QuestionHandler error %w", err)
 			}
-			logger.Debug("QuestionHandler answer to question")
+			logger.Debug("QuestionHandler answer", zap.ByteString("answer", answer))
 			err = connector.Write(answer)
-			if err != nil {
-				return nil, fmt.Errorf("write error %w", err)
-			}
-			err = connector.Write([]byte("\n"))
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
 			}
@@ -649,6 +695,13 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	}
 
 	res := buffer.Bytes()
+	if cli.resultCB != nil {
+		cbRes, err := cli.resultCB(CBRaw, res)
+		if err != nil {
+			return nil, err
+		}
+		res = cbRes
+	}
 	fondErr := checkError(cli.error, res)
 	if fondErr != nil {
 		fondErr = command.ErrorHandler(fondErr)

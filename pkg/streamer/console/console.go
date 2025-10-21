@@ -54,10 +54,9 @@ const (
 	ansOk                = "[ok]" + newLine
 	ansUp                = "[up]" + newLine
 
-	readBufferSize      = 256
-	readBufferLen       = 100
-	readErrorBufferSize = 60
-	defaultReadTimeout  = 10 * time.Minute
+	readBufferSize     = 256
+	readBufferLen      = 100
+	defaultReadTimeout = 10 * time.Minute
 
 	regExErrors = `\[((spying|no|line down|read-only|forced to|up|attached|connected|down|unknown|bumped)[^\[\]]*)\]\r\n`
 )
@@ -234,7 +233,7 @@ func (m *Streamer) ConsoleCmd(ctx context.Context, command string, sendNewLine b
 
 func (m *Streamer) SendCharacter(ctx context.Context, char byte) ([]byte, error) {
 	//  \ooo    send character by octal code
-	command := fmt.Sprintf("\x05c\\%03d", char)
+	command := fmt.Sprintf("\x05c\\%03o", char)
 	err := m.Write([]byte(command))
 	if err != nil {
 		return nil, err
@@ -824,8 +823,7 @@ func (m *Streamer) closeForChangePort() error {
 func (m *Streamer) ReadTo(ctx context.Context, exp expr.Expr) (streamer.ReadRes, error) {
 	m.logger.Debug("read to", zap.String("expr", exp.Repr()))
 	exprs := expr.NewSimpleExprList(exp, expr.NewSimpleExpr().FromPattern(regExErrors))
-	// defaultReadTimeout нужен как таймаут последней надежды, таймаут на команду делается через ctx
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, exprs, 0, defaultReadTimeout)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, exprs, 0, 0)
 	if m.trace != nil {
 		m.trace(trace.Read, read)
 	}
@@ -868,7 +866,7 @@ func (m *Streamer) CheckConsoleError(readRes streamer.ReadRes) error {
 
 func (m *Streamer) Read(ctx context.Context, size int) ([]byte, error) {
 	m.logger.Debug("read", zap.Int("size", size))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, 0, nil, size, defaultReadTimeout)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, nil, size, 0)
 	if err == nil && res.RetType != streamer.Size {
 		return nil, fmt.Errorf("unexpected res type %d", res.RetType)
 	}
@@ -894,6 +892,9 @@ func (m *Streamer) Cmd(ctx context.Context, str string) (cmd.CmdRes, error) {
 }
 
 func (m *Streamer) Write(text []byte) error {
+	if m.conn == nil {
+		return errors.New("no connection")
+	}
 	if m.trace != nil {
 		m.trace(trace.Write, text)
 	}

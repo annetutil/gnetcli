@@ -51,7 +51,7 @@ Usage of server:
   -key-file string
     	The TLS key file
   -port string
-    	Listen address (default "127.0.0.1:50051")
+    	Listen address (default random port)
   -tls
     	Connection uses TLS if true
   -unix-socket string

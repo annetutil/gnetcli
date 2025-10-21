@@ -42,6 +42,10 @@ func RunDialogWithDefaultCreds(t *testing.T, devMaker deviceMaker, dialog []Acti
 }
 
 func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, expected string, creds credentials.Credentials) {
+	RunDialogCMD(t, devMaker, dialog, cmd.NewCmd(command), expected, creds)
+}
+
+func RunDialogCMD(t *testing.T, devMaker deviceMaker, dialog []Action, command cmd.Cmd, expected string, creds credentials.Credentials) {
 	// Mock SSH server setup
 	sshServer, err := NewMockSSHServer(dialog, WithLogger(zap.Must(zap.NewDevelopmentConfig().Build())))
 	require.NoError(t, err, "failed to start mock ssh server: %s", err)
@@ -62,7 +66,7 @@ func RunDialog(t *testing.T, devMaker deviceMaker, dialog []Action, command, exp
 	err = dev.Connect(connCtx)
 	require.NoError(t, err, "failed to connect to device: %s", err)
 
-	res, err := dev.Execute(cmd.NewCmd(command))
+	res, err := dev.Execute(command)
 	require.NoError(t, err, "failed to execute command %s: %s", command, err)
 	require.Equal(t, expected, string(res.Output()), "should be equal")
 

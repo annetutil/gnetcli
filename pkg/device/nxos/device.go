@@ -17,7 +17,7 @@ import (
 // For example 'n9k-test \r\n\rn9k-test#' - extra \r after typical \r\n.
 
 const (
-	promptExpression = `(\r\n\r)?(?P<prompt>[\w\-()]+)# $`
+	promptExpression = `(\r\n\r)?(?P<prompt>[\w\-()+]+)# $`
 	errorExpression  = `(% )?(Invalid|Incomplete) (command at|range at) '\^' marker.`
 	pagerExpression  = `\x1b\[7m--More--\x1b\[(27)?m`
 )

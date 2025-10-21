@@ -14,7 +14,7 @@ from google.protobuf.message import Message
 
 from .proto import server_pb2, server_pb2_grpc
 from .auth import BasicClientAuthentication, ClientAuthentication, OAuthClientAuthentication
-from .exceptions import parse_grpc_error
+from .exceptions import parse_grpc_error, DeviceConnectError
 from .interceptors import get_auth_client_interceptors
 
 _logger = logging.getLogger(__name__)
@@ -37,11 +37,13 @@ default_grpc_options: List[Tuple[str, Any]] = [
 class QA:
     question: str
     answer: str
+    not_send_nl: bool = False
 
     def make_pb(self) -> server_pb2.QA:
         pb = server_pb2.QA()
         pb.question = self.question
         pb.answer = self.answer
+        pb.not_send_nl = self.not_send_nl
         return pb
 
 
@@ -468,6 +470,8 @@ async def grpc_call_wrapper(stub: grpc.UnaryUnaryMultiCallable, request: Any) ->
                 verbose=verbose,
             )
             last_exc.__cause__ = e
+            if gn_exc == DeviceConnectError:
+                continue
             raise last_exc from None
         else:
             last_exc = None
