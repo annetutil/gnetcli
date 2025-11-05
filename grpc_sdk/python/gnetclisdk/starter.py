@@ -108,7 +108,7 @@ class GnetcliStarter:
             logger.debug("gnetcli terminate failed, killing")
             self._proc.kill()
         logger.debug("gnetcli terminated with code: %s", proc.returncode)
-        if self._reader_task is not None and not self._reader_task.cancel() and not self._reader_task.cancelling():
+        if self._reader_task is not None and not self._reader_task.cancelled():
             self._reader_task.cancel()
             self._reader_task = None
         self._proc = None
