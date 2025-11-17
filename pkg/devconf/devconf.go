@@ -31,6 +31,7 @@ const (
 	FeatureAutocmds        = "autocmds"
 	FeatureSpacesAfterEcho = "spaces_after_echo"
 	FeatureExtraCrEcho     = "extra_cr_echo"
+	FeatureANSIEscSeqEcho  = "ansi_esc_seq_echo"
 )
 
 type DevConf struct {
@@ -112,6 +113,11 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 			case FeatureExtraCrEcho:
 				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
 					return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s\r*\n`, regexp.QuoteMeta(string(c.Value()))))
+				})
+				opts = append(opts, a)
+			case FeatureANSIEscSeqEcho:
+				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
+					return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s(?:\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])+\r\n`, regexp.QuoteMeta(string(c.Value()))))
 				})
 				opts = append(opts, a)
 			default:
