@@ -41,8 +41,9 @@ const (
 var defaultWriteNewLine = []byte("\n") // const
 
 type terminalParams struct {
-	w int
-	h int
+	w    int
+	h    int
+	echo bool
 }
 
 type ResultCBType int
@@ -180,6 +181,15 @@ func WithTerminalParams(width, height int) GenericCLIOption {
 	}
 }
 
+func WithTerminalParamsEcho(e bool) GenericCLIOption {
+	return func(h *GenericCLI) {
+		if h.terminalParams == nil {
+			h.terminalParams = &terminalParams{}
+		}
+		h.terminalParams.echo = e
+	}
+}
+
 func WithWriteNewLine(newline []byte) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.writeNewline = newline
@@ -254,6 +264,7 @@ func (m *GenericDevice) GetAux() map[string]any {
 
 type SetTerminalSize interface {
 	SetTerminalSize(w int, h int)
+	SetTerminalEcho(e bool)
 }
 
 func (m *GenericDevice) Connect(ctx context.Context) (err error) {
@@ -267,6 +278,7 @@ func (m *GenericDevice) Connect(ctx context.Context) (err error) {
 	if m.cli.terminalParams != nil {
 		if v, ok := m.connector.(SetTerminalSize); ok {
 			v.SetTerminalSize(m.cli.terminalParams.w, m.cli.terminalParams.h)
+			v.SetTerminalEcho(m.cli.terminalParams.echo)
 		}
 	}
 
