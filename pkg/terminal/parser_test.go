@@ -105,6 +105,12 @@ func TestBS(t *testing.T) {
 	assert.Equal(t, "test123", string(res))
 }
 
+func TestBS2(t *testing.T) {
+	res, err := Parse([]byte("0         \r\n\b\b\b\b\b\b\b\b        \b\b\b\b\b\b\b\b|access"))
+	assert.NoError(t, err)
+	assert.Equal(t, "0         \r\n|access", string(res))
+}
+
 func check(t *testing.T, want string, s string) {
 	res, err := Parse([]byte(s))
 	assert.NoError(t, err)
