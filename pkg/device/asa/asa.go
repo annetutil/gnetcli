@@ -21,14 +21,14 @@ const (
 		`|ERROR: % Unrecognized command` +
 		`|(\s+\^\n)?% Ambiguous command(: +\".+\"+| at .+)` +
 		`|\r?% Permission denied for the role` +
-		`|\n?% ?Bad (OID|IP address or host name%[\ \w,]+)` +
+		`|\n?% ?Bad (OID|IP address|host name)(%[\ \w,]+)?` +
 		`|\r?% This command is not authorized` +
 		`|\r?% Failed to commit .+` +
 		`|\r?% Specify .+` +
 		`|^% Invalid input` +
 		`|Permission denied.+\[Errno \d+\] Permission denied` +
 		`)`
-	passwordExpression      = `.*password:\s?$`
+	passwordExpression      = `.*(?i)password:\s?$`
 	passwordErrorExpression = `\n\% Authentication failed(\r\n|\n)`
 	pagerExpression         = `<--- More --->`
 )
