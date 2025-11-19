@@ -1,4 +1,4 @@
-package ciscoasa
+package asa
 
 import (
 	"testing"
