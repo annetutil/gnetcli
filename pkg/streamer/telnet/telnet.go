@@ -59,6 +59,7 @@ type Streamer struct {
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
 	host                   string
+	port                   int
 	conn                   net.Conn
 	stdoutBuffer           chan []byte
 	stdoutBufferExtra      []byte
@@ -95,8 +96,12 @@ func (m *Streamer) SetCredentialsInterceptor(inter func(credentials.Credentials)
 }
 
 func (m *Streamer) Init(ctx context.Context) error {
-	m.logger.Debug("open connection", zap.String("host", m.host))
-	conn, err := streamer.TCPDialCtx(ctx, "tcp", fmt.Sprintf("%s:%d", m.host, defaultPort))
+	port := m.port
+	if port == 0 {
+		port = defaultPort
+	}
+	m.logger.Debug("open connection", zap.String("host", m.host), zap.Int("port", port))
+	conn, err := streamer.TCPDialCtx(ctx, "tcp", fmt.Sprintf("%s:%d", m.host, port))
 	if err != nil {
 		return err
 	}
@@ -176,6 +181,12 @@ func WithLogger(log *zap.Logger) StreamerOption {
 func WithTrace(trace trace.CB) StreamerOption {
 	return func(h *Streamer) {
 		h.trace = trace
+	}
+}
+
+func WithPort(port int) StreamerOption {
+	return func(h *Streamer) {
+		h.port = port
 	}
 }
 

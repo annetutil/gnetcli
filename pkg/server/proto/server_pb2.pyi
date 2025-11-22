@@ -4,7 +4,8 @@ from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
-from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Mapping, Optional as _Optional, Union as _Union
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
@@ -21,6 +22,11 @@ class DeviceResultStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     Device_ok: _ClassVar[DeviceResultStatus]
     Device_error: _ClassVar[DeviceResultStatus]
 
+class StreamerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    StreamerType_ssh: _ClassVar[StreamerType]
+    StreamerType_telnet: _ClassVar[StreamerType]
+
 class FileStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     FileStatus_notset: _ClassVar[FileStatus]
@@ -35,6 +41,8 @@ Operation_read: TraceOperation
 Device_notset: DeviceResultStatus
 Device_ok: DeviceResultStatus
 Device_error: DeviceResultStatus
+StreamerType_ssh: StreamerType
+StreamerType_telnet: StreamerType
 FileStatus_notset: FileStatus
 FileStatus_ok: FileStatus
 FileStatus_error: FileStatus
@@ -114,18 +122,20 @@ class CMDTraceItem(_message.Message):
     def __init__(self, operation: _Optional[_Union[TraceOperation, str]] = ..., data: _Optional[bytes] = ...) -> None: ...
 
 class HostParams(_message.Message):
-    __slots__ = ("host", "credentials", "port", "device", "ip")
+    __slots__ = ("host", "credentials", "port", "device", "ip", "streamer_type")
     HOST_FIELD_NUMBER: _ClassVar[int]
     CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
     PORT_FIELD_NUMBER: _ClassVar[int]
     DEVICE_FIELD_NUMBER: _ClassVar[int]
     IP_FIELD_NUMBER: _ClassVar[int]
+    STREAMER_TYPE_FIELD_NUMBER: _ClassVar[int]
     host: str
     credentials: Credentials
     port: int
     device: str
     ip: str
-    def __init__(self, host: _Optional[str] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ..., port: _Optional[int] = ..., device: _Optional[str] = ..., ip: _Optional[str] = ...) -> None: ...
+    streamer_type: StreamerType
+    def __init__(self, host: _Optional[str] = ..., credentials: _Optional[_Union[Credentials, _Mapping]] = ..., port: _Optional[int] = ..., device: _Optional[str] = ..., ip: _Optional[str] = ..., streamer_type: _Optional[_Union[StreamerType, str]] = ...) -> None: ...
 
 class CMDResult(_message.Message):
     __slots__ = ("out", "out_str", "error", "error_str", "trace", "status")

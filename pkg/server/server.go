@@ -32,6 +32,7 @@ import (
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
 	"github.com/annetutil/gnetcli/pkg/streamer"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
+	"github.com/annetutil/gnetcli/pkg/streamer/telnet"
 	gtrace "github.com/annetutil/gnetcli/pkg/trace"
 )
 
@@ -63,13 +64,14 @@ type Server struct {
 }
 
 type hostParams struct {
-	port        int
-	device      string
-	creds       credentials.Credentials
-	ip          netip.Addr
-	proxyJump   string
-	controlPath string
-	host        string
+	port         int
+	device       string
+	creds        credentials.Credentials
+	ip           netip.Addr
+	proxyJump    string
+	controlPath  string
+	host         string
+	streamerType pb.StreamerType
 }
 
 func makeGRPCDeviceExecError(err error) error {
@@ -88,15 +90,16 @@ func makeGRPCDeviceExecError(err error) error {
 	return rv.Err()
 }
 
-func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string) hostParams {
+func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string, streamerType pb.StreamerType) hostParams {
 	return hostParams{
-		port:        port,
-		device:      device,
-		creds:       creds,
-		ip:          ip,
-		proxyJump:   proxyJump,
-		controlPath: controlPath,
-		host:        host,
+		port:         port,
+		device:       device,
+		creds:        creds,
+		ip:           ip,
+		proxyJump:    proxyJump,
+		controlPath:  controlPath,
+		host:         host,
+		streamerType: streamerType,
 	}
 }
 
@@ -174,34 +177,51 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 		creds = defcreds
 	}
 	deviceType := params.GetDevice()
-	streamerOpts := []ssh.StreamerOption{ssh.WithLogger(logger), ssh.WithTrace(add)}
 	connHost, port := m.makeConnectArg(hostname, params)
-	if port > 0 {
-		streamerOpts = append(streamerOpts, ssh.WithPort(port))
-	}
-	if params.proxyJump != "" {
-		jumpHostParams, err := m.getHostParams(params.proxyJump, nil)
-		if err != nil {
-			return nil, fmt.Errorf("unable to get host params for ssh tunnel to %s:%w", params.proxyJump, err)
+
+	var connector streamer.Connector
+
+	// Choose streamer based on streamer type
+	if params.streamerType == pb.StreamerType_StreamerType_telnet {
+		// Telnet streamer
+		telnetOpts := []telnet.StreamerOption{telnet.WithLogger(logger), telnet.WithTrace(add)}
+		if port > 0 {
+			telnetOpts = append(telnetOpts, telnet.WithPort(port))
 		}
-		opts := []ssh.SSHTunnelOption{ssh.SSHTunnelWithLogger(logger)}
-		if len(jumpHostParams.controlPath) > 0 {
-			opts = append(opts, ssh.SSHTunnelWithControlFIle(jumpHostParams.controlPath))
+		connector = telnet.NewStreamer(connHost, creds, telnetOpts...)
+		logger.Debug("using telnet streamer", zap.String("host", connHost), zap.Int("port", port))
+	} else {
+		// SSH streamer (default)
+		streamerOpts := []ssh.StreamerOption{ssh.WithLogger(logger), ssh.WithTrace(add)}
+		if port > 0 {
+			streamerOpts = append(streamerOpts, ssh.WithPort(port))
 		}
-		connHost = params.host
-		tun := ssh.NewSSHTunnel(jumpHostParams.host, jumpHostParams.GetCredentials(), opts...)
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err = tun.CreateConnect(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("unable to open ssh tunnel to %s:%w", params.proxyJump, err)
+		if params.proxyJump != "" {
+			jumpHostParams, err := m.getHostParams(params.proxyJump, nil)
+			if err != nil {
+				return nil, fmt.Errorf("unable to get host params for ssh tunnel to %s:%w", params.proxyJump, err)
+			}
+			opts := []ssh.SSHTunnelOption{ssh.SSHTunnelWithLogger(logger)}
+			if len(jumpHostParams.controlPath) > 0 {
+				opts = append(opts, ssh.SSHTunnelWithControlFIle(jumpHostParams.controlPath))
+			}
+			connHost = params.host
+			tun := ssh.NewSSHTunnel(jumpHostParams.host, jumpHostParams.GetCredentials(), opts...)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			err = tun.CreateConnect(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("unable to open ssh tunnel to %s:%w", params.proxyJump, err)
+			}
+			streamerOpts = append(streamerOpts, ssh.WithSSHTunnel(tun))
 		}
-		streamerOpts = append(streamerOpts, ssh.WithSSHTunnel(tun))
+		if params.controlPath != "" {
+			streamerOpts = append(streamerOpts, ssh.WithSSHControlFIle(params.controlPath))
+		}
+		connector = ssh.NewStreamer(connHost, creds, streamerOpts...)
+		logger.Debug("using ssh streamer", zap.String("host", connHost), zap.Int("port", port))
 	}
-	if params.controlPath != "" {
-		streamerOpts = append(streamerOpts, ssh.WithSSHControlFIle(params.controlPath))
-	}
-	connector := ssh.NewStreamer(connHost, creds, streamerOpts...)
+
 	devFab, ok := m.deviceMaps[deviceType]
 	if !ok {
 		return nil, fmt.Errorf("unknown device %v", deviceType)
@@ -426,7 +446,7 @@ func (m *Server) SetupHostParams(ctx context.Context, cmdHostParams *pb.HostPara
 	if err != nil {
 		return nil, err
 	}
-	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "", "", "")
+	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "", "", "", cmdHostParams.GetStreamerType())
 	m.updateHostParams(cmdHostParams.GetHost(), params)
 	return &emptypb.Empty{}, nil
 }
@@ -471,10 +491,11 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 			credsParsed = creds
 		}
 		cmdHostParams = &hostParams{
-			port:   port,
-			device: cmdParams.Device,
-			creds:  credsParsed,
-			ip:     ip,
+			port:         port,
+			device:       cmdParams.Device,
+			creds:        credsParsed,
+			ip:           ip,
+			streamerType: cmdParams.GetStreamerType(),
 		}
 	}
 	var res hostParams
@@ -495,13 +516,15 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 		}
 	} else {
 		res = hostParams{
-			port:   0,
-			device: "",
-			creds:  defaultCreds,
-			ip:     netip.Addr{},
+			port:         0,
+			device:       "",
+			creds:        defaultCreds,
+			ip:           netip.Addr{},
+			streamerType: pb.StreamerType_StreamerType_ssh,
 		}
 		if cmdParams != nil {
 			res.device = cmdParams.Device
+			res.streamerType = cmdParams.GetStreamerType()
 		}
 	}
 	// proxyJump only supported in defaultHostParams

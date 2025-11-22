@@ -72,6 +72,7 @@ class HostParams:
     hostname: Optional[str] = None
     credentials: Optional[Credentials] = None
     ip: Optional[str] = None
+    streamer_type: Optional[server_pb2.StreamerType] = None  # server_pb2.StreamerType_ssh or server_pb2.StreamerType_telnet
 
     def make_pb(self) -> server_pb2.HostParams:
         creds_pb: Optional[server_pb2.Credentials] = None
@@ -83,6 +84,7 @@ class HostParams:
             credentials=creds_pb,
             device=self.device,
             ip=self.ip,
+            streamer_type=self.streamer_type if self.streamer_type is not None else server_pb2.StreamerType.StreamerType_ssh,
         )
         return pbcmd
 
