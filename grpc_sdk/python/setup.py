@@ -1,5 +1,5 @@
 import os
-from setuptools import setup
+from setuptools import setup, find_packages
 
 with open("README.md") as f:
     readme = f.read()
@@ -17,7 +17,8 @@ setup(
     author_email="gescheit12@gmail.com",
     url="https://github.com/annetutil/gnetcli",
     license="MIT",
-    package_dir={"gnetclisdk": "gnetclisdk"},
+    packages=find_packages(),
+    include_package_data=True,
     install_requires=list(requirements.splitlines()),
     classifiers=[
         "Development Status :: 3 - Alpha",
