@@ -111,6 +111,21 @@ func TestBS2(t *testing.T) {
 	assert.Equal(t, "0         \r\n|access", string(res))
 }
 
+func TestLeadingBS(t *testing.T) {
+	// Test case: leading backspaces (should be ignored as there's nothing to delete)
+	res, err := Parse([]byte("\b\b\binterface GigabitEthernet1/38"))
+	assert.NoError(t, err)
+	assert.Equal(t, "interface GigabitEthernet1/38", string(res))
+}
+
+func TestPagerBackspaces(t *testing.T) {
+	// Test case from real Cisco telnet output with pager clearing
+	// Pattern: backspaces + spaces + backspaces (clearing "-- More --" prompt)
+	res, err := Parse([]byte("\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\binterface GigabitEthernet1/38"))
+	assert.NoError(t, err)
+	assert.Equal(t, "interface GigabitEthernet1/38", string(res))
+}
+
 func check(t *testing.T, want string, s string) {
 	res, err := Parse([]byte(s))
 	assert.NoError(t, err)

@@ -184,7 +184,11 @@ func (m *Parser) parse() ([]byte, error) {
 			}
 			m.pos = lineStart - 1
 		} else if char == BS {
-			if m.pos > 0 && m.data[m.pos-1] == NEWLINE { // do not delete behind newline
+			if m.pos == 0 {
+				// Leading backspace - nothing to delete, just remove the BS itself
+				m.data = slices.Delete(m.data, m.pos, m.pos+1)
+				m.pos--
+			} else if m.data[m.pos-1] == NEWLINE { // do not delete behind newline
 				m.data = slices.Delete(m.data, m.pos, m.pos+1)
 				m.pos--
 			} else {
