@@ -309,3 +309,91 @@ func TestQuestionWithAnswerNotSendNL(t *testing.T) {
 	require.NoError(t, resErr)
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil)})
 }
+func TestPagerPreservesNewline(t *testing.T) {
+	logger := zap.Must(zap.NewDevelopmentConfig().Build())
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("show config\n"),
+			gmock.SendEcho("show config\r\n"),
+			gmock.Send(" description BG_W451-ObrenovacStocnjak\r\n"),
+			gmock.Send(" --More-- "),
+			gmock.Expect(" "),
+			gmock.Send("\b\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b\b no switchport\r\n"),
+			gmock.Send("<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		promptExpression := `(\r\n|^)(?P<prompt>(<\w+>))$`
+		pagerExpression := `\r\n --More-- $`
+		cli := MakeGenericCLI(
+			expr.NewSimpleExprLast200().FromPattern(promptExpression),
+			expr.NewSimpleExprLast200().FromPattern(``),
+			WithPager(expr.NewSimpleExprLast200().FromPattern(pagerExpression)),
+		)
+		dev := MakeGenericDevice(cli, connector, WithDevLogger(logger))
+		return &dev
+	}, actions, []cmd.Cmd{cmd.NewCmd("show config")}, logger)
+
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, resErr)
+	require.Len(t, cmdRes, 1)
+
+	// Verify that the newline is preserved between lines
+	// Note: \r\n is normalized to \n by the terminal parser
+	output := string(cmdRes[0].Output())
+	require.Contains(t, output, "description BG_W451-ObrenovacStocnjak\n")
+	require.Contains(t, output, " no switchport")
+	// Ensure they're on separate lines, not merged
+	require.NotContains(t, output, "ObrenovacStocnjak no switchport")
+}
+
+func TestStripPagerClearingSequence(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    []byte
+		expected []byte
+	}{
+		{
+			name:     "Cisco pager clearing pattern",
+			input:    []byte("\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b no switchport\r\n"),
+			expected: []byte(" no switchport\r\n"),
+		},
+		{
+			name:     "No clearing pattern",
+			input:    []byte(" no switchport\r\n"),
+			expected: []byte(" no switchport\r\n"),
+		},
+		{
+			name:     "Only backspaces (no spaces)",
+			input:    []byte("\b\b\b\b\btext"),
+			expected: []byte("\b\b\b\b\btext"), // Not a clearing pattern
+		},
+		{
+			name:     "Empty input",
+			input:    []byte(""),
+			expected: []byte(""),
+		},
+		{
+			name:     "Backspaces and spaces but no trailing backspaces",
+			input:    []byte("\b\b\b   text"),
+			expected: []byte("\b\b\b   text"), // Not a complete clearing pattern
+		},
+		{
+			name:     "Multiple lines after clearing",
+			input:    []byte("\b\b\b\b\b    \b\b\b\b\binterface GigabitEthernet1/38\r\n!\r\n"),
+			expected: []byte("interface GigabitEthernet1/38\r\n!\r\n"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := stripPagerClearingSequence(tt.input)
+			require.Equal(t, tt.expected, result, "stripPagerClearingSequence(%q) = %q, want %q", tt.input, result, tt.expected)
+		})
+	}
+}

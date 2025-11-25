@@ -126,6 +126,31 @@ func TestPagerBackspaces(t *testing.T) {
 	assert.Equal(t, "interface GigabitEthernet1/38", string(res))
 }
 
+func TestCiscoPagerMidLine(t *testing.T) {
+	// Cisco pager appearing after description line
+	// Real output: "description CCR-Dudovi-Po1\r\n --More-- "
+	// Then after space, backspaces clear the pager
+	// Expected: description line should remain intact
+	input := []byte(" description CCR-Dudovi-Po1\r\n --More-- \b\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b\bno switchport")
+	res, err := Parse(input)
+	assert.NoError(t, err)
+	fmt.Printf("Result: %q\n", string(res))
+	// Should preserve the full description
+	assert.Contains(t, string(res), "description CCR-Dudovi-Po1")
+	assert.Contains(t, string(res), "no switchport")
+	assert.Equal(t, " description CCR-Dudovi-Po1\r\nno switchport", string(res))
+}
+
+func TestCiscoPagerTooManyBackspaces(t *testing.T) {
+	// If there are 11 backspaces but only 10 chars in " --More-- "
+	// the extra backspace might eat the newline
+	input := []byte(" description CCR-Dudovi-Po1\r\n --More-- \b\b\b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b\b\bno switchport")
+	res, err := Parse(input)
+	assert.NoError(t, err)
+	fmt.Printf("Result with extra BS: %q\n", string(res))
+	// This might incorrectly eat the \n
+}
+
 func check(t *testing.T, want string, s string) {
 	res, err := Parse([]byte(s))
 	assert.NoError(t, err)
