@@ -45,8 +45,8 @@ func TestPassword(t *testing.T) {
 
 func TestErrorPassword(t *testing.T) {
 	cases := [][]byte{
-		[]byte("\r\n% Incorrect Login/Password"),
-		[]byte("\r\nauthentication failed"),
+		[]byte("\n\n% Incorrect Login/Password\n\n"),
+		[]byte("\nauthentication failed\n\n\npress ENTER key to retry authentication\n"),
 	}
 	testutils.ExprTester(t, cases, passwordErrorExpression)
 }
