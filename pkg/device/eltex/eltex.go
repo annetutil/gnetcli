@@ -14,21 +14,25 @@ import (
 )
 
 const (
-	loginExpression    = `.*Username:\s?$`
+	loginExpression    = `.*(Username|User Name|login):\s?$`
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
 	promptExpression   = `(?P<prompt>\r?[\w\-.:/]+(\(conf(ig)?(-[^)]+)*\))?)(>|#)$`
 	errorExpression    = `(` +
 		`\r\n% Invalid input detected at '\^' marker\r\n` +
 		`|\r% Ambiguous Command\r\n` +
 		`|\r% Invalid Command\r\n` +
+		`|\r% Unrecognized command\r\n` +
 		`)`
-	passwordExpression      = `.*password:\s?$`
-	passwordErrorExpression = `\nPermission denied, please try again.(\r\n|\n)`
-	pagerExpression         = `\r\x1b\[K\r--More--\x1b\[K`
+	passwordExpression      = `.*(p|P)assword:\s?$`
+	passwordErrorExpression = `\n(Permission denied, please try again.|% Incorrect Login/Password|authentication failed)(\r\n|\n)`
+	pagerExpression         = `(\r\x1b\[K\r--More--\x1b\[K|More: <space>,  Quit: q or CTRL+Z, One line: <return>)`
 )
 
 var autoCommands = []cmd.Cmd{
-	cmd.NewCmd("set cli pagination off", cmd.WithErrorIgnore()),   //Eltex MES
+	cmd.NewCmd("set cli pagination off", cmd.WithErrorIgnore()), //Eltex MES 24XX cli pagination off
+	cmd.NewCmd("set cli prompt off", cmd.WithErrorIgnore()),     //Eltex MES 24XX questions turnoff
+	cmd.NewCmd("terminal datadump", cmd.WithErrorIgnore()),      //Eltex MES 23XX cli pagination off
+	cmd.NewCmd("terminal no prompt", cmd.WithErrorIgnore()),     //Eltex MES 23XX questions turnoff
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
