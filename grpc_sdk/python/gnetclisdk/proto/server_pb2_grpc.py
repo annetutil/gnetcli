@@ -346,15 +346,15 @@ class Gnetcli(object):
 
     @staticmethod
     def Download(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+                 target,
+                 options=(),
+                 channel_credentials=None,
+                 call_credentials=None,
+                 insecure=False,
+                 compression=None,
+                 wait_for_ready=None,
+                 timeout=None,
+                 metadata=None):
         return grpc.experimental.unary_unary(
             request,
             target,
@@ -373,15 +373,15 @@ class Gnetcli(object):
 
     @staticmethod
     def Upload(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+               target,
+               options=(),
+               channel_credentials=None,
+               call_credentials=None,
+               insecure=False,
+               compression=None,
+               wait_for_ready=None,
+               timeout=None,
+               metadata=None):
         return grpc.experimental.unary_unary(
             request,
             target,

@@ -56,6 +56,11 @@ enum DeviceResultStatus {
   Device_error = 2;
 }
 
+enum StreamerType {
+  StreamerType_ssh = 0;
+  StreamerType_telnet = 1;
+}
+
 message CMDTraceItem {
   TraceOperation operation = 1;
   bytes data = 2;
@@ -67,6 +72,7 @@ message HostParams {
   int32 port = 3;
   string device = 4;
   string ip = 5;
+  StreamerType streamer_type = 6;
 }
 
 message CMDResult {

@@ -27,6 +27,52 @@ var ErrorCLILogin = errors.New("CLI login is not supported")
 const AnyNLPattern = `(\r\n|\n)`
 const DefaultCLIConnectTimeout = 15 * time.Second
 
+// stripPagerClearingSequence removes terminal control sequences used to clear pager prompts
+// Pagers like Cisco's "--More--" send backspaces + spaces + backspaces to clear the prompt
+// after answering. Since we strip the pager from the buffer, these sequences would delete
+// actual content. This function detects and removes such sequences.
+func stripPagerClearingSequence(data []byte) []byte {
+	// Pattern: \b{n} + spaces{m} + \b{k}
+	// Common pattern: \b\b\b\b\b\b\b\b\b         \b\b\b\b\b\b\b\b\b
+
+	if len(data) == 0 {
+		return data
+	}
+
+	// Count leading backspaces (BS = 0x08)
+	leadingBS := 0
+	for leadingBS < len(data) && data[leadingBS] == 0x08 {
+		leadingBS++
+	}
+
+	if leadingBS == 0 {
+		return data // No leading backspaces, not a clearing sequence
+	}
+
+	// Count spaces after backspaces
+	spaces := 0
+	pos := leadingBS
+	for pos < len(data) && data[pos] == ' ' {
+		spaces++
+		pos++
+	}
+
+	// Count trailing backspaces
+	trailingBS := 0
+	for pos < len(data) && data[pos] == 0x08 {
+		trailingBS++
+		pos++
+	}
+
+	// If we have the pattern BS+spaces+BS, it's a pager clearing sequence
+	// Strip it to prevent deletion of actual content
+	if leadingBS > 0 && spaces > 0 && trailingBS > 0 {
+		return data[pos:]
+	}
+
+	return data
+}
+
 const (
 	promptExprName    = "prompt"
 	passwdErrExprName = "passwordError"
@@ -581,6 +627,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	}
 	cbLimit := 100
 	seenEcho := false
+	pagerAnswered := false // Track if we just answered a pager
 	for { // pager loop
 		match, err := connector.ReadTo(ctx, exprs)
 		if err != nil {
@@ -603,6 +650,13 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			continue
 		}
 		mbefore := match.GetBefore()
+
+		// If we just answered a pager, strip the clearing backspace sequence
+		// that the device sends to erase the "--More--" prompt from the terminal
+		if pagerAnswered {
+			mbefore = stripPagerClearingSequence(mbefore)
+			pagerAnswered = false
+		}
 		if !seenEcho {
 			if matchName == questionExprName { // caught question before echo
 				// check for echo, drop it and proceed with question
@@ -667,6 +721,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			break
 		} else if matchName == pagerExprName { // next page
 			buffer.Write(mbefore)
+			// Restore the \r\n that was consumed by the pager pattern
+			buffer.Write([]byte("\r\n"))
 			if store, ok := match.GetMatchedGroups()["store"]; ok {
 				buffer.Write(store)
 			}
@@ -675,6 +731,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
 			}
+			// Mark that we answered pager, so next read will strip clearing sequences
+			pagerAnswered = true
 		} else if matchName == questionExprName { // question
 			question := match.GetMatched()
 			logger.Debug("QuestionHandler question", zap.ByteString("question", question))

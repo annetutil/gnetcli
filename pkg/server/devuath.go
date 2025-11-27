@@ -43,7 +43,7 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 	if err != nil {
 		return hostParams{}, err
 	}
-	res := NewHostParams(creds, params.GetDevice(), ip, port, proxyJump, controlPath, connectHost)
+	res := NewHostParams(creds, params.GetDevice(), ip, port, proxyJump, controlPath, connectHost, params.GetStreamerType())
 	return res, nil
 }
 
