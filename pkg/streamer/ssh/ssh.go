@@ -50,6 +50,7 @@ const (
 	sftpServerPaths       = "/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/openssh:/usr/libexec:/usr/lib/ssh"
 	defaultTerminalWidth  = 200
 	defaultTerminalHeight = 0
+	defaultTerminalEcho   = false
 	NoStatusResult        = -1000
 )
 
@@ -94,8 +95,9 @@ func newSSHSession(in *sshSessionTemplate, logger *zap.Logger) *sshSession {
 }
 
 type terminalParams struct {
-	w int
-	h int
+	w    int
+	h    int
+	echo bool
 }
 
 type Endpoint struct {
@@ -173,6 +175,10 @@ func (m *Streamer) SetTerminalSize(w, h int) {
 	m.terminalParams.w = w
 }
 
+func (m *Streamer) SetTerminalEcho(e bool) {
+	m.terminalParams.echo = e
+}
+
 func NewStreamer(host string, credentials credentials.Credentials, opts ...StreamerOption) *Streamer {
 	h := &Streamer{
 		endpoint:               NewEndpoint(host, defaultPort, TCP),
@@ -183,7 +189,7 @@ func NewStreamer(host string, credentials credentials.Credentials, opts ...Strea
 		program:                "shell",
 		programData:            "",
 		env:                    map[string]string{},
-		terminalParams:         terminalParams{w: defaultTerminalWidth, h: defaultTerminalHeight},
+		terminalParams:         terminalParams{w: defaultTerminalWidth, h: defaultTerminalHeight, echo: defaultTerminalEcho},
 		tunnel:                 nil,
 		credentialsInterceptor: nil,
 		session:                nil,
@@ -762,11 +768,16 @@ func (m *Streamer) openSession() (*sshSession, error) {
 }
 
 func (m *Streamer) requestPty(session *ssh.Session) error {
+	echo := uint32(0)
+	if m.terminalParams.echo {
+		echo = 1
+	}
 	modes := ssh.TerminalModes{
-		ssh.ECHO:          0,     // disable echoing
+		ssh.ECHO:          echo,  // set echoing
 		ssh.TTY_OP_ISPEED: 14400, // input speed = 14.4kbaud
 		ssh.TTY_OP_OSPEED: 14400, // output speed = 14.4kbaud
 	}
+
 	return session.RequestPty("xterm", m.terminalParams.h, m.terminalParams.w, modes)
 }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device/aruos"
 	"github.com/annetutil/gnetcli/pkg/device/bcomos"
 	"github.com/annetutil/gnetcli/pkg/device/cisco"
+	"github.com/annetutil/gnetcli/pkg/device/eltex"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/device/h3c"
 	"github.com/annetutil/gnetcli/pkg/device/huawei"
@@ -225,6 +226,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 		"ros":     GenericCLIWrapper(ros.NewDevice, logger),
 		"netconf": netconf.BindDeviceOpts(netconf.NewDevice, netconf.WithLogger(logger)),
 		"aruos":   GenericCLIWrapper(aruos.NewDevice, logger),
+		"eltex":   GenericCLIWrapper(eltex.NewDevice, logger),
 	}
 	return deviceMaps
 }

@@ -87,7 +87,9 @@ class HostParams:
         return pbcmd
 
 
-def make_auth(auth_token: str) -> ClientAuthentication:
+def make_auth(auth_token: str | ClientAuthentication) -> ClientAuthentication:
+    if isinstance(auth_token, ClientAuthentication):
+        return auth_token
     if auth_token.lower().startswith("oauth"):
         authentication = OAuthClientAuthentication(auth_token.split(" ")[1])
     elif auth_token.lower().startswith("basic"):
@@ -100,7 +102,7 @@ def make_auth(auth_token: str) -> ClientAuthentication:
 class Gnetcli:
     def __init__(
         self,
-        auth_token: Optional[str] = None,  # like 'Basic ...'
+        auth_token: str | ClientAuthentication | None = None,  # like 'Basic ...'
         server: Optional[str] = None,
         target_name_override: Optional[str] = None,
         cert_file: Optional[str] = None,
@@ -231,6 +233,7 @@ class Gnetcli:
             target_name_override=self._target_name_override,
             user_agent=self._user_agent,
             insecure_grpc=self._insecure_grpc,
+            _grpc_channel_fn=self._grpc_channel_fn,
         )
         await sess.connect()
         try:

@@ -184,8 +184,13 @@ func (m *Parser) parse() ([]byte, error) {
 			}
 			m.pos = lineStart - 1
 		} else if char == BS {
-			m.data = sliceEdit(m.data, m.pos-1, m.pos+1)
-			m.pos = m.pos - 2
+			if m.pos > 0 && m.data[m.pos-1] == NEWLINE { // do not delete behind newline
+				m.data = slices.Delete(m.data, m.pos, m.pos+1)
+				m.pos--
+			} else {
+				m.data = slices.Delete(m.data, m.pos-1, m.pos+1)
+				m.pos = m.pos - 2
+			}
 		} else if char == NEWLINE {
 			lastNewline = m.pos
 		}
