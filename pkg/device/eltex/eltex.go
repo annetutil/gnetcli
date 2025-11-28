@@ -22,6 +22,7 @@ const (
 		`|\r% Ambiguous Command\r\n` +
 		`|\r% Invalid Command\r\n` +
 		`|\r% Unrecognized command\r\n` +
+		`|\r% Incomplete command.\r\n` +
 		`)`
 	passwordExpression      = `.*(p|P)assword:\s?$`
 	passwordErrorExpression = `\n(% Incorrect Login/Password|authentication failed)\n`
