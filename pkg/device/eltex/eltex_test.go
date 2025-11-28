@@ -13,6 +13,7 @@ func TestErrors(t *testing.T) {
 		[]byte("\r% Ambiguous Command\r\n"),
 		[]byte("\r% Invalid Command\r\n"),
 		[]byte("\r% Unrecognized command\r\n"),
+		[]byte("\r% Incomplete command.\r\n"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }

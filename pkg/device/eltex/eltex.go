@@ -22,9 +22,10 @@ const (
 		`|\r% Ambiguous Command\r\n` +
 		`|\r% Invalid Command\r\n` +
 		`|\r% Unrecognized command\r\n` +
+		`|\r% Incomplete command.\r\n` +
 		`)`
 	passwordExpression      = `.*(p|P)assword:\s?$`
-	passwordErrorExpression = `\n(Permission denied, please try again.|% Incorrect Login/Password|authentication failed)(\r\n|\n)`
+	passwordErrorExpression = `\n(% Incorrect Login/Password|authentication failed)\n`
 	pagerExpression         = `(\r\x1b\[K\r--More--\x1b\[K|More: <space>,  Quit: q or CTRL+Z, One line: <return>)`
 )
 
