@@ -610,7 +610,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 	}
 
 	if string(res) != ok {
-		return errors.New("connection answer not ok")
+		return fmt.Errorf("not ok answer: %q", res)
 	}
 	if m.ssl {
 		res, err = m.ConsoleCmd(ctx, ssl, true)
