@@ -567,6 +567,9 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(agentSigners) == 0 {
+			m.logger.Info("empty agent signers list", zap.String("agent_socket", agentSocket))
+		}
 		for _, s := range agentSigners {
 			signers = append(signers, wrapSigner(s, m.logger))
 		}
