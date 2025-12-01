@@ -80,7 +80,7 @@ type Streamer struct {
 	bufferExtra            []byte
 	conMsgChecker          bool
 	ssl                    bool
-	tunnel                 *sshtunnel.SSHTunnel
+	tunnel                 sshtunnel.Tunnel
 	tunnelHost             string // we manage a tunnel
 	credentialsInterceptor func(credentials.Credentials) credentials.Credentials
 	readTimeout            time.Duration
@@ -192,7 +192,7 @@ func WithTrace(trace trace.CB) StreamerOption {
 	}
 }
 
-func WithSSHTunnelConn(tunnel *sshtunnel.SSHTunnel) StreamerOption {
+func WithSSHTunnelConn(tunnel sshtunnel.Tunnel) StreamerOption {
 	return func(h *Streamer) {
 		h.tunnel = tunnel
 	}
@@ -574,7 +574,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 	logger := m.logger.With(zap.String("host", m.host), zap.Int("port", m.port))
 	remote := fmt.Sprintf("%s:%d", m.host, m.port)
 	if m.tunnel != nil || len(m.tunnelHost) > 0 {
-		logger.Debug("open connection", zap.String("tunnel", m.tunnel.Server.String()))
+		logger.Debug("open connection", zap.Any("tunnel", m.tunnel))
 		if m.tunnel == nil {
 			m.tunnel = sshtunnel.NewSSHTunnel(m.tunnelHost, m.credentials)
 		}
