@@ -71,6 +71,11 @@ func connectionErrorInterceptor(inErr error) error {
 	if inErr == nil {
 		return nil
 	}
+	_, ok := status.FromError(inErr)
+	if ok {
+		return inErr
+	}
+
 	msg := ErrorTypeGeneric
 	reason := string(ErrorTypeGeneric)
 
