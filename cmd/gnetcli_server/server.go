@@ -71,22 +71,18 @@ func connectionErrorInterceptor(inErr error) error {
 	if inErr == nil {
 		return nil
 	}
-	msg := ErrorTypeGeneric
-	reason := string(ErrorTypeGeneric)
 
 	if strings.Contains(inErr.Error(), "failed to connect to host") {
-		msg = ErrorTypeConnect
-		reason = string(ErrorTypeConnection)
+		st := status.New(codes.Internal, string(ErrorTypeConnect))
+		rv, _ := st.WithDetails(
+			&errdetails.ErrorInfo{
+				Reason:   string(ErrorTypeConnection),
+				Metadata: map[string]string{"err": inErr.Error()},
+			},
+		)
+		return rv.Err()
 	}
-
-	st := status.New(codes.Internal, string(msg))
-	rv, _ := st.WithDetails(
-		&errdetails.ErrorInfo{
-			Reason:   reason,
-			Metadata: map[string]string{"err": inErr.Error()},
-		},
-	)
-	return rv.Err()
+	return inErr
 }
 
 func main() {
