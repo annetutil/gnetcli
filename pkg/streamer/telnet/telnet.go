@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -59,6 +60,7 @@ type Streamer struct {
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
 	host                   string
+	addresses              []net.IP
 	conn                   net.Conn
 	stdoutBuffer           chan []byte
 	stdoutBufferExtra      []byte
@@ -96,11 +98,29 @@ func (m *Streamer) SetCredentialsInterceptor(inter func(credentials.Credentials)
 
 func (m *Streamer) Init(ctx context.Context) error {
 	m.logger.Debug("open connection", zap.String("host", m.host))
-	conn, err := streamer.TCPDialCtx(ctx, "tcp", fmt.Sprintf("%s:%d", m.host, defaultPort))
-	if err != nil {
-		return err
+	var endpoints []string
+	if len(m.addresses) != 0 {
+		endpoints = make([]string, 0, len(m.addresses))
+		for _, v := range m.addresses {
+			endpoints = append(endpoints, net.JoinHostPort(v.String(), strconv.Itoa(defaultPort)))
+		}
+	} else {
+		endpoints = []string{net.JoinHostPort(m.host, strconv.Itoa(defaultPort))}
 	}
-	m.conn = conn
+
+	for i, v := range endpoints {
+		conn, err := streamer.TCPDialCtx(ctx, "tcp", v)
+		if err == nil {
+			m.conn = conn
+			break
+		}
+		if i == len(endpoints)-1 {
+			return fmt.Errorf("failed to dial all given endpoints %v: %w", endpoints, err)
+		}
+
+		m.logger.Debug("failed to connect endpoint, trying next", zap.String("endpoint", v))
+	}
+
 	eg, _ := errgroup.WithContext(ctx)
 	eg.Go(func() error { return m.stdoutReader(m.conn) })
 	return nil
@@ -116,6 +136,7 @@ func NewStreamer(host string, credentials credentials.Credentials, opts ...Strea
 		credentials:            credentials,
 		logger:                 zap.NewNop(),
 		host:                   host,
+		addresses:              nil,
 		conn:                   nil,
 		stdoutBuffer:           stdoutBuffer,
 		stdoutBufferExtra:      nil,
@@ -176,6 +197,13 @@ func WithLogger(log *zap.Logger) StreamerOption {
 func WithTrace(trace trace.CB) StreamerOption {
 	return func(h *Streamer) {
 		h.trace = trace
+	}
+}
+
+// WithAddresses makes streamer use given addresses for connection instead of host resolution
+func WithAddresses(addresses []net.IP) StreamerOption {
+	return func(h *Streamer) {
+		h.addresses = addresses
 	}
 }
 

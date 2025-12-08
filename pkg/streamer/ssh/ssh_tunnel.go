@@ -22,11 +22,13 @@ type Tunnel interface {
 	Close()
 	IsConnected() bool
 	CreateConnect(context.Context) error
-	StartForward(network Network, addr string) (net.Conn, error)
+	StartForward(addr string) (net.Conn, error)
 }
 
 type SSHTunnel struct {
-	Server       Endpoint
+	Host         string
+	Port         int
+	Addresses    []net.IP
 	Config       *ssh.ClientConfig
 	svrConn      *ssh.Client
 	stdioForward *ControlConn
@@ -39,7 +41,8 @@ type SSHTunnel struct {
 
 func NewSSHTunnel(host string, credentials credentials.Credentials, opts ...SSHTunnelOption) *SSHTunnel {
 	h := &SSHTunnel{
-		Server:      NewEndpoint(host, defaultPort, TCP),
+		Host:        host,
+		Port:        defaultPort,
 		Config:      nil,
 		svrConn:     nil,
 		isOpen:      false,
@@ -68,15 +71,16 @@ func SSHTunnelWithControlFIle(path string) SSHTunnelOption {
 	}
 }
 
-func SSHTunnelWithNetwork(network Network) SSHTunnelOption {
+func SSHTunnelWithPort(port int) SSHTunnelOption {
 	return func(h *SSHTunnel) {
-		h.Server.Network = network
+		h.Port = port
 	}
 }
 
-func SSHTunnelWitPort(port int) SSHTunnelOption {
+// SSHTunnelWithAddresses makes ssh tunnel use given addresses for connection instead of host resolution
+func SSHTunnelWithAddresses(addresses []net.IP) SSHTunnelOption {
 	return func(h *SSHTunnel) {
-		h.Server.Port = port
+		h.Addresses = addresses
 	}
 }
 
@@ -89,7 +93,7 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	if len(m.controlFile) > 0 {
 		strOpts = append(strOpts, WithSSHControlFIle(m.controlFile))
 	}
-	connector := NewStreamer(m.Server.Host, m.credentials, strOpts...)
+	connector := NewStreamer(m.Host, m.credentials, strOpts...)
 	conf, err := connector.GetConfig(ctx)
 	if err != nil {
 		m.logger.Error(err.Error())
@@ -100,14 +104,14 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 	var conn *ssh.Client
 
 	if len(m.controlFile) != 0 {
-		mConn, err := dialControlMasterConf(ctx, m.controlFile, m.Server, conf, m.logger)
+		mConn, err := dialControlMasterConf(ctx, m.controlFile, m.Host, m.Port, conf, m.logger)
 		if err != nil {
 			return err
 		}
 		m.stdioForward = mConn
 		conn = nil
 	} else {
-		conn, err = DialCtx(ctx, m.Server, nil, m.Config, m.logger)
+		conn, err = DialCtx(ctx, m.Host, m.Port, m.Addresses, m.Config, m.logger)
 	}
 	if err != nil {
 		m.logger.Debug("unable to connect to tunnel", zap.Error(err))
@@ -116,13 +120,13 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 		}
 		return err
 	}
-	m.logger.Debug("connected to tunnel", zap.String("server", m.Server.String()))
+	m.logger.Debug("connected to tunnel", zap.String("host", m.Host), zap.Int("port", m.Port))
 	m.svrConn = conn
 	m.isOpen = true
 	return nil
 }
 
-func (m *SSHTunnel) StartForward(network Network, remoteAddr string) (net.Conn, error) {
+func (m *SSHTunnel) StartForward(remoteAddr string) (net.Conn, error) {
 	if m.stdioForward != nil {
 		host, port, err := net.SplitHostPort(remoteAddr)
 		if err != nil {
@@ -145,7 +149,7 @@ func (m *SSHTunnel) StartForward(network Network, remoteAddr string) (net.Conn, 
 	if err != nil {
 		return nil, err
 	}
-	remoteConn, err := m.svrConn.Dial(string(network), remoteAddr)
+	remoteConn, err := m.svrConn.Dial("tcp", remoteAddr)
 	if err != nil {
 		return nil, err
 	}

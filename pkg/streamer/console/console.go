@@ -70,6 +70,7 @@ type Streamer struct {
 	port                   int
 	forceAttach            bool
 	host                   string
+	addresses              []net.IP
 	credentials            credentials.Credentials
 	portCredentials        credentials.Credentials
 	logger                 *zap.Logger
@@ -122,9 +123,10 @@ func NewStreamer(host, consolePort string, credentials credentials.Credentials, 
 		currentSpeed:           0,
 		redirectLimit:          defaultRedirectLimit,
 		redirectNo:             0,
-		port:                   defaultConserverPort, // дальше port будет меняться в случае редиректа
 		forceAttach:            false,
 		host:                   host,
+		port:                   defaultConserverPort,
+		addresses:              nil,
 		credentials:            credentials,
 		portCredentials:        portCredentials,
 		logger:                 nil,
@@ -168,6 +170,13 @@ func WithPort(port int) StreamerOption {
 	}
 }
 
+// WithAddresses makes streamer use given addresses for connection instead of host resolution
+func WithAddresses(addresses []net.IP) StreamerOption {
+	return func(h *Streamer) {
+		h.addresses = addresses
+	}
+}
+
 func WithForceAttache() StreamerOption {
 	return func(h *Streamer) {
 		h.forceAttach = true
@@ -195,12 +204,6 @@ func WithTrace(trace trace.CB) StreamerOption {
 func WithSSHTunnelConn(tunnel sshtunnel.Tunnel) StreamerOption {
 	return func(h *Streamer) {
 		h.tunnel = tunnel
-	}
-}
-
-func WithConsolePort(port int) StreamerOption {
-	return func(h *Streamer) {
-		h.port = port
 	}
 }
 
@@ -572,10 +575,18 @@ func (m *Streamer) stopBufferReader() error {
 
 func (m *Streamer) setupConnection(ctx context.Context) error {
 	logger := m.logger.With(zap.String("host", m.host), zap.Int("port", m.port))
-	remote := fmt.Sprintf("%s:%d", m.host, m.port)
+	var endpoints []string
+	if m.addresses != nil {
+		endpoints = make([]string, 0, len(m.addresses))
+		for _, v := range m.addresses {
+			endpoints = append(endpoints, net.JoinHostPort(v.String(), strconv.Itoa(m.port)))
+		}
+	} else {
+		endpoints = []string{net.JoinHostPort(m.host, strconv.Itoa(m.port))}
+	}
 	if m.tunnel != nil || len(m.tunnelHost) > 0 {
-		logger.Debug("open connection", zap.Any("tunnel", m.tunnel))
 		if m.tunnel == nil {
+			logger.Debug("open tunnel", zap.String("tunnel", m.tunnelHost))
 			m.tunnel = sshtunnel.NewSSHTunnel(m.tunnelHost, m.credentials)
 		}
 		if !m.tunnel.IsConnected() {
@@ -584,17 +595,30 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 				return err
 			}
 		}
-		conn, err := m.tunnel.StartForward(sshtunnel.TCP, remote)
-		if err != nil {
-			return fmt.Errorf("tunnel error %w", err)
+		for i, v := range endpoints {
+			logger.Debug("open tunnel connection", zap.String("host", v))
+			conn, err := m.tunnel.StartForward(v)
+			if err == nil {
+				m.conn = conn
+				break
+			}
+			if i == len(endpoints)-1 {
+				return fmt.Errorf("tunnel forward error %w", err)
+			}
+			logger.Debug("failed to connect endpoint, trying next", zap.Any("remote endpoint", v), zap.Error(err))
 		}
-		m.conn = conn
 	} else {
 		logger.Debug("open connection")
-		var err error
-		m.conn, err = streamer.TCPDialCtx(ctx, "tcp", remote)
-		if err != nil {
-			return err
+		for i, v := range endpoints {
+			conn, err := streamer.TCPDialCtx(ctx, "tcp", v)
+			if err == nil {
+				m.conn = conn
+				break
+			}
+			if i == len(endpoints)-1 {
+				return err
+			}
+			logger.Debug("failed to connect endpoint, trying next", zap.Any("remote endpoint", v), zap.Error(err))
 		}
 	}
 

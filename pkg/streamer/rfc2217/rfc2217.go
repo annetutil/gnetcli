@@ -69,6 +69,7 @@ type Streamer struct {
 	logger                 *zap.Logger
 	host                   string
 	port                   int
+	addresses              []net.IP
 	conn                   net.Conn
 	stdoutBuffer           chan []byte
 	stdoutBufferExtra      []byte
@@ -112,12 +113,27 @@ func (m *Streamer) SetCredentialsInterceptor(inter func(credentials.Credentials)
 }
 
 func (m *Streamer) Init(ctx context.Context) error {
-	m.logger.Debug("open connection", zap.String("host", m.host), zap.Int("port", m.port))
-	conn, err := streamer.TCPDialCtx(ctx, "tcp", net.JoinHostPort(m.host, strconv.Itoa(m.port)))
-	if err != nil {
-		return err
+	var endpoints []string
+	if len(m.addresses) != 0 {
+		endpoints = make([]string, 0, len(m.addresses))
+		for _, v := range m.addresses {
+			endpoints = append(endpoints, net.JoinHostPort(v.String(), strconv.Itoa(m.port)))
+		}
+	} else {
+		endpoints = []string{net.JoinHostPort(m.host, strconv.Itoa(m.port))}
 	}
-	m.conn = conn
+	for i, v := range endpoints {
+		m.logger.Debug("open connection", zap.String("endpoint", v))
+		conn, err := streamer.TCPDialCtx(ctx, "tcp", net.JoinHostPort(m.host, strconv.Itoa(m.port)))
+		if err == nil {
+			m.conn = conn
+			break
+		}
+		if i == len(endpoints)-1 {
+			return fmt.Errorf("failed to dial all given endpoints: %w", err)
+		}
+		m.logger.Debug("failed to dial", zap.String("endpoint", v), zap.Error(err))
+	}
 	// https://github.com/pyserial/pyserial/blob/master/serial/rfc2217.py#L430
 	mandadoryOptions := []telnetOption{
 		NewTelnetOption("we-BINARY", telnet.BBINARY, telnet.BWILL, telnet.BWONT, telnet.BDO, telnet.BDONT, INACTIVE, nil),
@@ -200,6 +216,7 @@ func NewStreamer(host string, port int, credentials credentials.Credentials, opt
 		logger:                 zap.NewNop(),
 		host:                   host,
 		port:                   port,
+		addresses:              nil,
 		conn:                   nil,
 		stdoutBuffer:           stdoutBuffer,
 		stdoutBufferExtra:      nil,
@@ -261,6 +278,13 @@ func WithLogger(log *zap.Logger) StreamerOption {
 func WithTrace(trace trace.CB) StreamerOption {
 	return func(h *Streamer) {
 		h.trace = trace
+	}
+}
+
+// WithAddresses makes streamer use given addresses for connection instead of host resolution
+func WithAddresses(addresses []net.IP) StreamerOption {
+	return func(h *Streamer) {
+		h.addresses = addresses
 	}
 }
 
