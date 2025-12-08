@@ -24,8 +24,8 @@ func resolveHomeDir(path string) string {
 	return path
 }
 
-func dialControlMasterConf(_ context.Context, controlFile string, endpoint Endpoint, conf *ssh.ClientConfig, logger *zap.Logger) (*ControlConn, error) {
-	params := tssh.NewSshParam(endpoint.Host, strconv.Itoa(endpoint.Port), conf.User, nil)
+func dialControlMasterConf(_ context.Context, controlFile string, host string, port int, conf *ssh.ClientConfig, logger *zap.Logger) (*ControlConn, error) {
+	params := tssh.NewSshParam(host, strconv.Itoa(port), conf.User, nil)
 	expandedPath, err := tssh.ExpandTokens(controlFile, params, "%CdhijkLlnpru")
 	if err != nil {
 		return nil, err
