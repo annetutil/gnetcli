@@ -132,7 +132,7 @@ func (m *Streamer) Init(ctx context.Context) error {
 		if i == len(endpoints)-1 {
 			return fmt.Errorf("failed to dial all given endpoints: %w", err)
 		}
-		m.logger.Debug("failed to dial", zap.String("endpoint", v), zap.Error(err))
+		m.logger.Debug("failed to dial, trying next", zap.String("endpoint", v), zap.Error(err))
 	}
 	// https://github.com/pyserial/pyserial/blob/master/serial/rfc2217.py#L430
 	mandadoryOptions := []telnetOption{

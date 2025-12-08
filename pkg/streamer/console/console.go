@@ -616,7 +616,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 				break
 			}
 			if i == len(endpoints)-1 {
-				return err
+				return fmt.Errorf("failed to dial all given endpoints: %w", err)
 			}
 			logger.Debug("failed to connect endpoint, trying next", zap.Any("remote endpoint", v), zap.Error(err))
 		}

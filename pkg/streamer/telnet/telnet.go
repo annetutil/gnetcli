@@ -118,7 +118,7 @@ func (m *Streamer) Init(ctx context.Context) error {
 			return fmt.Errorf("failed to dial all given endpoints %v: %w", endpoints, err)
 		}
 
-		m.logger.Debug("failed to connect endpoint, trying next", zap.String("endpoint", v))
+		m.logger.Debug("failed to connect endpoint, trying next", zap.String("endpoint", v), zap.Error(err))
 	}
 
 	eg, _ := errgroup.WithContext(ctx)
