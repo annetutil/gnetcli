@@ -51,3 +51,10 @@ func TestHuaweiQuestion(t *testing.T) {
 	}
 	testutils.ExprTester(t, errorCases, questionExpression)
 }
+
+func TestAuthError(t *testing.T) {
+	errorCases := [][]byte{
+		[]byte("\r\nError: Authentication fail\r\n"), // followed by User interface con0 is available, console
+	}
+	testutils.ExprTester(t, errorCases, passwordErrorExpression)
+}
