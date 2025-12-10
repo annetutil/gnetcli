@@ -139,7 +139,7 @@ func NewReadResImpl(before, after []byte, matchedGroups map[string][]byte, match
 // TCPDialCtx net.Dial version with context arg
 func TCPDialCtx(ctx context.Context, network, addr string) (net.Conn, error) {
 	d := net.Dialer{}
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	conn, err := d.DialContext(ctx, network, addr)
 	if err != nil {
