@@ -854,6 +854,10 @@ func (m *Streamer) GetCredentials() credentials.Credentials {
 	return m.portCredentials
 }
 
+func (m *Streamer) UpdatePortCredentials(creds credentials.Credentials) {
+	m.portCredentials = creds
+}
+
 func (m *Streamer) Close() {
 	if m.conn != nil {
 		_ = m.conn.Close()
