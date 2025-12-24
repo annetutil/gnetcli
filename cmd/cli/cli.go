@@ -120,6 +120,9 @@ func main() {
 	if port != nil {
 		sshOpts = append(sshOpts, ssh.WithPort(*port))
 	}
+	if devType != nil && *devType == "netconf" {
+		sshOpts = append(sshOpts, ssh.WithSSHNetconf())
+	}
 	connector := ssh.NewStreamer(*hostname, creds, sshOpts...)
 	devFn, ok := deviceMaps[*devType]
 	if !ok {
