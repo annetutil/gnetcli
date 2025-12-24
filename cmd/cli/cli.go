@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"golang.org/x/term"
 
 	"github.com/annetutil/gnetcli/pkg/testutils"
 
@@ -42,6 +46,25 @@ func parseQuestions(input []string) []cmd.CmdOption {
 		}
 	}
 	return res
+}
+
+func readStdin() []string {
+	b, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return []string{}
+	}
+	return []string{string(b)}
+}
+
+func readInteractive() []string {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		eofHint := "Ctrl-D"
+		if runtime.GOOS == "windows" {
+			eofHint = "Ctrl-Z"
+		}
+		fmt.Fprintf(os.Stderr, "Enter commands, then press %s when finished:\n", eofHint)
+	}
+	return readStdin()
 }
 
 func main() {
@@ -108,10 +131,15 @@ func main() {
 	if len(*hostname) == 0 {
 		panic("empty hostname")
 	}
-	if len(*command) == 0 {
-		panic("empty command")
+	var commands []string
+	switch *command {
+	case "":
+		commands = readInteractive()
+	case "-":
+		commands = readStdin()
+	default:
+		commands = strings.Split(*command, "\n")
 	}
-	commands := strings.Split(*command, "\n")
 	creds, err := buildCreds(*login, *password, *hostname, *sshConfigPassphrase, *useSSHConfig, logger)
 	if err != nil {
 		panic(err)
