@@ -71,6 +71,11 @@ func connectionErrorInterceptor(inErr error) error {
 	if inErr == nil {
 		return nil
 	}
+	_, ok := status.FromError(inErr)
+	if ok {
+		return inErr
+	}
+
 	msg := ErrorTypeGeneric
 	reason := string(ErrorTypeGeneric)
 
@@ -116,12 +121,14 @@ func main() {
 	logger = zap.Must(logConfig.Build())
 
 	if len(cfg.UnixSocket) > 0 {
-		// log level and "init unix socket", "path" is used in gnetcli_adapter
-		logger.Warn("init unix socket", zap.String("path", cfg.UnixSocket))
 		unixSocketLn, err := newUnixSocket(cfg.UnixSocket)
 		if err != nil {
 			logger.Panic("unix socket error", zap.Error(err))
 		}
+		// log level and "init unix socket", "path" is used in GnetcliStarter
+		// also should be placed after the listener creation to avoid race condition
+		// when GnetcliStarter client tries to connect to a socket that does not exist yet
+		logger.Warn("init unix socket", zap.String("path", cfg.UnixSocket))
 		grpcListeners = append(grpcListeners, unixSocketLn)
 	}
 	var gatewayServer *http.Server
@@ -134,7 +141,7 @@ func main() {
 		if err != nil {
 			logger.Panic("tcp socket error", zap.Error(err))
 		}
-		// log level and "init tcp socket", "address" is used in gnetcli_adapter
+		// log level and "init tcp socket", "address" is used in GnetcliStarter
 		logger.Warn("init tcp socket", zap.String("address", tcpSocketLn.Addr().String()))
 		grpcListeners = append(grpcListeners, tcpSocketLn)
 		if cfg.HttpListen != "" {

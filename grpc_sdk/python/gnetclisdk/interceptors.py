@@ -39,16 +39,16 @@ class _AuthInterceptorAgent:
     def __init__(self, authentication: ClientAuthentication):
         self.__authentication = authentication
 
-    def _add_auth(self, details: grpc.aio.ClientCallDetails) -> grpc.aio.ClientCallDetails:
+    async def _add_auth(self, details: grpc.aio.ClientCallDetails) -> grpc.aio.ClientCallDetails:
         return grpc.aio.ClientCallDetails(
             method=details.method,
             timeout=details.timeout,
-            metadata=self.__add_auth_meta(details.metadata),
+            metadata=await self.__add_auth_meta(details.metadata),
             credentials=details.credentials,
             wait_for_ready=None,
         )
 
-    def __add_auth_meta(self, metadata: _RequestMetadata = None) -> _RequestMetadata:
+    async def __add_auth_meta(self, metadata: _RequestMetadata = None) -> _RequestMetadata:
         result: Tuple[Tuple[str, str]] = []
         if metadata is not None:
             for m in metadata:
@@ -56,7 +56,7 @@ class _AuthInterceptorAgent:
         result.append(
             (
                 self.__authentication.get_authentication_header_key(),
-                self.__authentication.create_authentication_header_value(),
+                await self.__authentication.create_authentication_header_value(),
             )
         )
         return tuple(result)
@@ -69,7 +69,7 @@ class _AuthInterceptorUnaryUnary(_AuthInterceptorAgent, grpc.aio.UnaryUnaryClien
         client_call_details: grpc.aio.ClientCallDetails,
         request: RequestType,
     ) -> Union[grpc.aio._call.UnaryUnaryCall, ResponseType]:
-        res = await continuation(self._add_auth(client_call_details), request)
+        res = await continuation(await self._add_auth(client_call_details), request)
         return res
 
 
@@ -80,7 +80,7 @@ class _AuthInterceptorUnaryStream(_AuthInterceptorAgent, grpc.aio.UnaryStreamCli
         details: grpc.aio.ClientCallDetails,
         request: RequestType,
     ) -> Union[ResponseIterableType, grpc.aio.UnaryStreamCall]:
-        return await continuation(self._add_auth(details), request)
+        return await continuation(await self._add_auth(details), request)
 
 
 class _AuthInterceptorStreamUnary(
@@ -93,7 +93,7 @@ class _AuthInterceptorStreamUnary(
         client_call_details: grpc.aio.ClientCallDetails,
         request_iterator: RequestIterableType,
     ) -> grpc.aio.StreamUnaryCall:
-        return await continuation(self._add_auth(client_call_details), request_iterator)
+        return await continuation(await self._add_auth(client_call_details), request_iterator)
 
 
 class _AuthInterceptorStreamStream(
@@ -106,7 +106,7 @@ class _AuthInterceptorStreamStream(
         client_call_details: ClientCallDetails,
         request_iterator: RequestIterableType,
     ) -> Union[ResponseIterableType, StreamStreamCall]:
-        return await continuation(self._add_auth(client_call_details), request_iterator)
+        return await continuation(await self._add_auth(client_call_details), request_iterator)
 
 
 class _RequestIdInterceptorAgent:

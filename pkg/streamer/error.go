@@ -24,7 +24,7 @@ type EOFException struct {
 }
 
 func (m *EOFException) Error() string {
-	return fmt.Sprintf("read timeout error. last seen: %q", string(m.LastRead))
+	return fmt.Sprintf("eof error. last seen: %q", string(m.LastRead))
 }
 
 func (m *EOFException) Is(target error) bool {

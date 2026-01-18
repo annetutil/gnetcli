@@ -11,7 +11,7 @@ class ClientAuthentication(abc.ABC):
         raise NotImplementedError("abstract method get_authentication_header_key() not implemented")
 
     @abc.abstractmethod
-    def create_authentication_header_value(self) -> str:
+    async def create_authentication_header_value(self) -> str:
         """
         Creates value for authentication header.
         :return: Authentication header value.
@@ -26,7 +26,7 @@ class OAuthClientAuthentication(ClientAuthentication):
     def get_authentication_header_key(self) -> str:
         return "authorization"
 
-    def create_authentication_header_value(self) -> str:
+    async def create_authentication_header_value(self) -> str:
         return f"OAuth {self.__token}"
 
 
@@ -37,5 +37,5 @@ class BasicClientAuthentication(ClientAuthentication):
     def get_authentication_header_key(self) -> str:
         return "authorization"
 
-    def create_authentication_header_value(self) -> str:
+    async def create_authentication_header_value(self) -> str:
         return f"Basic {self.__token}"

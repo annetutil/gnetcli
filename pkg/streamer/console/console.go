@@ -62,25 +62,29 @@ const (
 )
 
 type Streamer struct {
-	consolePort            string
-	speed                  int
-	currentSpeed           int
-	redirectLimit          int
-	redirectNo             int
-	port                   int
-	forceAttach            bool
-	host                   string
-	credentials            credentials.Credentials
-	portCredentials        credentials.Credentials
-	logger                 *zap.Logger
-	conn                   net.Conn
+	consolePort     string
+	speed           int
+	currentSpeed    int
+	redirectLimit   int
+	redirectNo      int
+	port            int
+	forceAttach     bool
+	host            string
+	addresses       []net.IP
+	credentials     credentials.Credentials
+	portCredentials credentials.Credentials
+	logger          *zap.Logger
+	conn            net.Conn
+	// connectedAddress is the first address that Streamer actually managed to connect.
+	// Needed to not iterate again over each address during port discovery
+	connectedAddress       string
 	buffer                 chan []byte
 	readerWg               *errgroup.Group
 	readerCancel           context.CancelFunc
 	bufferExtra            []byte
 	conMsgChecker          bool
 	ssl                    bool
-	tunnel                 *sshtunnel.SSHTunnel
+	tunnel                 sshtunnel.Tunnel
 	tunnelHost             string // we manage a tunnel
 	credentialsInterceptor func(credentials.Credentials) credentials.Credentials
 	readTimeout            time.Duration
@@ -122,13 +126,15 @@ func NewStreamer(host, consolePort string, credentials credentials.Credentials, 
 		currentSpeed:           0,
 		redirectLimit:          defaultRedirectLimit,
 		redirectNo:             0,
-		port:                   defaultConserverPort, // дальше port будет меняться в случае редиректа
 		forceAttach:            false,
 		host:                   host,
+		port:                   defaultConserverPort,
+		addresses:              nil,
 		credentials:            credentials,
 		portCredentials:        portCredentials,
 		logger:                 nil,
 		conn:                   nil,
+		connectedAddress:       "",
 		buffer:                 nil, // buffer for catching console's messages
 		readerWg:               &errgroup.Group{},
 		readerCancel:           nil,
@@ -168,6 +174,13 @@ func WithPort(port int) StreamerOption {
 	}
 }
 
+// WithAddresses makes streamer use given addresses for connection instead of host resolution
+func WithAddresses(addresses []net.IP) StreamerOption {
+	return func(h *Streamer) {
+		h.addresses = addresses
+	}
+}
+
 func WithForceAttache() StreamerOption {
 	return func(h *Streamer) {
 		h.forceAttach = true
@@ -192,15 +205,9 @@ func WithTrace(trace trace.CB) StreamerOption {
 	}
 }
 
-func WithSSHTunnelConn(tunnel *sshtunnel.SSHTunnel) StreamerOption {
+func WithSSHTunnelConn(tunnel sshtunnel.Tunnel) StreamerOption {
 	return func(h *Streamer) {
 		h.tunnel = tunnel
-	}
-}
-
-func WithConsolePort(port int) StreamerOption {
-	return func(h *Streamer) {
-		h.port = port
 	}
 }
 
@@ -570,12 +577,46 @@ func (m *Streamer) stopBufferReader() error {
 	return nil
 }
 
+type endpoint struct {
+	address string
+	port    int
+}
+
+func (e *endpoint) HostPort() string {
+	return net.JoinHostPort(e.address, strconv.Itoa(e.port))
+}
+
+func (m *Streamer) getEndpoints() []endpoint {
+	if len(m.connectedAddress) != 0 {
+		return []endpoint{{
+			address: m.connectedAddress,
+			port:    m.port,
+		}}
+	}
+	if len(m.addresses) != 0 {
+		endpoints := make([]endpoint, 0, len(m.addresses))
+		for _, v := range m.addresses {
+			endpoints = append(endpoints, endpoint{
+				address: v.String(),
+				port:    m.port,
+			})
+		}
+		return endpoints
+	}
+	return []endpoint{
+		{
+			address: m.host,
+			port:    m.port,
+		},
+	}
+}
+
 func (m *Streamer) setupConnection(ctx context.Context) error {
 	logger := m.logger.With(zap.String("host", m.host), zap.Int("port", m.port))
-	remote := fmt.Sprintf("%s:%d", m.host, m.port)
+	endpoints := m.getEndpoints()
 	if m.tunnel != nil || len(m.tunnelHost) > 0 {
-		logger.Debug("open connection", zap.String("tunnel", m.tunnel.Server.String()))
 		if m.tunnel == nil {
+			logger.Debug("open tunnel", zap.String("tunnel", m.tunnelHost))
 			m.tunnel = sshtunnel.NewSSHTunnel(m.tunnelHost, m.credentials)
 		}
 		if !m.tunnel.IsConnected() {
@@ -584,17 +625,32 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 				return err
 			}
 		}
-		conn, err := m.tunnel.StartForward(sshtunnel.TCP, remote)
-		if err != nil {
-			return fmt.Errorf("tunnel error %w", err)
+		for i, v := range endpoints {
+			logger.Debug("open tunnel connection", zap.String("host", v.HostPort()))
+			conn, err := m.tunnel.StartForward(v.HostPort())
+			if err == nil {
+				m.connectedAddress = v.address
+				m.conn = conn
+				break
+			}
+			if i == len(endpoints)-1 {
+				return fmt.Errorf("tunnel forward error %w", err)
+			}
+			logger.Debug("failed to connect endpoint, trying next", zap.String("remote endpoint", v.HostPort()), zap.Error(err))
 		}
-		m.conn = conn
 	} else {
 		logger.Debug("open connection")
-		var err error
-		m.conn, err = streamer.TCPDialCtx(ctx, "tcp", remote)
-		if err != nil {
-			return err
+		for i, v := range endpoints {
+			conn, err := streamer.TCPDialCtx(ctx, "tcp", v.HostPort())
+			if err == nil {
+				m.connectedAddress = v.address
+				m.conn = conn
+				break
+			}
+			if i == len(endpoints)-1 {
+				return fmt.Errorf("failed to dial all given endpoints: %w", err)
+			}
+			logger.Debug("failed to connect endpoint, trying next", zap.String("remote endpoint", v.HostPort()), zap.Error(err))
 		}
 	}
 
@@ -610,7 +666,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 	}
 
 	if string(res) != ok {
-		return errors.New("connection answer not ok")
+		return fmt.Errorf("not ok answer: %q", res)
 	}
 	if m.ssl {
 		res, err = m.ConsoleCmd(ctx, ssl, true)
@@ -796,6 +852,10 @@ func (m *Streamer) Init(ctx context.Context) error {
 
 func (m *Streamer) GetCredentials() credentials.Credentials {
 	return m.portCredentials
+}
+
+func (m *Streamer) UpdatePortCredentials(creds credentials.Credentials) {
+	m.portCredentials = creds
 }
 
 func (m *Streamer) Close() {
