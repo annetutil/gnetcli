@@ -2,6 +2,7 @@ package devconf
 
 import (
 	"fmt"
+	"github.com/annetutil/gnetcli/pkg/device/asa"
 	"os"
 	"regexp"
 	"strings"
@@ -233,6 +234,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 		"netconf": netconf.BindDeviceOpts(netconf.NewDevice, netconf.WithLogger(logger)),
 		"aruos":   GenericCLIWrapper(aruos.NewDevice, logger),
 		"eltex":   GenericCLIWrapper(eltex.NewDevice, logger),
+		"asa":     GenericCLIWrapper(asa.NewDevice, logger),
 	}
 	return deviceMaps
 }
