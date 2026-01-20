@@ -221,7 +221,15 @@ func (m *NetconfDevice) Execute(command gcmd.Cmd) (gcmd.CmdRes, error) {
 	var res []byte
 	var err error
 	ctx := context.Background()
+	if readTimeout := command.GetCmdTimeout(); readTimeout > 0 {
+		prevTimeout := m.connector.SetReadTimeout(readTimeout)
+		defer m.connector.SetReadTimeout(prevTimeout)
+	}
+
 	if cmdTimeout := command.GetCmdTimeout(); cmdTimeout > 0 {
+		if readTimeout := command.GetCmdTimeout(); readTimeout > cmdTimeout {
+			cmdTimeout = readTimeout
+		}
 		newCtx, cancel := context.WithTimeout(ctx, cmdTimeout)
 		ctx = newCtx
 		defer cancel()
