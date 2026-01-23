@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	promptExpression        = `(\r\n)?(?P<prompt>[\w\-()]+) ?# $`
+	promptExpression        = `(\r\n)?(?P<prompt>[\w\-():]+) ?# $`
 	errorExpression         = `% (Parse error|Incomplete command)`
 	passwordExpression      = `.*Password: $`
 	loginExpression         = `.*User: $`

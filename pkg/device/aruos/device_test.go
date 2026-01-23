@@ -10,6 +10,8 @@ func TestPrompt(t *testing.T) {
 	cases := [][]byte{
 		[]byte("\r\nrrrrrr-w1# "),
 		[]byte("\r\nrrrrrr-w1 (config) # "),
+		[]byte("\r\n00:4e:35:11:22:33# "),
+		[]byte("\r\n00:4e:35:11:22:33 (config) # "),
 	}
 	testutils.ExprTester(t, cases, promptExpression)
 }
