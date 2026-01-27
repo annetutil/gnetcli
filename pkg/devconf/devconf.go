@@ -2,7 +2,6 @@ package devconf
 
 import (
 	"fmt"
-	"github.com/annetutil/gnetcli/pkg/device/asa"
 	"os"
 	"regexp"
 	"strings"
@@ -14,6 +13,7 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/arista"
 	"github.com/annetutil/gnetcli/pkg/device/aruos"
+	"github.com/annetutil/gnetcli/pkg/device/asa"
 	"github.com/annetutil/gnetcli/pkg/device/bcomos"
 	"github.com/annetutil/gnetcli/pkg/device/cisco"
 	"github.com/annetutil/gnetcli/pkg/device/eltex"
