@@ -300,6 +300,7 @@ func (m *Streamer) setSSL(ctx context.Context) (net.Conn, error) {
 	}()
 
 	err := sslConn.Handshake()
+	close(doneCh)
 	if err != nil {
 		return nil, err
 	}
