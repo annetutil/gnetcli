@@ -107,6 +107,7 @@ type Streamer struct {
 	credentialsInterceptor func(credentials.Credentials) credentials.Credentials
 	session                *sshSession
 	onSessionOpenCallbacks []func(*ssh.Session) error
+	onConfig               func(*ssh.ClientConfig) error
 	onChanCloseCallbacks   []func(*ssh.Session) error
 	inited                 bool
 	trace                  trace.CB
@@ -371,6 +372,13 @@ func WithPort(port int) StreamerOption {
 	}
 }
 
+// WithOnConfig modifies client config
+func WithOnConfig(fn func(*ssh.ClientConfig) error) StreamerOption {
+	return func(h *Streamer) {
+		h.onConfig = fn
+	}
+}
+
 // WithSSHTunnel sets tunnel as ssh proxy. We do not close after usage because it can be shared with other connections.
 func WithSSHTunnel(tunnel Tunnel) StreamerOption {
 	return func(h *Streamer) {
@@ -585,7 +593,12 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		Config:          sshConf,
 		Timeout:         15 * time.Second,
 	}
-
+	if m.onConfig != nil {
+		err := m.onConfig(conf)
+		if err != nil {
+			return nil, fmt.Errorf("onConfig error: %w", err)
+		}
+	}
 	return conf, nil
 }
 
