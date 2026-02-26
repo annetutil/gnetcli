@@ -15,7 +15,7 @@ import (
 
 const (
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(?P<prompt>[\w\-]+(\(\w+(-\S+)*\))?)(>|#)\s?$`
+	promptExpression   = `(?P<prompt>[A-Za-z0-9-]+(?:\([A-Za-z0-9-+]+\))?)[>#]\s?$`
 	errorExpression    = `(` +
 		`\r\n% Invalid input detected at '\^' marker.\r\n\r\n` +
 		`|^\r? +\^\n(% )?Invalid [\w ()]+ at '\^' marker\.` +
