@@ -15,7 +15,7 @@ import (
 
 const (
 	promptExpression = `(\r\n({master}\[edit\]|{master}|{master:\d}|\[edit\]))?\r\n(?P<prompt>[\w\-.]+@[\w\-.]+[>#]) $`
-	errorExpression  = `(\n|^)(syntax error\.|syntax error, expecting <command>.|unknown command\.|error: (configuration check-out failed|configuration database modified)|configure exclusive error: .+)\r\n`
+	errorExpression  = `(\n|^)(syntax error\.|syntax error, expecting <command>.|unknown command\.|error: (configuration check-out failed|configuration database modified|commit failed: \([\w ]+\))|configure exclusive error: .+)\r\n`
 	pagerExpression  = `\n---\(more( \d+%)?\)---$`
 )
 

@@ -25,6 +25,7 @@ func TestError(t *testing.T) {
 		[]byte("configure exclusive error: configuration database modified\r\n"),
 		[]byte("error: configuration database modified\r\n"),
 		[]byte("error: configuration check-out failed\r\n"),
+		[]byte("Family MTU is too large relative to device MTU\r\nerror: commit failed: (validation hook evaluation failed)\r\n"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }
