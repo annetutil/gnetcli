@@ -14,6 +14,7 @@ func TestErrors(t *testing.T) {
 		[]byte("% Ambiguous command:  \"dis clock\""),
 		[]byte("                  ^\n% Ambiguous command at '^' marker."),
 		[]byte("% Specify remote-as or peer-group remote AS first"),
+		[]byte("172.25.144.0 overlaps with Vlan1"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }

@@ -25,6 +25,7 @@ const (
 		`|\r?% Specify .+` +
 		`|^% Invalid input` +
 		`|Permission denied.+\[Errno \d+\] Permission denied` +
+		`|overlaps with .+` +
 		`)`
 	passwordExpression      = `.*Password:\s?$`
 	passwordErrorExpression = `\n\% Authentication failed(\r\n|\n)`
