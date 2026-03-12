@@ -58,7 +58,7 @@ const (
 	readBufferLen      = 100
 	defaultReadTimeout = 10 * time.Minute
 
-	regExErrors = `\[((spying|no|line down|read-only|forced to|up|attached|connected|down|unknown|bumped)[^\[\]]*)\]\r\n`
+	regExErrors = `(\[((spying|no|line down|read-only|forced to|up|attached|connected|down|unknown|bumped)[^\[\]]*)\]|ambiguous console abbreviation, .+)\r\n`
 )
 
 type Streamer struct {
