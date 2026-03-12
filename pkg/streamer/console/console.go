@@ -54,9 +54,10 @@ const (
 	ansOk                = "[ok]" + newLine
 	ansUp                = "[up]" + newLine
 
-	readBufferSize     = 256
-	readBufferLen      = 100
-	defaultReadTimeout = 10 * time.Minute
+	readBufferSize       = 256
+	readBufferLen        = 100
+	defaultReadTimeout   = 10 * time.Minute
+	setupConnReadTimeout = 5 * time.Second
 
 	regExErrors = `(\[((spying|no|line down|read-only|forced to|up|attached|connected|down|unknown|bumped)[^\[\]]*)\]|ambiguous console abbreviation, .+)\r\n`
 )
@@ -329,6 +330,8 @@ func (m *Streamer) login(ctx context.Context) (err error) {
 }
 
 func (m *Streamer) connectConsolePort(ctx context.Context) (err error) {
+	prev := m.SetReadTimeout(setupConnReadTimeout)
+	defer m.SetReadTimeout(prev)
 	res, err := m.ConsoleCmd(ctx, cmdCall+m.consolePort, true)
 	if err != nil {
 		return err
@@ -654,7 +657,8 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 			logger.Debug("failed to connect endpoint, trying next", zap.String("remote endpoint", v.HostPort()), zap.Error(err))
 		}
 	}
-
+	prev := m.SetReadTimeout(setupConnReadTimeout)
+	defer m.SetReadTimeout(prev)
 	err := m.startBufferReader(ctx)
 	if err != nil {
 		return err
