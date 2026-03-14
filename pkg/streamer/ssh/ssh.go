@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/sftp"
@@ -44,6 +45,7 @@ const (
 	defaultTerminalHeight = 0
 	defaultTerminalEcho   = false
 	NoStatusResult        = -1000
+	pkTimeout             = 24 * time.Hour
 )
 
 var _ streamer.Connector = (*Streamer)(nil)
@@ -63,6 +65,47 @@ type sshSession struct {
 	stdoutBuffer      chan []byte
 	stdoutBufferExtra []byte
 	chanReaderCancel  context.CancelFunc
+}
+
+type signerCacheEntry struct {
+	signer    ssh.Signer
+	expiresAt time.Time
+}
+
+var (
+	signerCache   = make(map[string]signerCacheEntry)
+	signerCacheMu sync.RWMutex
+)
+
+func parsePrivateKeyCached(pk []byte) (ssh.Signer, error) {
+	key := string(pk)
+
+	signerCacheMu.RLock()
+	if entry, ok := signerCache[key]; ok && time.Now().Before(entry.expiresAt) {
+		signerCacheMu.RUnlock()
+		return entry.signer, nil
+	}
+	signerCacheMu.RUnlock()
+
+	signer, err := ssh.ParsePrivateKey(pk)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	signerCacheMu.Lock()
+	for k, v := range signerCache {
+		if now.After(v.expiresAt) {
+			delete(signerCache, k)
+		}
+	}
+	signerCache[key] = signerCacheEntry{
+		signer:    signer,
+		expiresAt: now.Add(pkTimeout),
+	}
+	signerCacheMu.Unlock()
+
+	return signer, nil
 }
 
 func newSSHSession(in *sshSessionTemplate, logger *zap.Logger) *sshSession {
@@ -526,7 +569,7 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	var signers []ssh.Signer
 	keys := creds.GetPrivateKeys()
 	for _, pk := range keys {
-		signer, err := ssh.ParsePrivateKey(pk)
+		signer, err := parsePrivateKeyCached(pk)
 		if err != nil { // try to encode with passphrase
 			if _, ok := err.(*ssh.PassphraseMissingError); ok {
 				passphrase := creds.GetPassphrase()
