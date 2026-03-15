@@ -222,11 +222,11 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 		if err == io.EOF {
 			return nil
 		}
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
 	err = validateCmd(firstCmd)
 	if err != nil {
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
 	devTraceMulti := NewMultiTrace()
 	devTrace := gtrace.NewTraceLimited(cmdTraceLimit)
@@ -235,19 +235,19 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	logger = logger.With(zap.String("cmd_host", firstCmd.GetHost()))
 	params, err := m.getHostParams(firstCmd.GetHost(), firstCmd.GetHostParams())
 	if err != nil {
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
 
 	devInited, err := m.makeDevice(firstCmd.GetHost(), params, devTraceMulti.Add, logger)
 	if err != nil {
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
 	ctx, cancel := context.WithTimeout(stream.Context(), 20*time.Second)
 	defer cancel()
 	logger.Info("connect")
 	err = devInited.Connect(ctx)
 	if err != nil {
-		return status.Errorf(codes.Internal, err.Error())
+		return status.Error(codes.Internal, err.Error())
 	}
 	defer devInited.Close()
 
@@ -280,27 +280,27 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 			traceRes = gnetcliTraceToTrace(cmdTr)
 			err := devTraceMulti.DelTrace(traceIndex)
 			if err != nil {
-				return status.Errorf(codes.Internal, err.Error())
+				return status.Error(codes.Internal, err.Error())
 			}
 		}
 		err = stream.Send(makeServerRes(cmd, res, traceRes))
 		if err != nil {
-			return status.Errorf(codes.Internal, err.Error())
+			return status.Error(codes.Internal, err.Error())
 		}
 		cmd, err = stream.Recv()
 		if err == io.EOF {
 			return nil
 		}
 		if err != nil {
-			return status.Errorf(codes.Internal, err.Error())
+			return status.Error(codes.Internal, err.Error())
 		}
 		err = validateCmd(cmd)
 		if err != nil {
-			return status.Errorf(codes.Internal, err.Error())
+			return status.Error(codes.Internal, err.Error())
 		}
 		logger.Debug("recv", zap.Any("cmd", cmd))
 		if cmd.Host != firstCmd.Host {
-			return status.Errorf(codes.Internal, fmt.Errorf("host is not the same %v vs %v", firstCmd, cmd).Error())
+			return status.Error(codes.Internal, fmt.Errorf("host is not the same %v vs %v", firstCmd, cmd).Error())
 		}
 	}
 }
@@ -410,7 +410,7 @@ func (m *Server) AddDevice(ctx context.Context, device *pb.Device) (*pb.DeviceRe
 	}
 	gCli, err := makeNewDevice(device)
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	m.deviceMaps[devName] = devconf.GenericCLIDevToDev(gCli)
 
@@ -527,7 +527,7 @@ func (m *Server) Download(ctx context.Context, req *pb.FileDownloadRequest) (*pb
 	}
 	params, err := m.getHostParams(req.GetHost(), req.GetHostParams())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	devInited, err := m.makeDevice(req.GetHost(), params, nil, logger)
 	if err != nil {
@@ -559,7 +559,7 @@ func (m *Server) Upload(ctx context.Context, req *pb.FileUploadRequest) (*emptyp
 	}
 	params, err := m.getHostParams(req.GetHost(), req.GetHostParams())
 	if err != nil {
-		return nil, status.Errorf(codes.Internal, err.Error())
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	devInited, err := m.makeDevice(req.GetHost(), params, nil, logger)
 	if err != nil {
