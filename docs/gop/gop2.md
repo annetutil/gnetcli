@@ -38,37 +38,13 @@ Without this change, `GenericExecute` returns read error.
 
 ### Streamer Feature Flag
 
-A new feature constant `LoginInsteadEOF` is added to the `streamer` package:
-
-```go
-const LoginInsteadEOF Const
-```
+A new feature constant `LoginInsteadEOF` is added to the `streamer` package.
 
 Console streamers return `true` for `HasFeature(LoginInsteadEOF)`. SSH and Telnet streamers continue to return `false`.
 
 ### Execution Loop Change
 
-In `GenericExecute`, when building the named expression list for the read loop, the login expression is conditionally appended:
-
-```go
-if connector.HasFeature(streamer.LoginInsteadEOF) && cli.login != nil {
-    checkExprs = append(checkExprs, expr.NamedExpr{
-        Name: loginExprName,
-        Exprs: []expr.Expr{cli.login},
-    })
-}
-```
-
-When the login expression matches during the execution loop, the behavior depends on the feature flag:
-
-```go
-} else if matchName == loginExprName {
-    if connector.HasFeature(streamer.LoginInsteadEOF) {
-        return nil, streamer.ThrowEOFException(match.GetMatched())
-    }
-    return nil, fmt.Errorf("caught login expression during execution")
-}
-```
+When `GenericExecute` builds the expression list for the read loop, the login expression is included only if the streamer reports `LoginInsteadEOF` support and the login expression is configured for the device. If the login expression fires during command execution, it is treated as a session termination and an `EOFException` is returned — the same behavior that SSH and Telnet produce when the connection is closed.
 
 ### Compatibility
 
