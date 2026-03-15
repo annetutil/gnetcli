@@ -276,6 +276,8 @@ func chanAgg(ctx context.Context, in, out chan []byte, readTimeout time.Duration
 	lastWrite := time.Now()
 	buffer := []byte{}
 	buffCounter := 0
+	timer := time.NewTimer(readTimeout / 10)
+	defer timer.Stop()
 L:
 	for {
 		sinceLastWrite := time.Since(lastWrite)
@@ -287,11 +289,12 @@ L:
 		if sinceLastWrite < iterReadTimeout {
 			wait = iterReadTimeout - sinceLastWrite
 		}
+		timer.Reset(wait)
 		select {
 		case <-ctx.Done():
 			err = ctx.Err()
 			break L
-		case <-time.After(wait):
+		case <-timer.C:
 			lastWrite = time.Now()
 			if len(buffer) > 0 {
 				out <- buffer
