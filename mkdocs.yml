@@ -18,6 +18,9 @@ nav:
     - Cisco CLI: examples_simple_exec.md
     - With question: examples_with_question.md
   - gswitch: gswitch.md
+  - GOP:
+    - Index: gop/gop0.md
+    - "Core Primitives": gop/gop1.md
 
 plugins:
   - mermaid2
