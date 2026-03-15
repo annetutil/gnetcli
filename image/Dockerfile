@@ -1,4 +1,4 @@
-FROM golang:1.21 as build
+FROM golang:1.25 as build
 ADD . /build
 WORKDIR /build
 RUN CGO_ENABLED=0 go build ./cmd/gnetcli_server/
