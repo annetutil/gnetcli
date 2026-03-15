@@ -20,7 +20,8 @@ nav:
   - gswitch: gswitch.md
   - GOP:
     - Index: gop/gop0.md
-    - "Core Primitives": gop/gop1.md
+    - "GOP 1 - Core CLI Primitives": gop/gop1.md
+    - "GOP 2 - Login Instead of EOF on Console": gop/gop2.md
 
 plugins:
   - mermaid2

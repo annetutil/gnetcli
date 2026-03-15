@@ -57,3 +57,4 @@ The numerical index contains a table of all GOPs, ordered by number.
 |-----|-------|--------|------|-------|
 | 0   | Index of Gnetcli Open Proposals (GOPs) | Active | Informational | Meta |
 | 1   | Core CLI Primitives | Active | Informational | Core |
+| 2   | Login Expression Detection in Execution Loop for Console Streamers | Accepted | Standards Track | Drivers/Transports |

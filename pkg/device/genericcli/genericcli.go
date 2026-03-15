@@ -573,6 +573,9 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		{Name: pagerExprName, Exprs: []expr.Expr{cli.pager}},
 		{Name: questionExprName, Exprs: questions},
 	}
+	if connector.HasFeature(streamer.LoginInsteadEOF) && cli.login != nil {
+		checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login}})
+	}
 	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
 
 	exprsAdd, exprsAddMap := command.GetExprCallback()
@@ -701,6 +704,11 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			if err != nil {
 				return nil, fmt.Errorf("write error %w", err)
 			}
+		} else if matchName == loginExprName {
+			if connector.HasFeature(streamer.LoginInsteadEOF) {
+				return nil, streamer.ThrowEOFException(match.GetMatched())
+			}
+			return nil, fmt.Errorf("caught login expression during execution %w", err)
 		} else {
 			panic("unknown option")
 		}

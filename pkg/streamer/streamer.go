@@ -86,6 +86,7 @@ type Const int
 const (
 	AutoLogin Const = iota
 	Cmd
+	LoginInsteadEOF
 )
 
 type ReadResImpl struct {
