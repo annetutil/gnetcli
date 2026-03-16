@@ -982,8 +982,5 @@ func (m *Streamer) Upload(m2 map[string]streamer.File) error {
 }
 
 func (m *Streamer) HasFeature(feature streamer.Const) bool {
-	if feature == streamer.LoginInsteadEOF {
-		return true
-	}
-	return false
+	return feature == streamer.LoginInsteadEOF
 }
