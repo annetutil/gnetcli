@@ -50,7 +50,10 @@ func (m *Device) Close() {
 }
 
 func (m *Device) Execute(command gcmd.Cmd) (gcmd.CmdRes, error) {
-	ctx := context.Background()
+	return m.ExecuteCtx(context.Background(), command)
+}
+
+func (m *Device) ExecuteCtx(ctx context.Context, command gcmd.Cmd) (gcmd.CmdRes, error) {
 	if cmdTimeout := command.GetCmdTimeout(); cmdTimeout > 0 {
 		newCtx, cancel := context.WithTimeout(ctx, cmdTimeout)
 		ctx = newCtx

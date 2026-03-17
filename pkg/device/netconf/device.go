@@ -219,9 +219,12 @@ func (m *NetconfDevice) formatCmd(command gcmd.Cmd) []byte {
 }
 
 func (m *NetconfDevice) Execute(command gcmd.Cmd) (gcmd.CmdRes, error) {
+	return m.ExecuteCtx(context.Background(), command)
+}
+
+func (m *NetconfDevice) ExecuteCtx(ctx context.Context, command gcmd.Cmd) (gcmd.CmdRes, error) {
 	var res []byte
 	var err error
-	ctx := context.Background()
 	if readTimeout := command.GetCmdTimeout(); readTimeout > 0 {
 		prevTimeout := m.connector.SetReadTimeout(readTimeout)
 		defer m.connector.SetReadTimeout(prevTimeout)

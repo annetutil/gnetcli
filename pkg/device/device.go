@@ -15,7 +15,8 @@ var ErrorStreamerNotSupportedByDevice = errors.New("unsupported streamer")
 
 type Device interface {
 	Connect(ctx context.Context) error
-	Execute(command gcmd.Cmd) (gcmd.CmdRes, error)
+	Execute(command gcmd.Cmd) (gcmd.CmdRes, error) // legacy method, use ExecuteCtx instead
+	ExecuteCtx(ctx context.Context, command gcmd.Cmd) (gcmd.CmdRes, error)
 	Download(paths []string) (map[string]streamer.File, error)
 	Upload(paths map[string]streamer.File) error
 	Close()

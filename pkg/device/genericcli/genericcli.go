@@ -371,7 +371,11 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 }
 
 func (m *GenericDevice) Execute(command cmd.Cmd) (cmd.CmdRes, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), m.cli.connectTimeout)
+	return m.ExecuteCtx(context.Background(), command)
+}
+
+func (m *GenericDevice) ExecuteCtx(ctx context.Context, command cmd.Cmd) (cmd.CmdRes, error) {
+	ctx, cancel := context.WithTimeout(ctx, m.cli.connectTimeout)
 	defer cancel()
 	m.logger.Debug("exec", zap.ByteString("command", command.Value()))
 	if !m.cliConnected {
