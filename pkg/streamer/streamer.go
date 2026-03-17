@@ -248,6 +248,12 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 	buffer := inBuffer
 	maxDurationTimeout := NewTimerWithDefault(maxDuration)
 	for {
+		select {
+		case <-ctx.Done():
+			StopTimer(maxDurationTimeout)
+			return nil, buffer, buffer[len(inBuffer):], multierr.Combine(ctx.Err(), ThrowReadTimeoutException(GetLastBytes(buffer, readSize)))
+		default:
+		}
 		readIterTimeout := NewTimerWithDefault(readTimeout)
 		// check size
 		if maxReadSize > 0 && len(buffer) >= maxReadSize {
