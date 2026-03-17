@@ -30,6 +30,7 @@ const (
 	netconfVer10Cap = "urn:ietf:params:netconf:base:1.0"
 	netconfXMLBegin = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 	netconfXMLNS    = "urn:ietf:params:xml:ns:netconf:base:1.0"
+	maxBufferSize   = 1024 * 1024 * 1024
 )
 
 const AuxServerCapabilities = "NetconfServerCapabilities"
@@ -357,6 +358,9 @@ func (m *NetconfDevice) readChunked(ctx context.Context) ([]byte, error) {
 		chunkData, err := m.connector.Read(ctx, readSize)
 		if err != nil {
 			return nil, err
+		}
+		if len(buffer) > maxBufferSize {
+			return nil, fmt.Errorf("buffer size %d exceeded %d", len(buffer), maxBufferSize)
 		}
 		buffer = append(buffer, chunkData...)
 	}
