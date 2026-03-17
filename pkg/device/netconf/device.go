@@ -35,6 +35,8 @@ const (
 
 const AuxServerCapabilities = "NetconfServerCapabilities"
 
+var sizeExpr = expr.NewSimpleExprFirst200().FromPattern(`\n#(?P<size>[1-9]\d*|#)\n`)
+
 type Node struct {
 	XMLName xml.Name
 	Content []byte `xml:",innerxml"`
@@ -344,7 +346,7 @@ func (m *NetconfDevice) readChunked(ctx context.Context) ([]byte, error) {
 		// HASH            = %x23
 		// LF              = %x0A
 		// OCTET           = %x00-FF
-		sizeLine, err := m.connector.ReadTo(ctx, expr.NewSimpleExprFirst200().FromPattern(`\n#(?P<size>[1-9]\d*|#)\n`))
+		sizeLine, err := m.connector.ReadTo(ctx, sizeExpr)
 		if err != nil {
 			return nil, fmt.Errorf("chunk size read error %w", err)
 		}
