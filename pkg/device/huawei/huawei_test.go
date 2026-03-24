@@ -52,6 +52,14 @@ func TestHuaweiQuestion(t *testing.T) {
 	testutils.ExprTester(t, errorCases, questionExpression)
 }
 
+func TestHuaweiCallback(t *testing.T) {
+	errorCases := [][]byte{
+		[]byte("\r\n\r\n\r\n\r\n\r\n\r\r\nUser interface con0 is available\r\n\r\n\r\n\r\nPlease Press ENTER.\r\n"),
+	}
+	// extract loginCallbackExpression from regex slashes
+	testutils.ExprTester(t, errorCases, loginCallbackExpression[1:len(loginCallbackExpression)-1])
+}
+
 func TestAuthError(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nError: Authentication fail\r\n"), // followed by User interface con0 is available, console

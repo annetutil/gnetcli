@@ -134,6 +134,31 @@ func TestConsole(t *testing.T) {
 			},
 		},
 		{
+			name:    "Test password login retry with callback",
+			command: cmd.NewCmd("dis clock"),
+			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
+			dialog: [][]m.Action{
+				{
+					// Login part
+					m.Send("\r\nPassword:"),
+					m.Expect("password1\n"),
+					m.Send("\r\n"),
+					m.Send("Authentication fail\u0000\r\n"),
+					m.Send("\r\n\r\n\r\n\r\n\r\n\r\r\nUser interface con0 is available\r\n\r\n\r\n\r\nPlease Press ENTER.\r\n"),
+					m.Expect("\n"),
+					m.Send("\r\nPassword:"),
+					m.Expect("password2\n"),
+				},
+				everyDayHuaweiHello,
+				{
+					m.Expect("dis clock\n"),
+					m.SendEcho("dis clock\r\n"),
+					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
+				},
+				everyDayHuaweiByeBye,
+			},
+		},
+		{
 			name: "Test question after echo with terminal control",
 			command: cmd.NewCmd("port split dimension interface 400GE1/0/2 400GE1/0/4 400GE1/0/6 400GE1/0/8 400GE1/0/10 400GE1/0/12 400GE1/0/14 400GE1/0/16 400GE1/0/18 400GE1/0/20 400GE1/0/22 400GE1/0/24 400GE1/0/26 400GE1/0/28 400GE1/0/30 400GE1/0/32 split-type 2*200GE",
 				cmd.WithAnswers(cmd.NewAnswerWithNL("Continue? [Y/N]:", "Y"))),
@@ -187,6 +212,9 @@ func newConsoleDevice(connector streamer.Connector, opts ...genericcli.GenericDe
 			expr.NewSimpleExprLast200().FromPattern(passwordExpression),
 			expr.NewSimpleExprLast200().FromPattern(passwordErrorExpression),
 		),
+		genericcli.WithLoginCallbacks([]cmd.ExprCallback{
+			cmd.NewExprCallback(loginCallbackExpression, "\n"),
+		}),
 		genericcli.WithPager(
 			expr.NewSimpleExprLast200().FromPattern(pagerExpression),
 		),

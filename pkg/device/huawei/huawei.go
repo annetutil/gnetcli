@@ -25,6 +25,7 @@ const (
 		`|^Error:\s*(?P<msg>(No|You do not have) permission.*)` +
 		`|Error(?:\[\d+\])?:\s*(?P<msg>.+?)` +
 		`)`
+	loginCallbackExpression = `/(\r\n)Please Press ENTER\.\r\n/`
 	passwordExpression      = `(\r\n|^)Password:$`
 	passwordErrorExpression = `.*(Error: Username or password error\.\r\n|.*Authentication fail(\x00\r\n)?|Error: The password is invalid.\r\n|Error: Authentication fail)(\r\n|$)`
 	pagerExpression         = `(?P<store>(\r\n|\n))?  ---- More ----$`
@@ -45,6 +46,9 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			expr.NewSimpleExprLast200().FromPattern(passwordExpression),
 			expr.NewSimpleExprLast200().FromPattern(passwordErrorExpression),
 		),
+		genericcli.WithLoginCallbacks([]cmd.ExprCallback{
+			cmd.NewExprCallback(loginCallbackExpression, "\n"),
+		}),
 		genericcli.WithPager(
 			expr.NewSimpleExprLast200().FromPattern(pagerExpression),
 		),
