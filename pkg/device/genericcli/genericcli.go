@@ -483,7 +483,6 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	}
 
 	for i < len(passwords) {
-
 		exprsLogin := expr.NewSimpleExprListNamedOrdered(checkExprs)
 		readResLogin, err := connector.ReadTo(ctx, exprsLogin)
 		if err != nil {
@@ -534,7 +533,6 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 			if err != nil {
 				return fmt.Errorf("write error %w", err)
 			}
-			continue
 		}
 	}
 	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
