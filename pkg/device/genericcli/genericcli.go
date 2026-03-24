@@ -471,6 +471,16 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		{Name: promptExprName, Exprs: []expr.Expr{cli.prompt}},
 		{Name: passwdErrExprName, Exprs: []expr.Expr{cli.passwordError}},
 	}
+	if len(cli.loginCB) > 0 {
+		cbExprs := []expr.Expr{}
+		for _, ex := range cli.loginCB {
+			cbExprs = append(cbExprs, ex.GetExpr())
+		}
+		checkExprs = append(checkExprs, expr.NamedExpr{
+			Name:  cbExprName,
+			Exprs: cbExprs,
+		})
+	}
 
 	for i < len(passwords) {
 
@@ -481,7 +491,8 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		}
 
 		matchedExprNameLogin := exprsLogin.GetName(readResLogin.GetPatternNo())
-		if matchedExprNameLogin == loginExprName {
+		switch matchedExprNameLogin {
+		case loginExprName:
 			username, err := connector.GetCredentials().GetUsername()
 			if err != nil {
 				return err
@@ -498,7 +509,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 					return fmt.Errorf("write error %w", err)
 				}
 			}
-		} else if matchedExprNameLogin == passwordExprName {
+		case passwordExprName:
 			err = connector.Write([]byte(passwords[i].Value()))
 			if err != nil {
 				return err
@@ -511,10 +522,19 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 				}
 			}
 			i++
-		} else if matchedExprNameLogin == passwdErrExprName {
+
+		case passwdErrExprName:
 			continue
-		} else if matchedExprNameLogin == promptExprName {
+		case promptExprName:
 			return nil
+		case cbExprName:
+			pos := readResLogin.GetUnderlyingRes().GetPatternNo()
+			f := cli.loginCB[pos]
+			err := connector.Write(f.GetAns())
+			if err != nil {
+				return fmt.Errorf("write error %w", err)
+			}
+			continue
 		}
 	}
 	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
