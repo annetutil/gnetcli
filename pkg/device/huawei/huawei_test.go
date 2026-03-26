@@ -60,6 +60,13 @@ func TestHuaweiCallback(t *testing.T) {
 	testutils.ExprTester(t, errorCases, loginCallbackExpression[1:len(loginCallbackExpression)-1])
 }
 
+func TestPasswordErrorExpression(t *testing.T) {
+	errorCases := [][]byte{
+		[]byte("\r\nError: The password is invalid."),
+	}
+	testutils.ExprTester(t, errorCases, passwordErrorExpression)
+}
+
 func TestAuthError(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nError: Authentication fail\r\n"), // followed by User interface con0 is available, console
