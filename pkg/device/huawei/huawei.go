@@ -27,7 +27,7 @@ const (
 		`)`
 	loginCallbackExpression = `/(\r\n)Please Press ENTER\.\r\n/`
 	passwordExpression      = `(\r\n|^)Password:$`
-	passwordErrorExpression = `.*(Error: Username or password error\.\r\n|.*Authentication fail(\x00\r\n)?|Error: The password is invalid.\r\n|Error: Authentication fail)(\r\n|$)`
+	passwordErrorExpression = `.*(Error: Username or password error\.\r\n|.*Authentication fail(\x00\r\n)?|Error: The password is invalid.|Error: Authentication fail)(\r\n|$)`
 	pagerExpression         = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
 
