@@ -23,8 +23,8 @@ const (
 		`|Error: You do not have permission to run the command or the command is incomplete` +
 		`|\ +\^\nError(?:\[\d+\])?:\s*(?P<msg>.*?) found at '\^' position.` +
 		`|^Error:\s*(?P<msg>(No|You do not have) permission.*)` +
-		`|Error(?:\[\d+\])?:\s*(?P<msg>.+?)` +
-		`)`
+		`|Error(?:\[\d+\])?:\s*(?P<msg>.+)` +
+		`)[\r\n]+`
 	loginCallbackExpression = `/(\r\n)Please Press ENTER\.\r\n/`
 	passwordExpression      = `(\r\n|^)Password:$`
 	passwordErrorExpression = `.*(Error: Username or password error\.\r\n|.*Authentication fail(\x00\r\n)?|Error: The password is invalid.|Error: Authentication fail)(\r\n|$)`
