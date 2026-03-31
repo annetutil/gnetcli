@@ -26,6 +26,7 @@ var ErrorCLILogin = errors.New("CLI login is not supported")
 
 const AnyNLPattern = `(\r\n|\n)`
 const DefaultCLIConnectTimeout = 15 * time.Second
+const maxRepeatedQuestion = 2
 
 const (
 	promptExprName    = "prompt"
@@ -606,6 +607,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	}
 	cbLimit := 100
 	seenEcho := false
+	var lastQuestion []byte // GOP3
+	repeatedQuestionCount := 0
 	for { // pager loop
 		match, err := connector.ReadTo(ctx, exprs)
 		if err != nil {
@@ -702,6 +705,15 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 		} else if matchName == questionExprName { // question
 			question := match.GetMatched()
+			if bytes.Equal(question, lastQuestion) {
+				repeatedQuestionCount++
+			} else {
+				repeatedQuestionCount = 1
+				lastQuestion = question
+			}
+			if repeatedQuestionCount > maxRepeatedQuestion {
+				return nil, device.ThrowQuestionExceptionRepeated(question, repeatedQuestionCount)
+			}
 			logger.Debug("QuestionHandler question", zap.ByteString("question", question))
 			answer, err := command.QuestionHandler(question)
 			if err != nil {

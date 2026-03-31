@@ -22,6 +22,7 @@ nav:
     - Index: gop/gop0.md
     - "GOP 1 - Core CLI Primitives": gop/gop1.md
     - "GOP 2 - Login Instead of EOF on Console": gop/gop2.md
+    - "GOP 3 - Repeated Question Detection": gop/gop3.md
 
 plugins:
   - mermaid2
