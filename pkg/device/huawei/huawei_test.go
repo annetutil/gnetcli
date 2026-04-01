@@ -10,13 +10,13 @@ func TestHuaweiErrors(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("             ^\r\nError: Unrecognized command found at '^' position.\r\n"),
 		[]byte("\r\nError: You do not have permission to run the command or the command is incomplete.\r\n"),
-		[]byte("Error: Unrecognized command found at '^' position."),
-		[]byte("Error: No permission to run the command."),
-		[]byte("Error: You do not have permission to run the command or the command is incomplete."),
-		[]byte("Error: Invalid file name log."),
-		[]byte("              ^\r\nError[1]: Unrecognized command found at '^' position."),
-		[]byte("              ^\r\nError[2]: Incomplete command found at '^' position."),
-		[]byte("                                   ^\r\nError:Too many parameters found at '^' position."),
+		[]byte("Error: Unrecognized command found at '^' position.\r\n"),
+		[]byte("Error: No permission to run the command.\r\n"),
+		[]byte("Error: You do not have permission to run the command or the command is incomplete.\r\n"),
+		[]byte("Error: Invalid file name log.\r\n"),
+		[]byte("              ^\r\nError[1]: Unrecognized command found at '^' position.\r\n"),
+		[]byte("              ^\r\nError[2]: Incomplete command found at '^' position.\r\n"),
+		[]byte("                                   ^\r\nError:Too many parameters found at '^' position.\r\n"),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }
