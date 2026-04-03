@@ -45,7 +45,7 @@ func ExprTesterExtended(t *testing.T, cases []ExprCase, expressions ...string) {
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
 			res, ok := testExpr.Match(tc.Input)
-			require.True(t, ok, fmt.Sprintf("regex: %s not matched\ndata: %v", testExpr.Repr(), tc))
+			require.True(t, ok, fmt.Sprintf("regex: %s not matched\ndata: %q", testExpr.Repr(), tc.Input))
 			require.NotNil(t, res)
 			if !tc.BeforeIgnore {
 				before := tc.Input[:res.Start]
