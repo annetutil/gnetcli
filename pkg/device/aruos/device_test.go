@@ -38,3 +38,13 @@ func TestLoginFail(t *testing.T) {
 	}
 	testutils.ExprTester(t, cases, passwordErrorExpression)
 }
+
+func TestWriteFlashFail(t *testing.T) {
+	cases := [][]byte{
+		[]byte("[  504.613753] ubi1 error: ubi_open_volume: cannot open device 1, volume 0, error -16\r\nWriteFlash open /dev/env: Device or resource busysaveenv:WriteApFlash unsuccessful (flash_off=0)(size=10000)(env_data=0x04618dc8)\r\n"),
+		[]byte("WriteFlash open /dev/env: Device or resource busysaveenv:WriteApFlash unsuccessful (flash_off=0)(size=10000)(env_data=0x04618dc8)\r\n"),
+		[]byte("saveenv:WriteApFlash unsuccessful (flash_off=0)(size=10000)(env_data=0x04618dc8)\r\n"),
+		[]byte("saveenv: WriteApFlash unsuccessful (flash_off=0)(size=10000)(env_data=0x04618dc8)\r\n"),
+	}
+	testutils.ExprTester(t, cases, errorExpression)
+}
