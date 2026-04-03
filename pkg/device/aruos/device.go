@@ -7,8 +7,12 @@ import (
 )
 
 const (
-	promptExpression        = `(\r\n)?(?P<prompt>[\w\-():]+) ?# $`
-	errorExpression         = `% (Parse error|Incomplete command)`
+	promptExpression = `(\r\n)?(?P<prompt>[\w\-():]+) ?# $`
+	errorExpression  = `(` +
+		`% (Parse error|Incomplete command)` + `|` +
+		`(^|\n)WriteFlash .+` + `|` +
+		`(^|\n).+: ?WriteApFlash unsuccessful.+` +
+		`)`
 	passwordExpression      = `.*Password: $`
 	loginExpression         = `.*User: $`
 	passwordErrorExpression = `.*Login incorrect, reason code \d(\r\n)?$`
