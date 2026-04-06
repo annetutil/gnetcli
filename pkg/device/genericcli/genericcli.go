@@ -254,7 +254,7 @@ func WithDevAdditionalLoginCallbacks(cb []cmd.ExprCallback) GenericDeviceOption 
 	}
 }
 
-// WithDevLoginCallbacks replaces replaces device's login callbacks.
+// WithDevLoginCallbacks replaces device's login callbacks.
 // Replacing behaviour is error-prone due to possible overwrites, so it should only be used in /pkg/device/... basic configs.
 // If reusing device configs - use [WithDevAdditionalLoginCallbacks] instead.
 func WithDevLoginCallbacks(cb []cmd.ExprCallback) GenericDeviceOption {
