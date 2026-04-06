@@ -247,12 +247,16 @@ func WithDevLogger(logger *zap.Logger) GenericDeviceOption {
 	}
 }
 
+// WithDevAdditionalLoginCallbacks adds given callbacks to device's login callbacks.
 func WithDevAdditionalLoginCallbacks(cb []cmd.ExprCallback) GenericDeviceOption {
 	return func(h *GenericDevice) {
 		h.cli.loginCB = append(h.cli.loginCB, cb...)
 	}
 }
 
+// WithDevLoginCallbacks replaces replaces device's login callbacks.
+// Replacing behaviour is error-prone due to possible overwrites, so it should only be used in /pkg/device/... basic configs.
+// If reusing device configs - use [WithDevAdditionalLoginCallbacks] instead.
 func WithDevLoginCallbacks(cb []cmd.ExprCallback) GenericDeviceOption {
 	return func(h *GenericDevice) {
 		h.cli.loginCB = cb
@@ -339,9 +343,14 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 					return err
 				}
 			case cbExprName:
-				pos := match.GetUnderlyingRes().GetPatternNo()
-				f := m.cli.loginCB[pos]
-				err := m.connector.Write(f.GetAns())
+				var ans []byte
+				for _, v := range m.cli.loginCB {
+					if _, ok := v.GetExpr().Match(match.GetMatched()); ok {
+						ans = v.GetAns()
+						break
+					}
+				}
+				err := m.connector.Write(ans)
 				if err != nil {
 					return fmt.Errorf("write error %w", err)
 				}
@@ -528,9 +537,14 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		case promptExprName:
 			return nil
 		case cbExprName:
-			pos := readResLogin.GetUnderlyingRes().GetPatternNo()
-			f := cli.loginCB[pos]
-			err := connector.Write(f.GetAns())
+			var ans []byte
+			for _, v := range cli.loginCB {
+				if _, ok := v.GetExpr().Match(readResLogin.GetMatched()); ok {
+					ans = v.GetAns()
+					break
+				}
+			}
+			err := connector.Write(ans)
 			if err != nil {
 				return fmt.Errorf("write error %w", err)
 			}

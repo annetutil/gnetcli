@@ -268,7 +268,7 @@ func TestLoginCallback(t *testing.T) {
 		cli := MakeGenericCLI(
 			expr.NewSimpleExprLast200().FromPattern(promptExpression),
 			expr.NewSimpleExprLast200().FromPattern(``),
-			WithLoginCallbacks([]cmd.ExprCallback{cmd.NewExprCallback(`/\*.+Login: Someone logged in/`, "\n")}),
+			WithLoginCallbacks([]cmd.ExprCallback{cmd.NewExprCallback("/not valid regex/", "\r\n"), cmd.NewExprCallback(`/\*.+Login: Someone logged in/`, "\n")}),
 		)
 		dev := MakeGenericDevice(cli, connector, WithDevLogger(logger))
 		return &dev
