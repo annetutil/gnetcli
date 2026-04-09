@@ -11,6 +11,7 @@ func TestPrompt(t *testing.T) {
 		[]byte("\r\n\rn9k-9316-test# "),
 		[]byte("\r\n\rn9k-9316-test(config)# "),
 		[]byte("\r\n\rn3k-test(config-tacacs+)# "),
+		[]byte("\r\n\rrdc1_sw_rack42.spine-1-0# "),
 	}
 	testutils.ExprTester(t, cases, promptExpression)
 }
