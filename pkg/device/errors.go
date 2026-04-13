@@ -57,16 +57,3 @@ func (e *QuestionException) Error() string {
 func ThrowQuestionException(question []byte) error {
 	return &QuestionException{Question: question}
 }
-
-type QuestionExceptionRepeated struct {
-	Question              []byte
-	RepeatedQuestionCount int
-}
-
-func (e *QuestionExceptionRepeated) Error() string {
-	return fmt.Sprintf("repeated question: %s, repeated question count: %d", e.Question, e.RepeatedQuestionCount)
-}
-
-func ThrowQuestionExceptionRepeated(question []byte, repeatedQuestionCount int) error {
-	return &QuestionExceptionRepeated{Question: question, RepeatedQuestionCount: repeatedQuestionCount}
-}

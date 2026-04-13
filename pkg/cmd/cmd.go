@@ -14,10 +14,23 @@ import (
 )
 
 const (
-	defaultReadTimeout = 10 * time.Second
+	defaultReadTimeout  = 10 * time.Second
+	maxRepeatedQuestion = 2
 )
 
 var ErrNotFoundAnswer = errors.New("not found answer")
+
+type QuestionExceptionRepeated struct {
+	RepeatedQuestionCount int
+}
+
+func (e *QuestionExceptionRepeated) Error() string {
+	return fmt.Sprintf("repeated question count=%d", e.RepeatedQuestionCount)
+}
+
+func ThrowQuestionExceptionRepeated(repeatedQuestionCount int) error {
+	return &QuestionExceptionRepeated{RepeatedQuestionCount: repeatedQuestionCount}
+}
 
 type Res struct {
 	output []byte
@@ -84,7 +97,7 @@ type Cmd interface {
 	// to call if matched.
 	GetExprCallback() ([]string, map[string]string)
 	// QuestionHandler is called when question is matched.
-	QuestionHandler(question []byte) ([]byte, error)
+	QuestionHandler(question []byte, attempt int) ([]byte, error)
 	// GetQuestionExprs returns list of possible questions.
 	GetQuestionExprs() []expr.Expr
 	// ErrorHandler is called when where is an error found in output.
@@ -142,7 +155,7 @@ func (m CmdImpl) GetExprCallback() ([]string, map[string]string) {
 	return res, exprToCB
 }
 
-func (m CmdImpl) QuestionHandler(question []byte) ([]byte, error) {
+func (m CmdImpl) QuestionHandler(question []byte, attempt int) ([]byte, error) {
 	for _, cmdAnswer := range m.questionAnswers {
 		ans, ok, err := cmdAnswer.Match(question)
 		if err != nil {
@@ -150,6 +163,9 @@ func (m CmdImpl) QuestionHandler(question []byte) ([]byte, error) {
 		}
 		if !ok {
 			continue
+		}
+		if attempt > cmdAnswer.maxAttempts {
+			return nil, ThrowQuestionExceptionRepeated(attempt)
 		}
 		if !cmdAnswer.notSendNL {
 			ans = append(ans, []byte("\n")...)
@@ -226,9 +242,10 @@ func WithForwarding(forward bool) CmdOption {
 }
 
 type Answer struct {
-	question  string
-	answer    string
-	notSendNL bool
+	question    string
+	answer      string
+	notSendNL   bool
+	maxAttempts int
 }
 
 func (m Answer) Match(question []byte) ([]byte, bool, error) {
@@ -266,11 +283,15 @@ func (m Answer) GetExpr() expr.Expr {
 }
 
 func NewAnswer(question, answer string, notSendNL bool) Answer {
-	return Answer{question: question, answer: answer, notSendNL: notSendNL}
+	return Answer{question: question, answer: answer, notSendNL: notSendNL, maxAttempts: maxRepeatedQuestion}
 }
 
 func NewAnswerWithNL(question, answer string) Answer {
-	return Answer{question: question, answer: answer, notSendNL: false}
+	return Answer{question: question, answer: answer, notSendNL: false, maxAttempts: maxRepeatedQuestion}
+}
+
+func NewAnswerWithNLMaxAttempts(question, answer string, maxAttempts int) Answer {
+	return Answer{question: question, answer: answer, notSendNL: false, maxAttempts: maxAttempts}
 }
 
 func WithExprCallback(exprCallbacks ...ExprCallback) CmdOption {
