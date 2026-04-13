@@ -52,6 +52,48 @@ func TestRepeatedQuestionAborts(t *testing.T) {
 	require.ErrorAs(t, resErr, &qErr)
 }
 
+func TestRepeatedQuestionCustomAttempts(t *testing.T) {
+	logger := zap.Must(zap.NewDevelopmentConfig().Build())
+
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("enable\n"),
+			gmock.SendEcho("enable\r\n"),
+			gmock.Send("Password:"),
+			gmock.Expect("mypass\n"),
+			gmock.Send("Error: Incorrect password.\r\nPassword:"),
+			gmock.Expect("mypass\n"),
+			gmock.Send("Error: Incorrect password.\r\nPassword:"),
+			gmock.Expect("mypass\n"),
+			gmock.Send("Error: Incorrect password.\r\nPassword:"),
+			gmock.Expect("mypass\n"),
+			gmock.Send("Error: Incorrect password.\r\n<device>"),
+			gmock.Close(),
+		},
+	}
+
+	actions := gmock.ConcatMultipleSlices(dialog)
+	cmds := []cmd.Cmd{
+		cmd.NewCmd("enable", cmd.WithAddAnswers(
+			cmd.NewAnswerWithNLMaxAttempts("Password:", "mypass", 100),
+		)),
+	}
+
+	cm, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, actions, cmds, logger)
+
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, resErr)
+	require.Len(t, cm, 1)
+	require.Empty(t, cm[0].Output())
+	require.Equal(t, "Error: Incorrect password.", string(cm[0].Error()))
+	require.Equal(t, 1, cm[0].Status())
+}
+
 func TestDifferentQuestionsDoNotTriggerLimit(t *testing.T) {
 	logger := zap.Must(zap.NewDevelopmentConfig().Build())
 
