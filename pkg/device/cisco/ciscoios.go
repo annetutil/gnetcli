@@ -36,7 +36,8 @@ var autoCommands = []cmd.Cmd{
 	cmd.NewCmd("terminal monitor disable", cmd.WithErrorIgnore()), // ios xr
 	cmd.NewCmd("terminal length 0", cmd.WithErrorIgnore()),
 	cmd.NewCmd("terminal width 0", cmd.WithErrorIgnore()),
-	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAddAnswers(cmd.NewAnswerWithNL("Password: ", ""))),
+	// force 10 attempts to get cmd error instead of QuestionExceptionRepeated
+	cmd.NewCmd("enable", cmd.WithErrorIgnore(), cmd.WithAddAnswers(cmd.NewAnswerWithNLMaxAttempts("Password: ", "", 10))),
 }
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
