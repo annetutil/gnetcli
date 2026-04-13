@@ -48,7 +48,7 @@ func TestRepeatedQuestionAborts(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, serverErr)
 	require.Error(t, resErr)
-	var qErr *device.QuestionExceptionRepeated
+	var qErr *cmd.QuestionExceptionRepeated
 	require.ErrorAs(t, resErr, &qErr)
 }
 
