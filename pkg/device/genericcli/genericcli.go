@@ -374,7 +374,7 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 	}
 	_, err = m.ExecuteBulk(m.cli.autoCommands)
 	if err != nil {
-		return err
+		return fmt.Errorf("auto commands error: %w", err)
 	}
 	return err
 }
