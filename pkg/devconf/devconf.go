@@ -124,8 +124,9 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 				})
 				opts = append(opts, a)
 			case FeatureAnyEcho:
-				// Match any echoed line regardless of command expansion by the device
+				// Always matches the first line following the write command, treating it as an echo command.
 				// (e.g. SONiC expands "show run" → "show running-configuration" before echoing).
+				// Usage is strongly discouraged due to potential execution flow issues.
 				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
 					return expr.NewSimpleExpr().FromPattern(`.*(\r\n|\n)`)
 				})
