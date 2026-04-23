@@ -34,6 +34,7 @@ const (
 	FeatureSpacesAfterEcho = "spaces_after_echo"
 	FeatureExtraCrEcho     = "extra_cr_echo"
 	FeatureANSIEscSeqEcho  = "ansi_esc_seq_echo"
+	FeatureAnyEcho         = "any_echo"
 )
 
 type DevConf struct {
@@ -120,6 +121,14 @@ func (m DevConf) Make() (*genericcli.GenericCLI, error) {
 			case FeatureANSIEscSeqEcho:
 				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
 					return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s(?:\x1b\[[\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])+\r\n`, regexp.QuoteMeta(string(c.Value()))))
+				})
+				opts = append(opts, a)
+			case FeatureAnyEcho:
+				// Always matches the first line following the write command, treating it as an echo command.
+				// (e.g. SONiC expands "show run" → "show running-configuration" before echoing).
+				// Usage is strongly discouraged due to potential execution flow issues.
+				a := genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
+					return expr.NewSimpleExpr().FromPattern(`.*(\r\n|\n)`)
 				})
 				opts = append(opts, a)
 			default:
