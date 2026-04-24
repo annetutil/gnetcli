@@ -30,6 +30,8 @@ func TestPrompt(t *testing.T) {
 		[]byte("\r\nhost-s2/abc.def(config-archive-log-cfg)#"),
 		[]byte("\r\nhost-s2(conf-ssh-pubkey)#"),
 		[]byte("\r\nhost-s2(config-sg-tacacs+)#"),
+		[]byte("\r\nhostname(ca-trustpoint)#"),
+		[]byte("\r\nhostname(cs-server)#"),
 	}
 	testutils.ExprTester(t, errorCases, promptExpression)
 }
