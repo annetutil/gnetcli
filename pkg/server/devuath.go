@@ -1,6 +1,9 @@
 package server
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/annetutil/gnetcli/pkg/credentials"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
 	"github.com/kevinburke/ssh_config"
@@ -72,6 +75,13 @@ func (m authApp) Get(host string) (credentials.Credentials, error) {
 	}
 	if len(m.config.Password) > 0 {
 		opts = append(opts, credentials.WithPassword(credentials.Secret(m.config.Password)))
+	}
+	if len(m.config.PrivateKey) > 0 {
+		key, err := os.ReadFile(m.config.PrivateKey)
+		if err != nil {
+			return nil, fmt.Errorf("read dev_auth private_key %s: %w", m.config.PrivateKey, err)
+		}
+		opts = append(opts, credentials.WithPrivateKeys([][]byte{key}))
 	}
 	creds := credentials.NewSimpleCredentials(opts...)
 	return creds, nil
