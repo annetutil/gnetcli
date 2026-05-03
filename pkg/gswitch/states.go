@@ -1,4 +1,4 @@
-package main
+package gswitch
 
 import (
 	"bufio"
@@ -98,6 +98,7 @@ func NewCLISessionWithAuth(conn ssh.Channel, username, password string, logger *
 		logger: logger,
 		reader: bufio.NewReader(conn),
 		writer: conn,
+		vendor: vendors["cisco"],
 	}
 }
 
