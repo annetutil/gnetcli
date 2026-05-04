@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	questionExpression = `(?P<question>[dD]o you want to continue\? \(y/n\))\s*$`
-	promptExpression   = `(?P<prompt>[\w\-()~ ]+)[#$]\s*$`
+	questionExpression = `(?P<question>[dD]o you want to continue\? \(y/n\))\s{0,1}$`
+	promptExpression   = `(?P<prompt>[\w\-()~ ]+)[#$]\s$`
 	errorExpression    = `(` +
 		`Command fail\.?` +
 		`|Unknown action` +

@@ -13,9 +13,9 @@ func TestPrompt(t *testing.T) {
 		[]byte("\r\nForti1 # "),
 		[]byte("Forti-Gate (context) # "),
 		[]byte("F-Gate $ "),
-		[]byte("forti-fw~-01 $"),
-		[]byte("\r\n\r\nforti-fw~-01 (vdom) $"),
-		[]byte("end\r\n\r\nforti-fw~-01 (address) $"),
+		[]byte("forti-fw~-01 $ "),
+		[]byte("\r\n\r\nforti-fw~-01 (vdom) $ "),
+		[]byte("end\r\n\r\nforti-fw~-01 (address) $ "),
 	}
 	testutils.ExprTester(t, cases, promptExpression)
 }
