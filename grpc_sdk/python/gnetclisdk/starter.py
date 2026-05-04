@@ -114,5 +114,5 @@ class GnetcliStarter:
         self._proc = None
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        self.running = False
+        self._running = False
         await self._terminate()

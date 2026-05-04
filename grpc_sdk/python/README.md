@@ -25,3 +25,15 @@ Output:
 ```
 err=b'' status=0 out=b'2023-11-10 09:31:58\nFriday\nTime Zone(UTC) : UTC'
 ```
+
+### Tests
+
+From this directory, with Go on `PATH` (to build `gnetcli_server` and `gswitch`):
+
+```bash
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r requirements.txt -r requirements-test.txt -e .
+pytest tests/
+```
+
+Optional: `GNETCLI_TEST_PREBUILT_DIR` — directory that already contains `gnetcli_server` and `gswitch` binaries (skip `go build` in tests).
