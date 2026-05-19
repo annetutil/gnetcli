@@ -234,6 +234,22 @@ func StopTimer(timer *time.Timer) {
 	}
 }
 
+// flushCh returns all data currently queued in channel
+func flushCh(ch <-chan []byte) []byte {
+	res := []byte{}
+	for {
+		select {
+		case readData, ok := <-ch:
+			if !ok {
+				return res
+			}
+			res = append(res, readData...)
+		default:
+			return res
+		}
+	}
+}
+
 // GenericReadX reads from readCh till expr matched, exceeded time or read more than size.
 // Returns error if nothing was read during readTimeout or ctx was Done
 // readSize - maximum read size
@@ -251,6 +267,7 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 		select {
 		case <-ctx.Done():
 			StopTimer(maxDurationTimeout)
+			buffer = append(buffer, flushCh(readCh)...)
 			return nil, buffer, buffer[len(inBuffer):], multierr.Combine(ctx.Err(), ThrowReadTimeoutException(GetLastBytes(buffer, readSize)))
 		default:
 		}
@@ -282,6 +299,7 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 		case <-ctx.Done():
 			StopTimer(readIterTimeout)
 			StopTimer(maxDurationTimeout)
+			buffer = append(buffer, flushCh(readCh)...)
 			return nil, buffer, buffer[len(inBuffer):], multierr.Combine(ctx.Err(), ThrowReadTimeoutException(GetLastBytes(buffer, readSize)))
 		case readData, ok := <-readCh:
 			StopTimer(readIterTimeout)
@@ -312,6 +330,7 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 			return NewReadXRes(Timeout, buffer, nil, []byte{}), buffer, buffer[len(inBuffer):], nil
 		case <-readIterTimeout.C:
 			StopTimer(maxDurationTimeout)
+			buffer = append(buffer, flushCh(readCh)...)
 			return nil, buffer, buffer[len(inBuffer):], ThrowReadTimeoutException(GetLastBytes(buffer, readSize))
 		}
 	}
