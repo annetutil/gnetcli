@@ -2,10 +2,12 @@ package streamer
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/annetutil/gnetcli/pkg/expr"
 )
@@ -81,6 +83,23 @@ func setupChan(data []byte) chan []byte {
 		ch <- []byte{data[i]}
 	}
 	return ch
+}
+
+func TestGenericReadXCtxDoneFlushChannel(t *testing.T) {
+	ch := make(chan []byte, 1)
+	ch <- []byte("pending in channel")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	pat := expr.NewSimpleExpr().FromPattern("never-matches")
+	_, _, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, pat, 0, 0)
+	require.Error(t, err)
+
+	var rt *ReadTimeoutException
+	require.True(t, errors.As(err, &rt))
+	require.Equal(t, "pending in channel", string(rt.LastRead))
+	require.Empty(t, ch, "channel should be drained")
 }
 
 func TestGenericSplitBytes(t *testing.T) {
