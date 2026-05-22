@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, AsyncIterator, List, Optional, Tuple, Dict, Callable
+from typing import Any, AsyncIterator, List, Optional, Tuple, Dict, Callable, Union
 
 import grpc
 from google.protobuf.message import Message
@@ -24,6 +24,9 @@ DEFAULT_USER_AGENT = "Gnetcli SDK"
 DEFAULT_SERVER = "localhost:50051"
 SERVER_ENV = "GNETCLI_SERVER"
 GRPC_MAX_MESSAGE_LENGTH = 130 * 1024**2
+
+STREAMER_SSH = server_pb2.StreamerType_ssh
+STREAMER_TELNET = server_pb2.StreamerType_telnet
 
 default_grpc_options: List[Tuple[str, Any]] = [
     ("grpc.max_concurrent_streams", 900),
@@ -72,7 +75,7 @@ class HostParams:
     hostname: Optional[str] = None
     credentials: Optional[Credentials] = None
     ip: Optional[str] = None
-    streamer_type: Optional[server_pb2.StreamerType] = None
+    streamer_type: Optional[int] = None
 
     def make_pb(self) -> server_pb2.HostParams:
         creds_pb: Optional[server_pb2.Credentials] = None
@@ -84,7 +87,7 @@ class HostParams:
             credentials=creds_pb,
             device=self.device,
             ip=self.ip,
-            streamer_type=self.streamer_type if self.streamer_type is not None else server_pb2.StreamerType.StreamerType_ssh,
+            streamer_type=self.streamer_type if self.streamer_type is not None else server_pb2.StreamerType_ssh,
         )
         return pbcmd
 
