@@ -153,6 +153,8 @@ func (m *Server) makeConnectArg(hostname string, params hostParams) (string, int
 	host := hostname
 	if params.GetIP().IsValid() {
 		host = params.GetIP().String()
+	} else if len(params.host) > 0 {
+		host = params.host
 	}
 	var port int64 = 0
 	if params.port > 0 {
@@ -514,6 +516,7 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 	}
 	if defaultHostParams.host != "" {
 		res.host = defaultHostParams.host
+		res.ip = defaultHostParams.ip
 	}
 	return res, nil
 }
