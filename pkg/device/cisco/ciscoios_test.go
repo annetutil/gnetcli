@@ -65,3 +65,11 @@ func TestQuestion(t *testing.T) {
 	}
 	testutils.ExprTester(t, errorCases, questionExpression)
 }
+
+func TestPager(t *testing.T) {
+	cases := [][]byte{
+		[]byte("\r\n --More-- "),
+		[]byte("\r\n--More-- "),
+	}
+	testutils.ExprTester(t, cases, pagerExpression)
+}
