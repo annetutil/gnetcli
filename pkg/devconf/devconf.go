@@ -25,6 +25,7 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device/nxos"
 	"github.com/annetutil/gnetcli/pkg/device/pc"
 	"github.com/annetutil/gnetcli/pkg/device/ros"
+	"github.com/annetutil/gnetcli/pkg/device/sitonica"
 	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/streamer"
 )
@@ -231,19 +232,20 @@ func InitDeviceMapping(logger *zap.Logger, deviceFilePath string) (map[string]fu
 
 func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Connector) device.Device {
 	deviceMaps := map[string]func(streamer.Connector) device.Device{
-		"juniper": GenericCLIWrapper(juniper.NewDevice, logger),
-		"huawei":  GenericCLIWrapper(huawei.NewDevice, logger),
-		"h3c":     GenericCLIWrapper(h3c.NewDevice, logger),
-		"arista":  GenericCLIWrapper(arista.NewDevice, logger),
-		"cisco":   GenericCLIWrapper(cisco.NewDevice, logger),
-		"nxos":    GenericCLIWrapper(nxos.NewDevice, logger),
-		"bcomos":  GenericCLIWrapper(bcomos.NewDevice, logger),
-		"pc":      pc.NewDevice,
-		"ros":     GenericCLIWrapper(ros.NewDevice, logger),
-		"netconf": netconf.BindDeviceOpts(netconf.NewDevice, netconf.WithLogger(logger)),
-		"aruos":   GenericCLIWrapper(aruos.NewDevice, logger),
-		"eltex":   GenericCLIWrapper(eltex.NewDevice, logger),
-		"asa":     GenericCLIWrapper(asa.NewDevice, logger),
+		"juniper":  GenericCLIWrapper(juniper.NewDevice, logger),
+		"huawei":   GenericCLIWrapper(huawei.NewDevice, logger),
+		"h3c":      GenericCLIWrapper(h3c.NewDevice, logger),
+		"arista":   GenericCLIWrapper(arista.NewDevice, logger),
+		"cisco":    GenericCLIWrapper(cisco.NewDevice, logger),
+		"nxos":     GenericCLIWrapper(nxos.NewDevice, logger),
+		"bcomos":   GenericCLIWrapper(bcomos.NewDevice, logger),
+		"pc":       pc.NewDevice,
+		"ros":      GenericCLIWrapper(ros.NewDevice, logger),
+		"netconf":  netconf.BindDeviceOpts(netconf.NewDevice, netconf.WithLogger(logger)),
+		"aruos":    GenericCLIWrapper(aruos.NewDevice, logger),
+		"eltex":    GenericCLIWrapper(eltex.NewDevice, logger),
+		"asa":      GenericCLIWrapper(asa.NewDevice, logger),
+		"sitonica": GenericCLIWrapper(sitonica.NewDevice, logger),
 	}
 	return deviceMaps
 }
