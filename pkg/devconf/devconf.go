@@ -25,7 +25,6 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device/nxos"
 	"github.com/annetutil/gnetcli/pkg/device/pc"
 	"github.com/annetutil/gnetcli/pkg/device/ros"
-	"github.com/annetutil/gnetcli/pkg/device/sitonica"
 	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/streamer"
 )
@@ -245,7 +244,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 		"aruos":    GenericCLIWrapper(aruos.NewDevice, logger),
 		"eltex":    GenericCLIWrapper(eltex.NewDevice, logger),
 		"asa":      GenericCLIWrapper(asa.NewDevice, logger),
-		"sitonica": GenericCLIWrapper(sitonica.NewDevice, logger),
+		"sitonica": GenericCLIWrapper(h3c.NewDevice, logger),
 	}
 	return deviceMaps
 }
