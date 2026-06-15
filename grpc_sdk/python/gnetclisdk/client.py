@@ -252,6 +252,8 @@ class Gnetcli:
             port=params.port,
             credentials=params.credentials.make_pb(),
             device=params.device,
+            ip=params.ip,
+            streamer_type=params.streamer_type if params.streamer_type is not None else server_pb2.StreamerType_ssh,
         )
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:

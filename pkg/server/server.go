@@ -16,8 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/xerrors"
-
 	"go.uber.org/zap"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -102,6 +100,19 @@ func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, 
 		controlPath:  controlPath,
 		host:         host,
 		streamerType: pb.StreamerType_StreamerType_ssh,
+	}
+}
+
+func NewHostParamsWithStreamer(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string, streamerType pb.StreamerType) hostParams {
+	return hostParams{
+		port:         port,
+		device:       device,
+		creds:        creds,
+		ip:           ip,
+		proxyJump:    proxyJump,
+		controlPath:  controlPath,
+		host:         host,
+		streamerType: streamerType,
 	}
 }
 
@@ -253,7 +264,7 @@ func (m *Server) createStreamerSSH(cfg StreamerConfig, add func(op gtrace.Operat
 func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtrace.Operation, data []byte), logger *zap.Logger) (device.Device, error) {
 	creds, err := m.resolveCredentials(hostname, params)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to resolve credentials: %w", err)
+		return nil, fmt.Errorf("failed to resolve credentials: %w", err)
 	}
 
 	deviceType := params.GetDevice()
@@ -268,7 +279,7 @@ func (m *Server) makeDevice(hostname string, params hostParams, add func(op gtra
 		logger:   logger,
 	}, add)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to create streamer: %w", err)
+		return nil, fmt.Errorf("failed to create streamer: %w", err)
 	}
 
 	devFab, ok := m.deviceMaps[deviceType]
@@ -489,13 +500,17 @@ func (m *Server) AddDevice(ctx context.Context, device *pb.Device) (*pb.DeviceRe
 	}, nil
 }
 
-func (m *Server) SetupHostParams(ctx context.Context, cmdHostParams *pb.HostParams) (*emptypb.Empty, error) {
+func (m *Server) SetupHostParams(_ context.Context, cmdHostParams *pb.HostParams) (*emptypb.Empty, error) {
 	m.log.Debug("SetupHostParams", zap.Any("device", cmdHostParams))
 	ip, port, err := makeHostConnectionParams(cmdHostParams)
 	if err != nil {
 		return nil, err
 	}
-	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "", "", "")
+	streamerType := cmdHostParams.GetStreamerType()
+	if streamerType == pb.StreamerType_StreamerType_unknown {
+		streamerType = pb.StreamerType_StreamerType_ssh
+	}
+	params := NewHostParamsWithStreamer(nil, cmdHostParams.GetDevice(), ip, port, "", "", "", streamerType)
 	m.updateHostParams(cmdHostParams.GetHost(), params)
 	return &emptypb.Empty{}, nil
 }

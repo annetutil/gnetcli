@@ -127,19 +127,22 @@ func (DeviceResultStatus) EnumDescriptor() ([]byte, []int) {
 type StreamerType int32
 
 const (
-	StreamerType_StreamerType_ssh    StreamerType = 0
-	StreamerType_StreamerType_telnet StreamerType = 1
+	StreamerType_StreamerType_unknown StreamerType = 0
+	StreamerType_StreamerType_ssh     StreamerType = 1
+	StreamerType_StreamerType_telnet  StreamerType = 2
 )
 
 // Enum value maps for StreamerType.
 var (
 	StreamerType_name = map[int32]string{
-		0: "StreamerType_ssh",
-		1: "StreamerType_telnet",
+		0: "StreamerType_unknown",
+		1: "StreamerType_ssh",
+		2: "StreamerType_telnet",
 	}
 	StreamerType_value = map[string]int32{
-		"StreamerType_ssh":    0,
-		"StreamerType_telnet": 1,
+		"StreamerType_unknown": 0,
+		"StreamerType_ssh":     1,
+		"StreamerType_telnet":  2,
 	}
 )
 
@@ -714,7 +717,7 @@ func (x *HostParams) GetStreamerType() StreamerType {
 	if x != nil {
 		return x.StreamerType
 	}
-	return StreamerType_StreamerType_ssh
+	return StreamerType_StreamerType_unknown
 }
 
 type CMDResult struct {
@@ -1176,10 +1179,11 @@ const file_server_proto_rawDesc = "" +
 	"\x12DeviceResultStatus\x12\x11\n" +
 	"\rDevice_notset\x10\x00\x12\r\n" +
 	"\tDevice_ok\x10\x01\x12\x10\n" +
-	"\fDevice_error\x10\x02*=\n" +
-	"\fStreamerType\x12\x14\n" +
-	"\x10StreamerType_ssh\x10\x00\x12\x17\n" +
-	"\x13StreamerType_telnet\x10\x01*}\n" +
+	"\fDevice_error\x10\x02*W\n" +
+	"\fStreamerType\x12\x18\n" +
+	"\x14StreamerType_unknown\x10\x00\x12\x14\n" +
+	"\x10StreamerType_ssh\x10\x01\x12\x17\n" +
+	"\x13StreamerType_telnet\x10\x02*}\n" +
 	"\n" +
 	"FileStatus\x12\x15\n" +
 	"\x11FileStatus_notset\x10\x00\x12\x11\n" +

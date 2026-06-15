@@ -62,8 +62,9 @@ message CMDTraceItem {
 }
 
 enum StreamerType {
-  StreamerType_ssh = 0;
-  StreamerType_telnet = 1;
+  StreamerType_unknown = 0;
+  StreamerType_ssh = 1;
+  StreamerType_telnet = 2;
 }
 
 message HostParams {
