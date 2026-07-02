@@ -25,31 +25,49 @@ type authApp struct {
 	log    *zap.Logger
 }
 
+type proxyConfig struct {
+	proxyJump   string
+	controlPath string
+	connectHost string
+	ip          netip.Addr
+}
+
+func (m authApp) resolveProxyConfig(host string, ip netip.Addr) proxyConfig {
+	cfg := proxyConfig{ip: ip}
+
+	switch {
+	case len(m.config.ProxyJump) > 0:
+		cfg.proxyJump = m.config.ProxyJump
+	case m.config.SshConfig:
+		cfg.proxyJump = ssh_config.Get(host, "ProxyJump")
+		cfg.controlPath = ssh_config.Get(host, "ControlPath")
+		if realHost := ssh_config.Get(host, "Hostname"); len(realHost) > 0 {
+			cfg.connectHost = realHost
+			// Clear IP to ensure we connect to Hostname from config, not IP received from client
+			cfg.ip = netip.Addr{}
+		}
+	}
+	return cfg
+}
+
 func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, error) {
 	ip, port, err := makeHostConnectionParams(params)
 	if err != nil {
-		return hostParams{}, err
+		return hostParams{}, fmt.Errorf("host connection params: %w", err)
 	}
-	proxyJump := ""
-	controlPath := ""
-	connectHost := ""
-	if len(m.config.ProxyJump) > 0 {
-		proxyJump = m.config.ProxyJump
-	} else if m.config.SshConfig {
-		proxyJump = ssh_config.Get(host, "ProxyJump")
-		controlPath = ssh_config.Get(host, "ControlPath")
-		realHost := ssh_config.Get(host, "Hostname")
-		if len(realHost) > 0 {
-			connectHost = realHost
-			ip = netip.Addr{}
-		}
-	}
+
+	cfg := m.resolveProxyConfig(host, ip)
+
 	creds, err := m.Get(host)
 	if err != nil {
-		return hostParams{}, err
+		return hostParams{}, fmt.Errorf("get credentials for %q: %w", host, err)
 	}
-	res := NewHostParams(creds, params.GetDevice(), ip, port, proxyJump, controlPath, connectHost)
-	return res, nil
+
+	return NewHostParams(
+		creds, params.GetDevice(),
+		cfg.ip, port,
+		cfg.proxyJump, cfg.controlPath, cfg.connectHost,
+	), nil
 }
 
 func (m authApp) Get(host string) (credentials.Credentials, error) {
