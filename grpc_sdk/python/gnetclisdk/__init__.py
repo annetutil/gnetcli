@@ -12,8 +12,6 @@ from .client import (
 from .exceptions import (
     DeviceConnectError,
     GnetcliException,
-    PermissionDeniedError,
-    ResponseTimeoutError,
 )
 
 __all__ = [
@@ -26,6 +24,4 @@ __all__ = [
     "STREAMER_TELNET",
     "DeviceConnectError",
     "GnetcliException",
-    "PermissionDeniedError",
-    "ResponseTimeoutError",
 ]
