@@ -35,10 +35,11 @@ type proxyConfig struct {
 func (m authApp) resolveProxyConfig(host string, ip netip.Addr) proxyConfig {
 	cfg := proxyConfig{ip: ip}
 
-	switch {
-	case len(m.config.ProxyJump) > 0:
+	// Priority: explicit ProxyJump from app config > SSH config settings
+	if len(m.config.ProxyJump) > 0 {
 		cfg.proxyJump = m.config.ProxyJump
-	case m.config.SshConfig:
+	} else if m.config.SshConfig {
+		// Read all SSH config settings when enabled
 		cfg.proxyJump = ssh_config.Get(host, "ProxyJump")
 		cfg.controlPath = ssh_config.Get(host, "ControlPath")
 		if realHost := ssh_config.Get(host, "Hostname"); len(realHost) > 0 {
