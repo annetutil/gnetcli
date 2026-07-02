@@ -7,7 +7,6 @@ import (
 
 	"github.com/annetutil/gnetcli/pkg/credentials"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
-	"github.com/kevinburke/ssh_config"
 	"go.uber.org/zap"
 )
 
@@ -21,8 +20,9 @@ type authAppConfig struct {
 }
 
 type authApp struct {
-	config authAppConfig
-	log    *zap.Logger
+	config    authAppConfig
+	log       *zap.Logger
+	sshConfig sshConfigReader
 }
 
 type proxyConfig struct {
@@ -38,11 +38,11 @@ func (m authApp) resolveProxyConfig(host string, ip netip.Addr) proxyConfig {
 	// Priority: explicit ProxyJump from app config > SSH config settings
 	if len(m.config.ProxyJump) > 0 {
 		cfg.proxyJump = m.config.ProxyJump
-	} else if m.config.SshConfig {
+	} else if m.config.SshConfig && m.sshConfig != nil {
 		// Read all SSH config settings when enabled
-		cfg.proxyJump = ssh_config.Get(host, "ProxyJump")
-		cfg.controlPath = ssh_config.Get(host, "ControlPath")
-		if realHost := ssh_config.Get(host, "Hostname"); len(realHost) > 0 {
+		cfg.proxyJump = m.sshConfig.Get(host, "ProxyJump")
+		cfg.controlPath = m.sshConfig.Get(host, "ControlPath")
+		if realHost := m.sshConfig.Get(host, "Hostname"); len(realHost) > 0 {
 			cfg.connectHost = realHost
 			// Clear IP to ensure we connect to Hostname from config, not IP received from client
 			cfg.ip = netip.Addr{}
@@ -109,5 +109,9 @@ func (m authApp) Get(host string) (credentials.Credentials, error) {
 }
 
 func NewAuthApp(config authAppConfig, logger *zap.Logger) authApp {
-	return authApp{config: config, log: logger}
+	return authApp{
+		config:    config,
+		log:       logger,
+		sshConfig: realSSHConfigReader{},
+	}
 }

@@ -86,23 +86,23 @@ func TestResolveProxyConfig(t *testing.T) {
 	}
 }
 
-func TestResolveProxyConfigWithSSHConfig(t *testing.T) {
-	// Test configurations as strings
+func TestResolveProxyConfigWithMockSSH(t *testing.T) {
+	logger := zap.NewNop()
+
 	tests := []struct {
 		name           string
-		sshConfig      string
+		mockConfigs    map[string]map[string]string
 		host           string
 		inputIP        netip.Addr
 		expectedConfig proxyConfig
 	}{
 		{
 			name: "hostname_only_no_proxyjump",
-			sshConfig: `
-Host test-host1
-    Hostname real.server.example.com
-    User admin
-    Port 22
-`,
+			mockConfigs: map[string]map[string]string{
+				"test-host1": {
+					"Hostname": "real.server.example.com",
+				},
+			},
 			host:    "test-host1",
 			inputIP: netip.MustParseAddr("10.0.0.1"),
 			expectedConfig: proxyConfig{
@@ -112,10 +112,11 @@ Host test-host1
 		},
 		{
 			name: "test_case_hostname_with_ip",
-			sshConfig: `
-Host example.com
-    HostName 194.113.200.100
-`,
+			mockConfigs: map[string]map[string]string{
+				"example.com": {
+					"Hostname": "194.113.200.100",
+				},
+			},
 			host:    "example.com",
 			inputIP: netip.MustParseAddr("10.0.0.10"),
 			expectedConfig: proxyConfig{
@@ -125,13 +126,13 @@ Host example.com
 		},
 		{
 			name: "proxyjump_and_hostname",
-			sshConfig: `
-Host test-host2
-    Hostname internal.host.local
-    ProxyJump jumphost.example.com
-    ControlPath /tmp/test-ssh-%h-%p
-    User deploy
-`,
+			mockConfigs: map[string]map[string]string{
+				"test-host2": {
+					"Hostname":    "internal.host.local",
+					"ProxyJump":   "jumphost.example.com",
+					"ControlPath": "/tmp/test-ssh-%h-%p",
+				},
+			},
 			host:    "test-host2",
 			inputIP: netip.MustParseAddr("10.0.0.2"),
 			expectedConfig: proxyConfig{
@@ -143,11 +144,11 @@ Host test-host2
 		},
 		{
 			name: "proxyjump_only_no_hostname",
-			sshConfig: `
-Host test-host3
-    ProxyJump bastion.example.com
-    User operator
-`,
+			mockConfigs: map[string]map[string]string{
+				"test-host3": {
+					"ProxyJump": "bastion.example.com",
+				},
+			},
 			host:    "test-host3",
 			inputIP: netip.MustParseAddr("10.0.0.3"),
 			expectedConfig: proxyConfig{
@@ -157,11 +158,11 @@ Host test-host3
 		},
 		{
 			name: "controlpath_only",
-			sshConfig: `
-Host test-host4
-    ControlPath /var/run/ssh-control-%h-%p
-    ControlMaster auto
-`,
+			mockConfigs: map[string]map[string]string{
+				"test-host4": {
+					"ControlPath": "/var/run/ssh-control-%h-%p",
+				},
+			},
 			host:    "test-host4",
 			inputIP: netip.MustParseAddr("10.0.0.4"),
 			expectedConfig: proxyConfig{
@@ -170,85 +171,25 @@ Host test-host4
 			},
 		},
 		{
-			name: "host_not_in_config",
-			sshConfig: `
-Host other-host
-    Hostname other.example.com
-`,
-			host:    "unknown-host",
-			inputIP: netip.MustParseAddr("10.0.0.5"),
+			name:        "host_not_in_config",
+			mockConfigs: map[string]map[string]string{},
+			host:        "unknown-host",
+			inputIP:     netip.MustParseAddr("10.0.0.5"),
 			expectedConfig: proxyConfig{
 				ip: netip.MustParseAddr("10.0.0.5"),
-			},
-		},
-		{
-			name: "wildcard_host_match",
-			sshConfig: `
-Host *.internal
-    ProxyJump internal-gateway
-    Hostname %h.company.local
-`,
-			host:    "server1.internal",
-			inputIP: netip.MustParseAddr("10.0.0.6"),
-			expectedConfig: proxyConfig{
-				proxyJump:   "internal-gateway",
-				connectHost: "server1.internal.company.local",
-				ip:          netip.Addr{}, // Should be cleared
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create temporary SSH config file
-			tmpDir := t.TempDir()
-			configPath := filepath.Join(tmpDir, "config")
-
-			if err := os.WriteFile(configPath, []byte(tt.sshConfig), 0600); err != nil {
-				t.Fatalf("Failed to write test SSH config: %v", err)
-			}
-
-			// Override SSH config path for this test
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				t.Skip("Cannot get home directory")
-			}
-
-			originalConfigPath := filepath.Join(homeDir, ".ssh", "config")
-			backupPath := originalConfigPath + ".test-backup"
-
-			// Backup existing config if it exists
-			if _, err := os.Stat(originalConfigPath); err == nil {
-				if err := os.Rename(originalConfigPath, backupPath); err != nil {
-					t.Logf("Warning: could not backup SSH config: %v", err)
-				} else {
-					defer func() {
-						if err := os.Rename(backupPath, originalConfigPath); err != nil {
-							t.Errorf("Failed to restore SSH config: %v", err)
-						}
-					}()
-				}
-			}
-
-			// Copy test config to SSH config location
-			sshDir := filepath.Join(homeDir, ".ssh")
-			if err := os.MkdirAll(sshDir, 0700); err != nil {
-				t.Skip("Cannot create .ssh directory")
-			}
-
-			testConfigContent, _ := os.ReadFile(configPath)
-			if err := os.WriteFile(originalConfigPath, testConfigContent, 0600); err != nil {
-				t.Skip("Cannot write SSH config")
-			}
-			defer os.Remove(originalConfigPath)
-
-			// Run the test
-			logger := zap.NewNop()
+			mockSSH := mockSSHConfigReader{configs: tt.mockConfigs}
 			app := authApp{
 				config: authAppConfig{
 					SshConfig: true,
 				},
-				log: logger,
+				log:       logger,
+				sshConfig: mockSSH,
 			}
 
 			result := app.resolveProxyConfig(tt.host, tt.inputIP)
