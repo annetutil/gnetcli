@@ -2,8 +2,6 @@ package server
 
 import (
 	"net/netip"
-	"os"
-	"path/filepath"
 	"testing"
 
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
@@ -212,36 +210,25 @@ func TestResolveProxyConfigWithMockSSH(t *testing.T) {
 }
 
 func TestGetHostParams(t *testing.T) {
-	// Create a temporary directory for test SSH config
-	tmpDir, err := os.MkdirTemp("", "devuath_test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	// Create a simple SSH config for testing
-	sshConfigPath := filepath.Join(tmpDir, "config")
-	sshConfigContent := `
-Host testhost
-    Hostname actual.server.com
-    ProxyJump jumpserver
-`
-	if err := os.WriteFile(sshConfigPath, []byte(sshConfigContent), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	// Set SSH_CONFIG environment variable
-	oldEnv := os.Getenv("SSH_CONFIG")
-	os.Setenv("SSH_CONFIG", sshConfigPath)
-	defer os.Setenv("SSH_CONFIG", oldEnv)
-
 	logger := zap.NewNop()
+
+	// Setup mock SSH config
+	mockSSH := mockSSHConfigReader{
+		configs: map[string]map[string]string{
+			"testhost": {
+				"Hostname":  "actual.server.com",
+				"ProxyJump": "jumpserver",
+			},
+		},
+	}
+
 	app := authApp{
 		config: authAppConfig{
 			SshConfig: true,
 			Login:     "testuser",
 		},
-		log: logger,
+		log:       logger,
+		sshConfig: mockSSH,
 	}
 
 	// Test GetHostParams
