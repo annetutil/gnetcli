@@ -90,20 +90,7 @@ func makeGRPCDeviceExecError(err error) error {
 	return rv.Err()
 }
 
-func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string) hostParams {
-	return hostParams{
-		port:         port,
-		device:       device,
-		creds:        creds,
-		ip:           ip,
-		proxyJump:    proxyJump,
-		controlPath:  controlPath,
-		host:         host,
-		streamerType: pb.StreamerType_StreamerType_ssh,
-	}
-}
-
-func NewHostParamsWithStreamer(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string, streamerType pb.StreamerType) hostParams {
+func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string, streamerType pb.StreamerType) hostParams {
 	return hostParams{
 		port:         port,
 		device:       device,
@@ -206,7 +193,8 @@ func (m *Server) createStreamer(cfg StreamerConfig, add func(op gtrace.Operation
 	switch cfg.params.streamerType {
 	case pb.StreamerType_StreamerType_telnet:
 		return m.createStreamerTelnet(cfg, add)
-	case pb.StreamerType_StreamerType_ssh:
+	case pb.StreamerType_StreamerType_ssh, pb.StreamerType_StreamerType_unknown:
+		// Default to SSH for unknown/unspecified streamer type
 		return m.createStreamerSSH(cfg, add)
 	}
 	return nil, fmt.Errorf("unknown streamer type: %s", cfg.params.streamerType)
@@ -420,26 +408,25 @@ func (m *execChatWrapper) Recv() (*pb.CMD, error) {
 	}
 }
 
-func (m *execChatWrapper) SetHeader(md metadata.MD) error {
+func (m *execChatWrapper) SetHeader(_ metadata.MD) error {
 	return errors.New("not implemented")
 }
 
-func (m *execChatWrapper) SendHeader(md metadata.MD) error {
+func (m *execChatWrapper) SendHeader(_ metadata.MD) error {
 	return errors.New("not implemented")
 }
 
-func (m *execChatWrapper) SetTrailer(md metadata.MD) {
-}
+func (m *execChatWrapper) SetTrailer(_ metadata.MD) {}
 
 func (m *execChatWrapper) Context() context.Context {
 	return m.ctx
 }
 
-func (m *execChatWrapper) SendMsg(msg interface{}) error {
+func (m *execChatWrapper) SendMsg(_ interface{}) error {
 	return errors.New("not implemented")
 }
 
-func (m *execChatWrapper) RecvMsg(msg interface{}) error {
+func (m *execChatWrapper) RecvMsg(_ interface{}) error {
 	return errors.New("not implemented")
 }
 
@@ -479,7 +466,7 @@ func makeNewDevice(dev *pb.Device) (*genericcli.GenericCLI, error) {
 	return &cli, nil
 }
 
-func (m *Server) AddDevice(ctx context.Context, device *pb.Device) (*pb.DeviceResult, error) {
+func (m *Server) AddDevice(_ context.Context, device *pb.Device) (*pb.DeviceResult, error) {
 	m.log.Debug("add device", zap.Any("device", device))
 	devName := device.GetName()
 	m.deviceMapsMu.Lock()
@@ -510,7 +497,7 @@ func (m *Server) SetupHostParams(_ context.Context, cmdHostParams *pb.HostParams
 	if streamerType == pb.StreamerType_StreamerType_unknown {
 		streamerType = pb.StreamerType_StreamerType_ssh
 	}
-	params := NewHostParamsWithStreamer(nil, cmdHostParams.GetDevice(), ip, port, "", "", "", streamerType)
+	params := NewHostParams(nil, cmdHostParams.GetDevice(), ip, port, "", "", "", streamerType)
 	m.updateHostParams(cmdHostParams.GetHost(), params)
 	return &emptypb.Empty{}, nil
 }
@@ -774,14 +761,6 @@ func BuildCreds(host, login, password string, enableAgent bool, sshConfig string
 	}
 	creds := credentials.NewSimpleCredentials(opts...)
 	return creds, nil
-}
-
-func BuildEmptyCreds(logger *zap.Logger) credentials.Credentials {
-	opts := []credentials.CredentialsOption{
-		credentials.WithLogger(logger),
-	}
-	creds := credentials.NewSimpleCredentials(opts...)
-	return creds
 }
 
 func MakeFileResult(path string, file streamer.File) *pb.FileData {
