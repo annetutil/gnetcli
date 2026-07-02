@@ -43,6 +43,7 @@ func (m authApp) resolveProxyConfig(host string, ip netip.Addr) proxyConfig {
 		cfg.controlPath = ssh_config.Get(host, "ControlPath")
 		if realHost := ssh_config.Get(host, "Hostname"); len(realHost) > 0 {
 			cfg.connectHost = realHost
+			// Clear IP to ensure we connect to Hostname from config, not IP received from client
 			cfg.ip = netip.Addr{}
 		}
 	}
@@ -52,10 +53,10 @@ func (m authApp) resolveProxyConfig(host string, ip netip.Addr) proxyConfig {
 func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, error) {
 	ip, port, err := makeHostConnectionParams(params)
 	if err != nil {
-		return hostParams{}, fmt.Errorf("make host connection params: %w", err)
+		return hostParams{}, fmt.Errorf("host connection params: %w", err)
 	}
 
-	proxyCfg := m.resolveProxyConfig(host, ip)
+	cfg := m.resolveProxyConfig(host, ip)
 
 	creds, err := m.Get(host)
 	if err != nil {
@@ -64,8 +65,8 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 
 	return NewHostParams(
 		creds, params.GetDevice(),
-		ip, port,
-		proxyCfg.proxyJump, proxyCfg.controlPath, proxyCfg.connectHost,
+		cfg.ip, port,
+		cfg.proxyJump, cfg.controlPath, cfg.connectHost,
 	), nil
 }
 
