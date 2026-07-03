@@ -34,6 +34,7 @@ type CLIState struct {
 	username      string
 	password      string
 	enablePass    string
+	authCallback  AuthCallback
 	authenticated bool
 	config        map[string]interface{}
 }
@@ -59,12 +60,17 @@ func NewCLIState(username, password string) *CLIState {
 }
 
 func NewCLIStateWithAuth(username, password string) *CLIState {
+	return newCLIStateWithAuth(username, password, nil)
+}
+
+func newCLIStateWithAuth(username, password string, authCallback AuthCallback) *CLIState {
 	return &CLIState{
 		mode:          ModeLogin,
 		hostname:      "switch",
 		username:      username,
 		password:      password,
 		enablePass:    password,
+		authCallback:  authCallback,
 		authenticated: false,
 		config:        make(map[string]interface{}),
 	}
@@ -92,9 +98,13 @@ func NewCLISession(conn ssh.Channel, username, password string, logger *zap.Logg
 }
 
 func NewCLISessionWithAuth(conn ssh.Channel, username, password string, logger *zap.Logger) *CLISession {
+	return newCLISessionWithAuth(conn, username, password, nil, logger)
+}
+
+func newCLISessionWithAuth(conn ssh.Channel, username, password string, authCallback AuthCallback, logger *zap.Logger) *CLISession {
 	return &CLISession{
 		conn:   conn,
-		state:  NewCLIStateWithAuth(username, password),
+		state:  newCLIStateWithAuth(username, password, authCallback),
 		logger: logger,
 		reader: bufio.NewReader(conn),
 		writer: conn,

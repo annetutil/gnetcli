@@ -1,10 +1,12 @@
 package server_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/pem"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -52,11 +54,20 @@ func TestDevAuthPrivateKeyUsedForSSH(t *testing.T) {
 
 	go func() {
 		_ = gswitch.ServeSSH(ctx, ln, gswitch.SSHServerOptions{
-			Logger:              swLogger,
-			Username:            user,
-			Password:            "not-used-by-test",
+			Logger: swLogger,
+			AuthCallback: func(req gswitch.AuthRequest) error {
+				if req.Method != gswitch.AuthMethodPublicKey {
+					return fmt.Errorf("unexpected auth method %q", req.Method)
+				}
+				if req.Username != user {
+					return fmt.Errorf("unexpected user %q", req.Username)
+				}
+				if req.PublicKey == nil || !bytes.Equal(req.PublicKey.Marshal(), sshPub.Marshal()) {
+					return fmt.Errorf("unexpected public key")
+				}
+				return nil
+			},
 			ConnectionErrorProb: 0,
-			AuthorizedKeys:      []ssh.PublicKey{sshPub},
 		})
 	}()
 
@@ -99,9 +110,16 @@ func TestDevAuthLoginPasswordUsedForSSH(t *testing.T) {
 
 	go func() {
 		_ = gswitch.ServeSSH(ctx, ln, gswitch.SSHServerOptions{
-			Logger:              swLogger,
-			Username:            user,
-			Password:            pass,
+			Logger: swLogger,
+			AuthCallback: func(req gswitch.AuthRequest) error {
+				if req.Method != gswitch.AuthMethodPassword {
+					return fmt.Errorf("unexpected auth method %q", req.Method)
+				}
+				if req.Username != user || req.Password != pass {
+					return fmt.Errorf("bad credentials for %q", req.Username)
+				}
+				return nil
+			},
 			ConnectionErrorProb: 0,
 		})
 	}()
@@ -137,9 +155,16 @@ func TestDevAuthWrongPasswordSSHRejected(t *testing.T) {
 	const user = "switchadmin"
 	go func() {
 		_ = gswitch.ServeSSH(ctx, ln, gswitch.SSHServerOptions{
-			Logger:              zap.NewNop(),
-			Username:            user,
-			Password:            "server-real-pass",
+			Logger: zap.NewNop(),
+			AuthCallback: func(req gswitch.AuthRequest) error {
+				if req.Method != gswitch.AuthMethodPassword {
+					return fmt.Errorf("unexpected auth method %q", req.Method)
+				}
+				if req.Username != user || req.Password != "server-real-pass" {
+					return fmt.Errorf("bad credentials for %q", req.Username)
+				}
+				return nil
+			},
 			ConnectionErrorProb: 0,
 		})
 	}()
