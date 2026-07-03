@@ -4,9 +4,14 @@
 
 ## Supported Types
 
-### SSH (StreamerType_ssh)
+### Unknown (StreamerType_unknown)
 - **Value**: `0`
-- **Description**: Connection via SSH protocol (default)
+- **Description**: Unspecified connection type, server will determine based on port or default to SSH
+- **Usage**: When not explicitly set
+
+### SSH (StreamerType_ssh)
+- **Value**: `1`
+- **Description**: Connection via SSH protocol (default when unknown)
 - **Default port**: 22
 - **Features**:
   - SSH tunnel support (ProxyJump)
@@ -16,7 +21,7 @@
   - SFTP for file transfers
 
 ### Telnet (StreamerType_telnet)
-- **Value**: `1`
+- **Value**: `2`
 - **Description**: Connection via Telnet protocol
 - **Default port**: 23
 - **Features**:
@@ -46,7 +51,7 @@ message HostParams {
   "host": "192.168.1.1",
   "cmd": "show version",
   "host_params": {
-    "streamer_type": 1,  // Use Telnet
+    "streamer_type": 2,
     "port": 23,
     "credentials": {
       "login": "admin",
@@ -55,6 +60,7 @@ message HostParams {
   }
 }
 ```
+Note: `streamer_type: 2` for Telnet, `streamer_type: 1` for SSH, `streamer_type: 0` for unknown/auto-detect.
 
 ## Choosing Streamer Type
 
