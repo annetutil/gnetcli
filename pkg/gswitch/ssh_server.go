@@ -17,15 +17,17 @@ type connections struct {
 	done                atomic.Int32
 	username            string
 	password            string
+	authCallback        AuthCallback
 	connectionErrorProb float64
 }
 
-func newConnections(username, password string, connectionErrorProb float64) *connections {
+func newConnections(username, password string, authCallback AuthCallback, connectionErrorProb float64) *connections {
 	return &connections{
 		inFlight:            atomic.Int32{},
 		done:                atomic.Int32{},
 		username:            username,
 		password:            password,
+		authCallback:        authCallback,
 		connectionErrorProb: connectionErrorProb,
 	}
 }
@@ -136,7 +138,7 @@ func (c *connections) handleTelnetConnection(ctx context.Context, tcpConn net.Co
 	}
 
 	logger.Debug("start Telnet CLI session")
-	session := NewCLISessionWithAuth(telnetConn, c.username, c.password, logger)
+	session := newCLISessionWithAuth(telnetConn, c.username, c.password, c.authCallback, logger)
 	err = session.Run(ctx)
 	if err != nil {
 		logger.Debug("Telnet CLI session ended", zap.Error(err))
