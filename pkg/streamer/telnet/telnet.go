@@ -60,6 +60,7 @@ type Streamer struct {
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
 	host                   string
+	port                   int
 	addresses              []net.IP
 	conn                   net.Conn
 	stdoutBuffer           chan []byte
@@ -102,10 +103,10 @@ func (m *Streamer) Init(ctx context.Context) error {
 	if len(m.addresses) != 0 {
 		endpoints = make([]string, 0, len(m.addresses))
 		for _, v := range m.addresses {
-			endpoints = append(endpoints, net.JoinHostPort(v.String(), strconv.Itoa(defaultPort)))
+			endpoints = append(endpoints, net.JoinHostPort(v.String(), strconv.Itoa(m.port)))
 		}
 	} else {
-		endpoints = []string{net.JoinHostPort(m.host, strconv.Itoa(defaultPort))}
+		endpoints = []string{net.JoinHostPort(m.host, strconv.Itoa(m.port))}
 	}
 
 	for i, v := range endpoints {
@@ -136,6 +137,7 @@ func NewStreamer(host string, credentials credentials.Credentials, opts ...Strea
 		credentials:            credentials,
 		logger:                 zap.NewNop(),
 		host:                   host,
+		port:                   defaultPort,
 		addresses:              nil,
 		conn:                   nil,
 		stdoutBuffer:           stdoutBuffer,
@@ -204,6 +206,12 @@ func WithTrace(trace trace.CB) StreamerOption {
 func WithAddresses(addresses []net.IP) StreamerOption {
 	return func(h *Streamer) {
 		h.addresses = addresses
+	}
+}
+
+func WithPort(port int) StreamerOption {
+	return func(h *Streamer) {
+		h.port = port
 	}
 }
 

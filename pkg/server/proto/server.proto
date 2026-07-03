@@ -61,12 +61,19 @@ message CMDTraceItem {
   bytes data = 2;
 }
 
+enum StreamerType {
+  StreamerType_unknown = 0;
+  StreamerType_ssh = 1;
+  StreamerType_telnet = 2;
+}
+
 message HostParams {
   string host = 1;
   Credentials credentials = 2;
   int32 port = 3;
   string device = 4;
   string ip = 5;
+  StreamerType streamer_type = 6;
 }
 
 message CMDResult {
