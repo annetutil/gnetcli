@@ -11,12 +11,34 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
+type AuthMethod string
+
+const (
+	AuthMethodPassword  AuthMethod = "password"
+	AuthMethodPublicKey AuthMethod = "public_key"
+	AuthMethodTelnet    AuthMethod = "telnet"
+)
+
+// AuthRequest describes a gswitch authentication attempt.
+type AuthRequest struct {
+	Method    AuthMethod
+	Username  string
+	Password  string
+	PublicKey ssh.PublicKey
+}
+
+// AuthCallback checks a gswitch authentication attempt. Return nil to allow auth.
+type AuthCallback func(AuthRequest) error
+
 // SSHServerOptions configures the mock SSH switch listener.
 type SSHServerOptions struct {
 	Logger *zap.Logger
-	// Username and Password are used for password-based client auth.
+	// Username and Password are used for password-based client auth when AuthCallback is nil.
 	Username string
 	Password string
+	// AuthCallback, when set, is used to validate SSH password, SSH public-key,
+	// and telnet login/password authentication attempts.
+	AuthCallback AuthCallback
 	// ConnectionErrorProb is the probability (0–1) to drop a connection right after accept.
 	ConnectionErrorProb float64
 	// AuthorizedKeys, when non-empty, enables public-key client auth for Username.
@@ -35,15 +57,37 @@ func buildSSHServerConfig(opts SSHServerOptions) (*ssh.ServerConfig, error) {
 	config := &ssh.ServerConfig{
 		ServerVersion: "SSH-gswitch",
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
+			if opts.AuthCallback != nil {
+				err := opts.AuthCallback(AuthRequest{
+					Method:   AuthMethodPassword,
+					Username: c.User(),
+					Password: string(pass),
+				})
+				if err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
 			if c.User() == opts.Username && string(pass) == opts.Password {
 				return nil, nil
 			}
 			return nil, fmt.Errorf("password rejected for %q", c.User())
 		},
 	}
-	if len(opts.AuthorizedKeys) > 0 {
+	if opts.AuthCallback != nil || len(opts.AuthorizedKeys) > 0 {
 		allowed := opts.AuthorizedKeys
 		config.PublicKeyCallback = func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
+			if opts.AuthCallback != nil {
+				err := opts.AuthCallback(AuthRequest{
+					Method:    AuthMethodPublicKey,
+					Username:  c.User(),
+					PublicKey: pubKey,
+				})
+				if err != nil {
+					return nil, err
+				}
+				return nil, nil
+			}
 			if c.User() != opts.Username {
 				return nil, fmt.Errorf("unknown user %q", c.User())
 			}
@@ -71,7 +115,7 @@ func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error
 	if err != nil {
 		return err
 	}
-	conns := newConnections(opts.Username, opts.Password, opts.ConnectionErrorProb)
+	conns := newConnections(opts.Username, opts.Password, opts.AuthCallback, opts.ConnectionErrorProb)
 
 	for {
 		select {
@@ -110,7 +154,7 @@ func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error
 // ServeTelnet accepts Telnet connections on ln until ln is closed or ctx is cancelled.
 func ServeTelnet(ctx context.Context, ln net.Listener, opts SSHServerOptions) error {
 	log := opts.logger()
-	conns := newConnections(opts.Username, opts.Password, opts.ConnectionErrorProb)
+	conns := newConnections(opts.Username, opts.Password, opts.AuthCallback, opts.ConnectionErrorProb)
 
 	for {
 		select {

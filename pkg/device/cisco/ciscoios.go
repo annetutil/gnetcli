@@ -28,7 +28,7 @@ const (
 		`)`
 	passwordExpression      = `.*Password:\s?$`
 	passwordErrorExpression = `\n\% Authentication failed(\r\n|\n)`
-	pagerExpression         = `\r\n --More-- $`
+	pagerExpression         = `\r\n ?--More-- $`
 )
 
 var autoCommands = []cmd.Cmd{

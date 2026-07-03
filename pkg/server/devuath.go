@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 
 	"github.com/annetutil/gnetcli/pkg/credentials"
@@ -31,7 +32,7 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 	}
 	proxyJump := ""
 	controlPath := ""
-	connectHost := host
+	connectHost := ""
 	if len(m.config.ProxyJump) > 0 {
 		proxyJump = m.config.ProxyJump
 	} else if m.config.SshConfig {
@@ -40,6 +41,7 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 		realHost := ssh_config.Get(host, "Hostname")
 		if len(realHost) > 0 {
 			connectHost = realHost
+			ip = netip.Addr{}
 		}
 	}
 	creds, err := m.Get(host)

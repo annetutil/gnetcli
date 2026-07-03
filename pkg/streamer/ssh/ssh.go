@@ -563,12 +563,8 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	passwords := creds.GetPasswords(ctx)
-	if len(passwords) > 0 {
-		auths = append(auths, ssh.RetryableAuthMethod(ssh.PasswordCallback(m.passwordCallbackWrapper(passwords)), len(passwords)))
-		auths = append(auths, ssh.RetryableAuthMethod(ssh.KeyboardInteractive(m.passwordKICallbackWrapper(passwords)), len(passwords)))
-	}
 
+	// Collect public key auth methods first (publickey before password-based methods).
 	var signers []ssh.Signer
 	keys := creds.GetPrivateKeys()
 	for _, pk := range keys {
@@ -615,6 +611,13 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 	}
 	if len(signers) != 0 {
 		auths = append(auths, ssh.PublicKeys(signers...))
+	}
+
+	// Password-based auth methods go last (keyboard-interactive, then password).
+	passwords := creds.GetPasswords(ctx)
+	if len(passwords) > 0 {
+		auths = append(auths, ssh.RetryableAuthMethod(ssh.KeyboardInteractive(m.passwordKICallbackWrapper(passwords)), len(passwords)))
+		auths = append(auths, ssh.RetryableAuthMethod(ssh.PasswordCallback(m.passwordCallbackWrapper(passwords)), len(passwords)))
 	}
 
 	sshConf := ssh.Config{}

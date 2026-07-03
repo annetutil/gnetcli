@@ -60,6 +60,13 @@ func TestHuaweiCallback(t *testing.T) {
 	testutils.ExprTester(t, errorCases, loginCallbackExpression[1:len(loginCallbackExpression)-1])
 }
 
+func TestHuaweiPasswordChangeCallback(t *testing.T) {
+	errorCases := [][]byte{
+		[]byte("\r\nWarning: The initial password poses security risks.\r\nThe password needs to be changed. Change now? [Y/N]:"),
+	}
+	testutils.ExprTester(t, errorCases, passwordChangeCallbackExpression[1:len(passwordChangeCallbackExpression)-1])
+}
+
 func TestPasswordErrorExpression(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("\r\nError: The password is invalid."),

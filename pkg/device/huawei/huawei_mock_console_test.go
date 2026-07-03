@@ -134,6 +134,29 @@ func TestConsole(t *testing.T) {
 			},
 		},
 		{
+			name:    "Test login with initial password change prompt",
+			command: cmd.NewCmd("dis clock"),
+			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
+			dialog: [][]m.Action{
+				{
+					m.Send("\r\n\r\nUsername:"),
+					m.Expect("admin\n"),
+					m.Send("\r\nPassword:"),
+					m.Expect("password1\n"),
+					m.Send("\r\nWarning: The initial password poses security risks.\r\nThe password needs to be changed. Change now? [Y/N]:"),
+					m.Expect("N\n"),
+					m.Send("\r\n"),
+				},
+				everyDayHuaweiHello,
+				{
+					m.Expect("dis clock\n"),
+					m.SendEcho("dis clock\r\n"),
+					m.Send("2024-03-18 17:51:32\r\nMonday\r\nTime Zone(UTC) : UTC\r\n"),
+				},
+				everyDayHuaweiByeBye,
+			},
+		},
+		{
 			name:    "Test password login retry with callback",
 			command: cmd.NewCmd("dis clock"),
 			result:  "2024-03-18 17:51:32\nMonday\nTime Zone(UTC) : UTC",
@@ -214,6 +237,7 @@ func newConsoleDevice(connector streamer.Connector, opts ...genericcli.GenericDe
 		),
 		genericcli.WithLoginCallbacks([]cmd.ExprCallback{
 			cmd.NewExprCallback(loginCallbackExpression, "\n"),
+			cmd.NewExprCallback(passwordChangeCallbackExpression, "N\n"),
 		}),
 		genericcli.WithPager(
 			expr.NewSimpleExprLast200().FromPattern(pagerExpression),
