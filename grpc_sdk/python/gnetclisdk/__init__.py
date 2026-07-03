@@ -6,6 +6,7 @@ from .client import (
     Gnetcli,
     HostParams,
     QA,
+    STREAMER_UNKNOWN,
     STREAMER_SSH,
     STREAMER_TELNET,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "Gnetcli",
     "HostParams",
     "QA",
+    "STREAMER_UNKNOWN",
     "STREAMER_SSH",
     "STREAMER_TELNET",
     "DeviceConnectError",

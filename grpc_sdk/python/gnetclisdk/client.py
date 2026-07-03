@@ -25,6 +25,7 @@ DEFAULT_SERVER = "localhost:50051"
 SERVER_ENV = "GNETCLI_SERVER"
 GRPC_MAX_MESSAGE_LENGTH = 130 * 1024**2
 
+STREAMER_UNKNOWN = server_pb2.StreamerType_unknown
 STREAMER_SSH = server_pb2.StreamerType_ssh
 STREAMER_TELNET = server_pb2.StreamerType_telnet
 
@@ -87,7 +88,7 @@ class HostParams:
             credentials=creds_pb,
             device=self.device,
             ip=self.ip,
-            streamer_type=self.streamer_type if self.streamer_type is not None else server_pb2.StreamerType_ssh,
+            streamer_type=self.streamer_type if self.streamer_type is not None else server_pb2.StreamerType_unknown,
         )
         return pbcmd
 
@@ -253,7 +254,7 @@ class Gnetcli:
             credentials=params.credentials.make_pb(),
             device=params.device,
             ip=params.ip,
-            streamer_type=params.streamer_type if params.streamer_type is not None else server_pb2.StreamerType_ssh,
+            streamer_type=params.streamer_type if params.streamer_type is not None else server_pb2.StreamerType_unknown,
         )
         _logger.debug("connect to %s", self._server)
         async with self._grpc_channel_fn(self._server, options=self._options) as channel:

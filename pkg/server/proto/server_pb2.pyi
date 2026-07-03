@@ -24,6 +24,7 @@ class DeviceResultStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
 
 class StreamerType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
+    StreamerType_unknown: _ClassVar[StreamerType]
     StreamerType_ssh: _ClassVar[StreamerType]
     StreamerType_telnet: _ClassVar[StreamerType]
 
@@ -41,6 +42,7 @@ Operation_read: TraceOperation
 Device_notset: DeviceResultStatus
 Device_ok: DeviceResultStatus
 Device_error: DeviceResultStatus
+StreamerType_unknown: StreamerType
 StreamerType_ssh: StreamerType
 StreamerType_telnet: StreamerType
 FileStatus_notset: FileStatus
