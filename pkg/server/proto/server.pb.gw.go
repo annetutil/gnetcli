@@ -10,7 +10,6 @@ package gnetcli
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net/http"
 
@@ -25,90 +24,85 @@ import (
 )
 
 // Suppress "imported and not used" errors
-var (
-	_ codes.Code
-	_ io.Reader
-	_ status.Status
-	_ = errors.New
-	_ = runtime.String
-	_ = utilities.NewDoubleArray
-	_ = metadata.Join
-)
+var _ codes.Code
+var _ io.Reader
+var _ status.Status
+var _ = runtime.String
+var _ = utilities.NewDoubleArray
+var _ = metadata.Join
 
 func request_Gnetcli_SetupHostParams_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq HostParams
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq HostParams
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
+
 	msg, err := client.SetupHostParams(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_Gnetcli_SetupHostParams_0(ctx context.Context, marshaler runtime.Marshaler, server GnetcliServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq HostParams
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq HostParams
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.SetupHostParams(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 func request_Gnetcli_Exec_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq CMD
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq CMD
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
+
 	msg, err := client.Exec(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_Gnetcli_Exec_0(ctx context.Context, marshaler runtime.Marshaler, server GnetcliServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq CMD
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq CMD
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.Exec(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 func request_Gnetcli_ExecChat_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (Gnetcli_ExecChatClient, runtime.ServerMetadata, error) {
 	var metadata runtime.ServerMetadata
 	stream, err := client.ExecChat(ctx)
 	if err != nil {
-		grpclog.Errorf("Failed to start streaming: %v", err)
+		grpclog.Infof("Failed to start streaming: %v", err)
 		return nil, metadata, err
 	}
 	dec := marshaler.NewDecoder(req.Body)
 	handleSend := func() error {
 		var protoReq CMD
 		err := dec.Decode(&protoReq)
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			return err
 		}
 		if err != nil {
-			grpclog.Errorf("Failed to decode request: %v", err)
-			return status.Errorf(codes.InvalidArgument, "Failed to decode request: %v", err)
+			grpclog.Infof("Failed to decode request: %v", err)
+			return err
 		}
 		if err := stream.Send(&protoReq); err != nil {
-			grpclog.Errorf("Failed to send request: %v", err)
+			grpclog.Infof("Failed to send request: %v", err)
 			return err
 		}
 		return nil
@@ -120,12 +114,12 @@ func request_Gnetcli_ExecChat_0(ctx context.Context, marshaler runtime.Marshaler
 			}
 		}
 		if err := stream.CloseSend(); err != nil {
-			grpclog.Errorf("Failed to terminate client stream: %v", err)
+			grpclog.Infof("Failed to terminate client stream: %v", err)
 		}
 	}()
 	header, err := stream.Header()
 	if err != nil {
-		grpclog.Errorf("Failed to get header from client: %v", err)
+		grpclog.Infof("Failed to get header from client: %v", err)
 		return nil, metadata, err
 	}
 	metadata.HeaderMD = header
@@ -133,79 +127,77 @@ func request_Gnetcli_ExecChat_0(ctx context.Context, marshaler runtime.Marshaler
 }
 
 func request_Gnetcli_AddDevice_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq Device
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq Device
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
+
 	msg, err := client.AddDevice(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_Gnetcli_AddDevice_0(ctx context.Context, marshaler runtime.Marshaler, server GnetcliServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq Device
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq Device
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.AddDevice(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 func request_Gnetcli_ExecNetconf_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq CMDNetconf
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq CMDNetconf
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
+
 	msg, err := client.ExecNetconf(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_Gnetcli_ExecNetconf_0(ctx context.Context, marshaler runtime.Marshaler, server GnetcliServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq CMDNetconf
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq CMDNetconf
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.ExecNetconf(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 func request_Gnetcli_ExecNetconfChat_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (Gnetcli_ExecNetconfChatClient, runtime.ServerMetadata, error) {
 	var metadata runtime.ServerMetadata
 	stream, err := client.ExecNetconfChat(ctx)
 	if err != nil {
-		grpclog.Errorf("Failed to start streaming: %v", err)
+		grpclog.Infof("Failed to start streaming: %v", err)
 		return nil, metadata, err
 	}
 	dec := marshaler.NewDecoder(req.Body)
 	handleSend := func() error {
 		var protoReq CMDNetconf
 		err := dec.Decode(&protoReq)
-		if errors.Is(err, io.EOF) {
+		if err == io.EOF {
 			return err
 		}
 		if err != nil {
-			grpclog.Errorf("Failed to decode request: %v", err)
-			return status.Errorf(codes.InvalidArgument, "Failed to decode request: %v", err)
+			grpclog.Infof("Failed to decode request: %v", err)
+			return err
 		}
 		if err := stream.Send(&protoReq); err != nil {
-			grpclog.Errorf("Failed to send request: %v", err)
+			grpclog.Infof("Failed to send request: %v", err)
 			return err
 		}
 		return nil
@@ -217,12 +209,12 @@ func request_Gnetcli_ExecNetconfChat_0(ctx context.Context, marshaler runtime.Ma
 			}
 		}
 		if err := stream.CloseSend(); err != nil {
-			grpclog.Errorf("Failed to terminate client stream: %v", err)
+			grpclog.Infof("Failed to terminate client stream: %v", err)
 		}
 	}()
 	header, err := stream.Header()
 	if err != nil {
-		grpclog.Errorf("Failed to get header from client: %v", err)
+		grpclog.Infof("Failed to get header from client: %v", err)
 		return nil, metadata, err
 	}
 	metadata.HeaderMD = header
@@ -230,72 +222,72 @@ func request_Gnetcli_ExecNetconfChat_0(ctx context.Context, marshaler runtime.Ma
 }
 
 func request_Gnetcli_Download_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq FileDownloadRequest
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq FileDownloadRequest
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
+
 	msg, err := client.Download(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_Gnetcli_Download_0(ctx context.Context, marshaler runtime.Marshaler, server GnetcliServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq FileDownloadRequest
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq FileDownloadRequest
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.Download(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 func request_Gnetcli_Upload_0(ctx context.Context, marshaler runtime.Marshaler, client GnetcliClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq FileUploadRequest
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq FileUploadRequest
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if req.Body != nil {
-		_, _ = io.Copy(io.Discard, req.Body)
-	}
+
 	msg, err := client.Upload(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
+
 }
 
 func local_request_Gnetcli_Upload_0(ctx context.Context, marshaler runtime.Marshaler, server GnetcliServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var (
-		protoReq FileUploadRequest
-		metadata runtime.ServerMetadata
-	)
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+	var protoReq FileUploadRequest
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
+
 	msg, err := server.Upload(ctx, &protoReq)
 	return msg, metadata, err
+
 }
 
 // RegisterGnetcliHandlerServer registers the http handlers for service Gnetcli to "mux".
 // UnaryRPC     :call GnetcliServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterGnetcliHandlerFromEndpoint instead.
-// GRPC interceptors will not work for this type of registration. To use interceptors, you must use the "runtime.WithMiddlewares" option in the "runtime.NewServeMux" call.
 func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, server GnetcliServer) error {
-	mux.Handle(http.MethodPost, pattern_Gnetcli_SetupHostParams_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_SetupHostParams_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/SetupHostParams", runtime.WithHTTPPathPattern("/api/v1/setup_host_params"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/SetupHostParams", runtime.WithHTTPPathPattern("/api/v1/setup_host_params"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -307,15 +299,20 @@ func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_SetupHostParams_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_Exec_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_Exec_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/Exec", runtime.WithHTTPPathPattern("/api/v1/exec"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/Exec", runtime.WithHTTPPathPattern("/api/v1/exec"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -327,22 +324,27 @@ func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_Exec_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
-	mux.Handle(http.MethodPost, pattern_Gnetcli_ExecChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_Gnetcli_ExecChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 		return
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_AddDevice_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_AddDevice_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/AddDevice", runtime.WithHTTPPathPattern("/api/v1/add_device"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/AddDevice", runtime.WithHTTPPathPattern("/api/v1/add_device"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -354,15 +356,20 @@ func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_AddDevice_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_ExecNetconf_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_ExecNetconf_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecNetconf", runtime.WithHTTPPathPattern("/api/v1/exec_netconf"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecNetconf", runtime.WithHTTPPathPattern("/api/v1/exec_netconf"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -374,22 +381,27 @@ func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_ExecNetconf_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
-	mux.Handle(http.MethodPost, pattern_Gnetcli_ExecNetconfChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_Gnetcli_ExecNetconfChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 		return
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_Download_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_Download_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/Download", runtime.WithHTTPPathPattern("/api/v1/downloads"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/Download", runtime.WithHTTPPathPattern("/api/v1/downloads"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -401,15 +413,20 @@ func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_Download_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_Upload_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_Upload_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/Upload", runtime.WithHTTPPathPattern("/api/v1/upload"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/gnetcli.Gnetcli/Upload", runtime.WithHTTPPathPattern("/api/v1/upload"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -421,7 +438,9 @@ func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_Upload_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
 
 	return nil
@@ -430,24 +449,25 @@ func RegisterGnetcliHandlerServer(ctx context.Context, mux *runtime.ServeMux, se
 // RegisterGnetcliHandlerFromEndpoint is same as RegisterGnetcliHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
 func RegisterGnetcliHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
-	conn, err := grpc.NewClient(endpoint, opts...)
+	conn, err := grpc.DialContext(ctx, endpoint, opts...)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err != nil {
 			if cerr := conn.Close(); cerr != nil {
-				grpclog.Errorf("Failed to close conn to %s: %v", endpoint, cerr)
+				grpclog.Infof("Failed to close conn to %s: %v", endpoint, cerr)
 			}
 			return
 		}
 		go func() {
 			<-ctx.Done()
 			if cerr := conn.Close(); cerr != nil {
-				grpclog.Errorf("Failed to close conn to %s: %v", endpoint, cerr)
+				grpclog.Infof("Failed to close conn to %s: %v", endpoint, cerr)
 			}
 		}()
 	}()
+
 	return RegisterGnetcliHandler(ctx, mux, conn)
 }
 
@@ -461,13 +481,16 @@ func RegisterGnetcliHandler(ctx context.Context, mux *runtime.ServeMux, conn *gr
 // to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "GnetcliClient".
 // Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "GnetcliClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "GnetcliClient" to call the correct interceptors. This client ignores the HTTP middlewares.
+// "GnetcliClient" to call the correct interceptors.
 func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, client GnetcliClient) error {
-	mux.Handle(http.MethodPost, pattern_Gnetcli_SetupHostParams_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_SetupHostParams_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/SetupHostParams", runtime.WithHTTPPathPattern("/api/v1/setup_host_params"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/SetupHostParams", runtime.WithHTTPPathPattern("/api/v1/setup_host_params"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -478,13 +501,18 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_SetupHostParams_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_Exec_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_Exec_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/Exec", runtime.WithHTTPPathPattern("/api/v1/exec"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/Exec", runtime.WithHTTPPathPattern("/api/v1/exec"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -495,13 +523,18 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_Exec_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_ExecChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_ExecChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecChat", runtime.WithHTTPPathPattern("/gnetcli.Gnetcli/ExecChat"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecChat", runtime.WithHTTPPathPattern("/gnetcli.Gnetcli/ExecChat"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -512,13 +545,18 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_ExecChat_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_AddDevice_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_AddDevice_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/AddDevice", runtime.WithHTTPPathPattern("/api/v1/add_device"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/AddDevice", runtime.WithHTTPPathPattern("/api/v1/add_device"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -529,13 +567,18 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_AddDevice_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_ExecNetconf_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_ExecNetconf_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecNetconf", runtime.WithHTTPPathPattern("/api/v1/exec_netconf"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecNetconf", runtime.WithHTTPPathPattern("/api/v1/exec_netconf"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -546,13 +589,18 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_ExecNetconf_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_ExecNetconfChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_ExecNetconfChat_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecNetconfChat", runtime.WithHTTPPathPattern("/gnetcli.Gnetcli/ExecNetconfChat"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/ExecNetconfChat", runtime.WithHTTPPathPattern("/gnetcli.Gnetcli/ExecNetconfChat"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -563,13 +611,18 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_ExecNetconfChat_0(annotatedContext, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_Download_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_Download_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/Download", runtime.WithHTTPPathPattern("/api/v1/downloads"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/Download", runtime.WithHTTPPathPattern("/api/v1/downloads"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -580,13 +633,18 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_Download_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
-	mux.Handle(http.MethodPost, pattern_Gnetcli_Upload_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+
+	mux.Handle("POST", pattern_Gnetcli_Upload_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/Upload", runtime.WithHTTPPathPattern("/api/v1/upload"))
+		var err error
+		var annotatedContext context.Context
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/gnetcli.Gnetcli/Upload", runtime.WithHTTPPathPattern("/api/v1/upload"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -597,29 +655,46 @@ func RegisterGnetcliHandlerClient(ctx context.Context, mux *runtime.ServeMux, cl
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
+
 		forward_Gnetcli_Upload_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
 	})
+
 	return nil
 }
 
 var (
 	pattern_Gnetcli_SetupHostParams_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "setup_host_params"}, ""))
-	pattern_Gnetcli_Exec_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "exec"}, ""))
-	pattern_Gnetcli_ExecChat_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"gnetcli.Gnetcli", "ExecChat"}, ""))
-	pattern_Gnetcli_AddDevice_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "add_device"}, ""))
-	pattern_Gnetcli_ExecNetconf_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "exec_netconf"}, ""))
+
+	pattern_Gnetcli_Exec_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "exec"}, ""))
+
+	pattern_Gnetcli_ExecChat_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"gnetcli.Gnetcli", "ExecChat"}, ""))
+
+	pattern_Gnetcli_AddDevice_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "add_device"}, ""))
+
+	pattern_Gnetcli_ExecNetconf_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "exec_netconf"}, ""))
+
 	pattern_Gnetcli_ExecNetconfChat_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"gnetcli.Gnetcli", "ExecNetconfChat"}, ""))
-	pattern_Gnetcli_Download_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "downloads"}, ""))
-	pattern_Gnetcli_Upload_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "upload"}, ""))
+
+	pattern_Gnetcli_Download_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "downloads"}, ""))
+
+	pattern_Gnetcli_Upload_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "upload"}, ""))
 )
 
 var (
 	forward_Gnetcli_SetupHostParams_0 = runtime.ForwardResponseMessage
-	forward_Gnetcli_Exec_0            = runtime.ForwardResponseMessage
-	forward_Gnetcli_ExecChat_0        = runtime.ForwardResponseStream
-	forward_Gnetcli_AddDevice_0       = runtime.ForwardResponseMessage
-	forward_Gnetcli_ExecNetconf_0     = runtime.ForwardResponseMessage
+
+	forward_Gnetcli_Exec_0 = runtime.ForwardResponseMessage
+
+	forward_Gnetcli_ExecChat_0 = runtime.ForwardResponseStream
+
+	forward_Gnetcli_AddDevice_0 = runtime.ForwardResponseMessage
+
+	forward_Gnetcli_ExecNetconf_0 = runtime.ForwardResponseMessage
+
 	forward_Gnetcli_ExecNetconfChat_0 = runtime.ForwardResponseStream
-	forward_Gnetcli_Download_0        = runtime.ForwardResponseMessage
-	forward_Gnetcli_Upload_0          = runtime.ForwardResponseMessage
+
+	forward_Gnetcli_Download_0 = runtime.ForwardResponseMessage
+
+	forward_Gnetcli_Upload_0 = runtime.ForwardResponseMessage
 )
