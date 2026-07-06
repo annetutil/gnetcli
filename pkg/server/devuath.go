@@ -68,6 +68,7 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 		creds, params.GetDevice(),
 		cfg.ip, port,
 		cfg.proxyJump, cfg.controlPath, cfg.connectHost,
+		params.GetStreamerType(),
 	), nil
 }
 
