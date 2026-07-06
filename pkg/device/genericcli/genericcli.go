@@ -463,17 +463,22 @@ func (m *GenericDevice) SetCLIConnectTimeout(timeout time.Duration) time.Duratio
 	return m.cli.SetConnectTimeout(timeout)
 }
 
+func writeLoginLine(connector streamer.Connector, cli GenericCLI, payload []byte) error {
+	if err := connector.Write(payload); err != nil {
+		return err
+	}
+	if len(cli.writeNewline) > 0 {
+		if err := connector.Write(cli.writeNewline); err != nil {
+			return fmt.Errorf("write error %w", err)
+		}
+	}
+	return nil
+}
+
 func genericLogin(ctx context.Context, connector streamer.Connector, cli GenericCLI) (err error) {
 	if cli.login == nil {
 		return errors.New("login Expr is not set but required for login procedure")
 	}
-
-	passwords := connector.GetCredentials().GetPasswords(ctx)
-	if len(passwords) == 0 {
-		return errors.New("empty password")
-	}
-
-	i := 0
 	checkExprs := []expr.NamedExpr{
 		{Name: loginExprName, Exprs: []expr.Expr{cli.login}},
 		{Name: passwordExprName, Exprs: []expr.Expr{cli.password}},
@@ -491,7 +496,10 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		})
 	}
 
-	for i < len(passwords) {
+	passwords := connector.GetCredentials().GetPasswords(ctx)
+	passwordIdx := 0
+
+	for {
 		exprsLogin := expr.NewSimpleExprListNamedOrdered(checkExprs)
 		readResLogin, err := connector.ReadTo(ctx, exprsLogin)
 		if err != nil {
@@ -505,36 +513,27 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 			if err != nil {
 				return err
 			}
-
-			err = connector.Write([]byte(username))
-			if err != nil {
+			if err := writeLoginLine(connector, cli, []byte(username)); err != nil {
 				return err
 			}
-			newline := cli.writeNewline
-			if len(newline) > 0 {
-				err := connector.Write(newline)
-				if err != nil {
-					return fmt.Errorf("write error %w", err)
-				}
-			}
+
 		case passwordExprName:
-			err = connector.Write([]byte(passwords[i].Value()))
-			if err != nil {
+			if passwordIdx >= len(passwords) {
+				if len(passwords) == 0 {
+					return fmt.Errorf("no passwords supplied")
+				}
+				return gerror.NewAuthException("cli auth user")
+			}
+			password := []byte(passwords[passwordIdx].Value())
+			if err := writeLoginLine(connector, cli, password); err != nil {
 				return err
 			}
-			newline := cli.writeNewline
-			if len(newline) > 0 {
-				err := connector.Write(newline)
-				if err != nil {
-					return fmt.Errorf("write error %w", err)
-				}
-			}
-			i++
-
+			passwordIdx++
 		case passwdErrExprName:
-			continue
-		case promptExprName:
-			return nil
+			if passwordIdx >= len(passwords) {
+				return gerror.NewAuthException("cli auth user")
+			}
+
 		case cbExprName:
 			var ans []byte
 			for _, v := range cli.loginCB {
@@ -547,21 +546,12 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 			if err != nil {
 				return fmt.Errorf("write error %w", err)
 			}
+
+		case promptExprName:
+			// got prompt (logged in)
+			return nil
 		}
 	}
-	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
-	readResLogin, err := connector.ReadTo(ctx, exprs)
-	if err != nil {
-		return err
-	}
-
-	matchedExprNameLogin := exprs.GetName(readResLogin.GetPatternNo())
-	if matchedExprNameLogin == promptExprName {
-		return nil
-	}
-
-	return gerror.NewAuthException("cli auth user")
-
 }
 
 func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI, logger *zap.Logger) (cmd.CmdRes, error) {

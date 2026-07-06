@@ -34,7 +34,16 @@ func (s *CLISession) handleLoginCommand() error {
 	if err != nil {
 		return err
 	}
-	if username != s.state.username || password != s.state.password {
+	if s.state.authCallback != nil {
+		err = s.state.authCallback(AuthRequest{
+			Method:   AuthMethodTelnet,
+			Username: username,
+			Password: password,
+		})
+		if err != nil {
+			return err
+		}
+	} else if username != s.state.username || password != s.state.password {
 		return fmt.Errorf("auth failed")
 	}
 	s.state.authenticated = true
