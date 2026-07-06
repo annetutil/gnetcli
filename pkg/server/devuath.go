@@ -7,7 +7,6 @@ import (
 
 	"github.com/annetutil/gnetcli/pkg/credentials"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
-	"github.com/kevinburke/ssh_config"
 	"go.uber.org/zap"
 )
 
@@ -21,35 +20,56 @@ type authAppConfig struct {
 }
 
 type authApp struct {
-	config authAppConfig
-	log    *zap.Logger
+	config    authAppConfig
+	log       *zap.Logger
+	sshConfig sshConfigReader
+}
+
+type proxyConfig struct {
+	proxyJump   string
+	controlPath string
+	connectHost string
+	ip          netip.Addr
+}
+
+func (m authApp) resolveProxyConfig(host string, ip netip.Addr) proxyConfig {
+	cfg := proxyConfig{ip: ip}
+
+	// Priority: explicit ProxyJump from app config > SSH config settings
+	if len(m.config.ProxyJump) > 0 {
+		cfg.proxyJump = m.config.ProxyJump
+	} else if m.config.SshConfig && m.sshConfig != nil {
+		// Read all SSH config settings when enabled
+		cfg.proxyJump = m.sshConfig.Get(host, "ProxyJump")
+		cfg.controlPath = m.sshConfig.Get(host, "ControlPath")
+		if realHost := m.sshConfig.Get(host, "Hostname"); len(realHost) > 0 {
+			cfg.connectHost = realHost
+			// Clear IP to ensure we connect to Hostname from config, not IP received from client
+			cfg.ip = netip.Addr{}
+		}
+	}
+	return cfg
 }
 
 func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, error) {
 	ip, port, err := makeHostConnectionParams(params)
 	if err != nil {
-		return hostParams{}, err
+		return hostParams{}, fmt.Errorf("host connection params: %w", err)
 	}
-	proxyJump := ""
-	controlPath := ""
-	connectHost := ""
-	if len(m.config.ProxyJump) > 0 {
-		proxyJump = m.config.ProxyJump
-	} else if m.config.SshConfig {
-		proxyJump = ssh_config.Get(host, "ProxyJump")
-		controlPath = ssh_config.Get(host, "ControlPath")
-		realHost := ssh_config.Get(host, "Hostname")
-		if len(realHost) > 0 {
-			connectHost = realHost
-			ip = netip.Addr{}
-		}
-	}
+
+	cfg := m.resolveProxyConfig(host, ip)
+
 	creds, err := m.Get(host)
 	if err != nil {
-		return hostParams{}, err
+		return hostParams{}, fmt.Errorf("get credentials for %q: %w", host, err)
 	}
-	res := NewHostParams(creds, params.GetDevice(), ip, port, proxyJump, controlPath, connectHost, params.GetStreamerType())
-	return res, nil
+
+	return NewHostParams(
+		creds, params.GetDevice(),
+		cfg.ip, port,
+		cfg.proxyJump, cfg.controlPath, cfg.connectHost,
+		params.GetStreamerType(),
+	), nil
 }
 
 func (m authApp) Get(host string) (credentials.Credentials, error) {
@@ -90,5 +110,9 @@ func (m authApp) Get(host string) (credentials.Credentials, error) {
 }
 
 func NewAuthApp(config authAppConfig, logger *zap.Logger) authApp {
-	return authApp{config: config, log: logger}
+	return authApp{
+		config:    config,
+		log:       logger,
+		sshConfig: realSSHConfigReader{},
+	}
 }
