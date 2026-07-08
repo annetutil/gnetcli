@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"strconv"
 	"sync/atomic"
 
 	"go.uber.org/zap"
@@ -107,7 +108,7 @@ func (c *connections) handleDirectTCPIPChannel(ctx context.Context, newChannel s
 		newChannel.Reject(ssh.ConnectionFailed, fmt.Sprintf("invalid direct-tcpip data: %s", err))
 		return
 	}
-	remoteAddr := fmt.Sprintf("%s:%d", channelData.RAddr, channelData.RPort)
+	remoteAddr := net.JoinHostPort(channelData.RAddr, strconv.Itoa(int(channelData.RPort)))
 	remoteConn, err := net.Dial("tcp", remoteAddr)
 	if err != nil {
 		newChannel.Reject(ssh.ConnectionFailed, err.Error())
