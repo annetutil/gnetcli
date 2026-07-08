@@ -56,36 +56,93 @@ func (c *connections) handleSSHConnection(ctx context.Context, tcpConn net.Conn,
 	go ssh.DiscardRequests(reqs)
 
 	for newChannel := range chans {
-		if newChannel.ChannelType() != "session" {
+		switch newChannel.ChannelType() {
+		case "session":
+			c.handleSessionChannel(ctx, newChannel, logger)
+		case "direct-tcpip":
+			c.handleDirectTCPIPChannel(ctx, newChannel, logger)
+		default:
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
-			continue
 		}
-
-		channel, requests, err := newChannel.Accept()
-		if err != nil {
-			logger.Error("could not accept channel", zap.Error(err))
-			continue
-		}
-
-		go func() {
-			defer channel.Close()
-
-			go func() {
-				for req := range requests {
-					req.Reply(req.Type == "shell" || req.Type == "pty-req", nil)
-				}
-			}()
-
-			logger.Debug("start CLI session")
-			session := NewCLISession(channel, c.username, c.password, logger, vendors["cisco"])
-			err := session.Run(ctx)
-			if err != nil {
-				logger.Debug("CLI session ended", zap.Error(err))
-			}
-		}()
 	}
 
 	return nil
+}
+
+func (c *connections) handleSessionChannel(ctx context.Context, newChannel ssh.NewChannel, logger *zap.Logger) {
+	channel, requests, err := newChannel.Accept()
+	if err != nil {
+		logger.Error("could not accept channel", zap.Error(err))
+		return
+	}
+
+	go func() {
+		defer channel.Close()
+
+		go func() {
+			for req := range requests {
+				req.Reply(req.Type == "shell" || req.Type == "pty-req" || req.Type == "auth-agent-req@openssh.com", nil)
+			}
+		}()
+
+		logger.Debug("start CLI session")
+		session := NewCLISession(channel, c.username, c.password, logger, vendors["cisco"])
+		err := session.Run(ctx)
+		if err != nil {
+			logger.Debug("CLI session ended", zap.Error(err))
+		}
+	}()
+}
+
+type directTCPIPChannelData struct {
+	RAddr string
+	RPort uint32
+	LAddr string
+	LPort uint32
+}
+
+func (c *connections) handleDirectTCPIPChannel(ctx context.Context, newChannel ssh.NewChannel, logger *zap.Logger) {
+	var channelData directTCPIPChannelData
+	if err := ssh.Unmarshal(newChannel.ExtraData(), &channelData); err != nil {
+		newChannel.Reject(ssh.ConnectionFailed, fmt.Sprintf("invalid direct-tcpip data: %s", err))
+		return
+	}
+	remoteAddr := fmt.Sprintf("%s:%d", channelData.RAddr, channelData.RPort)
+	remoteConn, err := net.Dial("tcp", remoteAddr)
+	if err != nil {
+		newChannel.Reject(ssh.ConnectionFailed, err.Error())
+		return
+	}
+
+	channel, requests, err := newChannel.Accept()
+	if err != nil {
+		_ = remoteConn.Close()
+		logger.Error("could not accept direct-tcpip channel", zap.Error(err))
+		return
+	}
+	go ssh.DiscardRequests(requests)
+
+	go func() {
+		defer channel.Close()
+		defer remoteConn.Close()
+
+		logger.Debug("start direct-tcpip", zap.String("remote", remoteAddr))
+		copyDone := make(chan struct{}, 2)
+		go func() {
+			_, _ = io.Copy(channel, remoteConn)
+			copyDone <- struct{}{}
+		}()
+		go func() {
+			_, _ = io.Copy(remoteConn, channel)
+			copyDone <- struct{}{}
+		}()
+
+		select {
+		case <-ctx.Done():
+		case <-copyDone:
+		}
+		logger.Debug("direct-tcpip closed", zap.String("remote", remoteAddr))
+	}()
 }
 
 // TelnetConnection implements ssh.Channel over a Telnet TCP connection.

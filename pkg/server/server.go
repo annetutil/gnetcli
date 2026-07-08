@@ -232,8 +232,11 @@ func (m *Server) createStreamerSSH(cfg StreamerConfig, add func(op gtrace.Operat
 		if len(jumpHostParams.controlPath) > 0 {
 			opts = append(opts, ssh.SSHTunnelWithControlFIle(jumpHostParams.controlPath))
 		}
-
+		if jumpHostParams.port > 0 {
+			opts = append(opts, ssh.SSHTunnelWithPort(jumpHostParams.port))
+		}
 		connHost = cfg.params.host
+
 		tun := ssh.NewSSHTunnel(jumpHostParams.host, jumpHostParams.GetCredentials(), opts...)
 
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -585,6 +588,9 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 	}
 	if defaultHostParams.controlPath != "" {
 		res.controlPath = defaultHostParams.controlPath
+	}
+	if defaultHostParams.port != 0 {
+		res.port = defaultHostParams.port
 	}
 	if defaultHostParams.host != "" {
 		res.host = defaultHostParams.host
