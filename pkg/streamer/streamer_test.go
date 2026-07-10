@@ -96,9 +96,12 @@ func TestGenericReadXCtxDoneFlushChannel(t *testing.T) {
 	_, _, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, pat, 0, 0)
 	require.Error(t, err)
 
+	require.ErrorIs(t, err, context.Canceled)
 	var rt *ReadTimeoutException
 	require.True(t, errors.As(err, &rt))
 	require.Equal(t, "pending in channel", string(rt.LastRead))
+	require.ErrorIs(t, rt.Cause, context.Canceled)
+	require.Equal(t, `read timeout error caused by context canceled. last seen: "pending in channel"`, err.Error())
 	require.Empty(t, ch, "channel should be drained")
 }
 
