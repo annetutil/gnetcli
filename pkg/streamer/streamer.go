@@ -16,7 +16,6 @@ import (
 	"github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/trace"
-	"go.uber.org/multierr"
 	"go.uber.org/zap"
 )
 
@@ -268,7 +267,7 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 		case <-ctx.Done():
 			StopTimer(maxDurationTimeout)
 			buffer = append(buffer, flushCh(readCh)...)
-			return nil, buffer, buffer[len(inBuffer):], multierr.Combine(ctx.Err(), ThrowReadTimeoutException(GetLastBytes(buffer, readSize)))
+			return nil, buffer, buffer[len(inBuffer):], ThrowReadTimeoutException(GetLastBytes(buffer, readSize), ctx.Err())
 		default:
 		}
 		readIterTimeout := NewTimerWithDefault(readTimeout)
@@ -300,7 +299,7 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 			StopTimer(readIterTimeout)
 			StopTimer(maxDurationTimeout)
 			buffer = append(buffer, flushCh(readCh)...)
-			return nil, buffer, buffer[len(inBuffer):], multierr.Combine(ctx.Err(), ThrowReadTimeoutException(GetLastBytes(buffer, readSize)))
+			return nil, buffer, buffer[len(inBuffer):], ThrowReadTimeoutException(GetLastBytes(buffer, readSize), ctx.Err())
 		case readData, ok := <-readCh:
 			StopTimer(readIterTimeout)
 			if ok {

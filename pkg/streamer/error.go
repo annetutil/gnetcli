@@ -6,10 +6,18 @@ import (
 
 type ReadTimeoutException struct {
 	LastRead []byte
+	Cause    error
 }
 
 func (m *ReadTimeoutException) Error() string {
+	if m.Cause != nil {
+		return fmt.Sprintf("read timeout error caused by %v. last seen: %q", m.Cause, string(m.LastRead))
+	}
 	return fmt.Sprintf("read timeout error. last seen: %q", string(m.LastRead))
+}
+
+func (m *ReadTimeoutException) Unwrap() error {
+	return m.Cause
 }
 
 func (m *ReadTimeoutException) Is(target error) bool {
@@ -34,8 +42,12 @@ func (m *EOFException) Is(target error) bool {
 	return false
 }
 
-func ThrowReadTimeoutException(lastRead []byte) error {
-	return &ReadTimeoutException{LastRead: lastRead}
+func ThrowReadTimeoutException(lastRead []byte, cause ...error) error {
+	var err error
+	if len(cause) > 0 {
+		err = cause[0]
+	}
+	return &ReadTimeoutException{LastRead: lastRead, Cause: err}
 }
 
 func ThrowEOFException(lastRead []byte) error {
