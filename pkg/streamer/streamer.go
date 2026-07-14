@@ -320,13 +320,13 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 					}
 				}
 			}
-			if !ok {
-				return NewReadXRes(EOF, buffer, nil, []byte{}), buffer, buffer[len(inBuffer):], nil
-			}
-		case <-maxDurationTimeout.C:
-			// check maxDuration
-			StopTimer(readIterTimeout)
-			return NewReadXRes(Timeout, buffer, nil, []byte{}), buffer, buffer[len(inBuffer):], nil
+		if !ok {
+			return NewReadXRes(EOF, buffer, nil, []byte{}), []byte{}, buffer[len(inBuffer):], nil
+		}
+	case <-maxDurationTimeout.C:
+		// check maxDuration
+		StopTimer(readIterTimeout)
+		return NewReadXRes(Timeout, buffer, nil, []byte{}), []byte{}, buffer[len(inBuffer):], nil
 		case <-readIterTimeout.C:
 			StopTimer(maxDurationTimeout)
 			buffer = append(buffer, flushCh(readCh)...)
