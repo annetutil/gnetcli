@@ -105,6 +105,21 @@ func TestGenericReadXCtxDoneFlushChannel(t *testing.T) {
 	require.Empty(t, ch, "channel should be drained")
 }
 
+func TestGenericReadXTimeoutNoExtraLeak(t *testing.T) {
+	// Regression: on Timeout, extra must be empty so the next XRead call does not
+	// replay the same buffered data, which would produce duplicate console output.
+	ch := make(chan []byte, 1)
+	ch <- []byte("hello")
+	ctx := context.Background()
+	pat := expr.NewSimpleExpr().FromPattern("never-matches")
+	// readTimeout > maxDuration so that maxDurationTimeout fires first (Timeout path).
+	res, extra, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, pat, 0, 50*time.Millisecond)
+	require.NoError(t, err)
+	assert.Equal(t, Timeout, res.RetType)
+	assert.Equal(t, []byte("hello"), res.BytesRes)
+	assert.Empty(t, extra, "extra must be empty after timeout to prevent replaying data on next read")
+}
+
 func TestGenericSplitBytes(t *testing.T) {
 	a, b := splitBytes([]byte("1234"), 2)
 	assert.Equal(t, []byte("12"), a)
