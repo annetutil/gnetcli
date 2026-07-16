@@ -9,9 +9,10 @@ import (
 const (
 	promptExpression = `(\r\n)?(?P<prompt>[\w\-():]+) ?# $`
 	errorExpression  = `(` +
-		`% (Parse error|Incomplete command)` + `|` +
-		`(^|\n)WriteFlash .+` + `|` +
-		`(^|\n).+: ?WriteApFlash unsuccessful.+` +
+		`% (Parse error|Incomplete command)` +
+		`|(^|\n)WriteFlash .+` +
+		`|(^|\n).+: ?WriteApFlash unsuccessful.+` +
+		`|(^|\n)(Write memory|Configuration) is not allowed when CLI is running in a degraded state.($|\r?\n)` +
 		`)`
 	passwordExpression      = `.*Password: $`
 	loginExpression         = `.*User: $`

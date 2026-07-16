@@ -48,3 +48,11 @@ func TestWriteFlashFail(t *testing.T) {
 	}
 	testutils.ExprTester(t, cases, errorExpression)
 }
+
+func TestDegraded(t *testing.T) {
+	cases := [][]byte{
+		[]byte("Write memory is not allowed when CLI is running in a degraded state."),
+		[]byte("Configuration is not allowed when CLI is running in a degraded state."),
+	}
+	testutils.ExprTester(t, cases, errorExpression)
+}
