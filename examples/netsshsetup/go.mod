@@ -1,6 +1,6 @@
 module github.com/annetutil/gnetcli/examples/netsshsetup
 
-go 1.20
+go 1.25.0
 
 require (
 	github.com/annetutil/gnetcli v1.0.38
@@ -16,8 +16,8 @@ require (
 	github.com/pkg/sftp v1.13.6 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
+	golang.org/x/crypto v0.52.0 // indirect
 	golang.org/x/exp v0.0.0-20230725093048-515e97ebf090 // indirect
 	golang.org/x/sync v0.4.0 // indirect
-	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/sys v0.45.0 // indirect
 )
