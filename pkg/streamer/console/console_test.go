@@ -1,10 +1,22 @@
 package console
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestPrependBufferReturnsConsumedBytesToNextRead(t *testing.T) {
+	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil)
+	consoleStreamer.PrependBuffer([]byte("Password:"))
+
+	res, err := consoleStreamer.XRead(context.Background(), len("Password:"), time.Second, nil)
+	require.NoError(t, err)
+	require.Equal(t, []byte("Password:"), res.BytesRes)
+	require.Empty(t, consoleStreamer.GetBuffer())
+}
 
 func TestParseInfoLine(t *testing.T) {
 	line := "ttyS16:consoles-dc.domain,147,10102:/:/dev/ttyMI23,9600n,4::up:rw:,log,noact,nobrk,notask,0,-1:1:noautoup::reinitoncc,autoreinit,login::0:"
