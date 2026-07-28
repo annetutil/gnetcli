@@ -13,6 +13,7 @@ func TestDeviceErrors(t *testing.T) {
 		[]byte("\r\n % Unrecognized command found at '^' position."),
 		[]byte("\r\n % Too many parameters found at '^' position."),
 		[]byte("\r\n % Incomplete command found at '^' position."),
+		[]byte("\r\r\n % Wrong parameter found at '^' position."),
 	}
 	testutils.ExprTester(t, errorCases, errorExpression)
 }

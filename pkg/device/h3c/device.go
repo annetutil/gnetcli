@@ -19,7 +19,7 @@ const (
 	promptExpression   = `(\r\r?\n|^|\x00)(?P<prompt>((\(M\))?[<\[][\w\-/]+[>\]]|\[[~*]?[/\w\-.:]+\]))$`
 	errorExpression    = `(` +
 		`(\^\r\n)?( % )?Error:(?P<error>.+) at '\^' position\.` +
-		`|\r\n % (Unrecognized command|Too many parameters|Incomplete command) found at '\^' position\.` +
+		`|\r\n % (Unrecognized command|Too many parameters|Incomplete command|Wrong parameter) found at '\^' position\.` +
 		`)`
 	pagerExpression = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
