@@ -227,6 +227,7 @@ func (m *Server) createStreamerSSH(cfg StreamerConfig, add func(op gtrace.Operat
 		if err != nil {
 			return nil, fmt.Errorf("unable to get host params for ssh tunnel to %s:%w", cfg.params.proxyJump, err)
 		}
+		jumpHostParams.host, jumpHostParams.port = m.makeConnectArg(cfg.params.proxyJump, jumpHostParams)
 
 		opts := []ssh.SSHTunnelOption{ssh.SSHTunnelWithLogger(cfg.logger)}
 		if len(jumpHostParams.controlPath) > 0 {
@@ -235,7 +236,6 @@ func (m *Server) createStreamerSSH(cfg StreamerConfig, add func(op gtrace.Operat
 		if jumpHostParams.port > 0 {
 			opts = append(opts, ssh.SSHTunnelWithPort(jumpHostParams.port))
 		}
-		connHost = cfg.params.host
 
 		tun := ssh.NewSSHTunnel(jumpHostParams.host, jumpHostParams.GetCredentials(), opts...)
 

@@ -228,6 +228,58 @@ Host mock-proxy
 	require.Contains(t, string(res.GetOut()), "Cisco IOS Software")
 }
 
+func TestDevAuthSSHConfigProxyJumpUsesInventoryIPWithoutHostName(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	sshPub, err := ssh.NewPublicKey(pub)
+	require.NoError(t, err)
+	agentSocket := startTestAgent(t, priv)
+
+	targetLn, targetPort := newSSHServerPort(t)
+	proxyLn, proxyPort := newSSHServerPort(t)
+	ctx := t.Context()
+
+	const targetUser = "target-user"
+	serveTestSwitch(t, ctx, targetLn, publicKeyAuthCallback(targetUser, sshPub))
+
+	const proxyUser = "proxy-user"
+	serveTestSwitch(t, ctx, proxyLn, publicKeyAuthCallback(proxyUser, sshPub))
+
+	cfg := serverConfigFromYAML(t, `
+dev_auth:
+  ssh_config: true
+`)
+	sshConfig := fmt.Sprintf(`
+Host mock-sw
+  Port %d
+  User %s
+  IdentityAgent %s
+  ProxyJump localhost
+
+Host localhost
+  Port %d
+  User %s
+  IdentityAgent %s
+  ForwardAgent yes
+`, targetPort, targetUser, agentSocket, proxyPort, proxyUser, agentSocket)
+
+	client := newGnetcliTestClient(t, cfg, sshConfig, zap.NewNop())
+	res, err := client.Exec(ctx, &pb.CMD{
+		Host: "mock-sw",
+		Cmd:  "show version",
+		HostParams: &pb.HostParams{
+			Ip:     "127.0.0.1",
+			Device: "cisco",
+		},
+	})
+	require.NoError(t, err)
+	require.Contains(t, string(res.GetOut()), "Cisco IOS Software")
+}
+
 func publicKeyAuthCallback(user string, pubKey ssh.PublicKey) gswitch.AuthCallback {
 	return func(req gswitch.AuthRequest) error {
 		if req.Method != gswitch.AuthMethodPublicKey {
