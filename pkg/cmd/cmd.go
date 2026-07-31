@@ -22,13 +22,15 @@ var ErrNotFoundAnswer = errors.New("not found answer")
 
 type QuestionExceptionRepeated struct {
 	RepeatedQuestionCount int
+	Question              string
+	Answer                string
 }
 
 func (e *QuestionExceptionRepeated) Error() string {
-	return fmt.Sprintf("repeated question count=%d", e.RepeatedQuestionCount)
+	return fmt.Sprintf("break loop of repeated questions: q=%q, a=%q, count=%d", e.Question, e.Answer, e.RepeatedQuestionCount)
 }
 
-func ThrowQuestionExceptionRepeated(repeatedQuestionCount int) error {
+func ThrowQuestionExceptionRepeated(repeatedQuestionCount int, question, answer string) error {
 	return &QuestionExceptionRepeated{RepeatedQuestionCount: repeatedQuestionCount}
 }
 
@@ -165,7 +167,7 @@ func (m CmdImpl) QuestionHandler(question []byte, attempt int) ([]byte, error) {
 			continue
 		}
 		if attempt > cmdAnswer.maxAttempts {
-			return nil, ThrowQuestionExceptionRepeated(attempt)
+			return nil, ThrowQuestionExceptionRepeated(attempt, string(question), string(ans))
 		}
 		if !cmdAnswer.notSendNL {
 			ans = append(ans, []byte("\n")...)
