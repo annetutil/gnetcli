@@ -20,7 +20,7 @@ const (
 	hiddenPrompt       = `(?P<hidden>\[\S+@\S+\]\s{1,2}(\/[\/\w\s-]+)?(<SAFE)?>\s+)?`
 	visiblePrompt      = `\[(?P<login>\S+)@(?P<hostname>\S+)\]\s{1,2}(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> $`
 	promptExpression   = `(?P<store>(\r\n|\n|\r|^))` + visiblePrompt
-	errorExpression    = `(\r|^)(bad command name.*\(line \d+ column \d+\).*($|\r)|syntax error.*\(line \d+ column \d+\).*$|\[(?P<question>Safe mode released by another user)\]|expected end of command \(line \d+ column \d+\)|expected command name \(line \d+ column \d+\)|failure: duplicate address)`
+	errorExpression    = `(\r|^)(bad command name.*\(line \d+ column \d+\).*($|\r)|syntax error.*\(line \d+ column \d+\).*$|\[(?P<question>Safe mode released by another user)\]|expected end of command \(line \d+ column \d+\)|expected command name \(line \d+ column \d+\)|failure: duplicate address|failure: item with this name already exists)`
 	questionExpression = `((?P<question>.+\?)\s*\[y/N\]: \r\n$|(?P<question>\x1b\[c)|\rnumbers: )`
 	pagerExpression    = `-- \[Q quit\|D dump\|(right\|)?(up\|)?down\]$`
 )

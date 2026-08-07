@@ -23,6 +23,7 @@ func TestErrors(t *testing.T) {
 		[]byte("failure: duplicate address"),
 		[]byte("\rbad command name set (line 1 column 1)"),
 		[]byte("expected command name (line 1 column 8)"),
+		[]byte("failure: item with this name already exists"),
 	}
 	testutils.ExprTester(t, cases, errorExpression)
 }
