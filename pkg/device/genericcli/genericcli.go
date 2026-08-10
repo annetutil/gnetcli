@@ -554,6 +554,14 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	}
 }
 
+type promptBeforeEchoError struct {
+	err error
+}
+
+func (p *promptBeforeEchoError) Error() string {
+	return p.err.Error()
+}
+
 func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI, logger *zap.Logger) (cmd.CmdRes, error) {
 	ctx := context.Background()
 	if cmdTimeout := command.GetCmdTimeout(); cmdTimeout > 0 {
@@ -593,23 +601,32 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	if len(cmdQuestions) > 0 {
 		questions = append(cmdQuestions, questions...)
 	}
-	checkExprs := []expr.NamedExpr{
-		{Name: echoExprName, Exprs: []expr.Expr{expCmdEcho}},
-		{Name: promptExprName, Exprs: []expr.Expr{cli.prompt}},
-		{Name: pagerExprName, Exprs: []expr.Expr{cli.pager}},
-		{Name: questionExprName, Exprs: questions},
-	}
-	if connector.HasFeature(streamer.LoginInsteadEOF) && cli.login != nil {
-		checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login}})
-	}
-	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
-
 	exprsAdd, exprsAddMap := command.GetExprCallback()
-	for _, exprCB := range exprsAdd {
-		exprs.Add("cb", expr.NewSimpleExpr().FromPattern(exprCB))
+	makeExprs := func(withEcho, withPrompt bool) expr.ExprList {
+		checkExprs := []expr.NamedExpr{}
+		if withEcho {
+			checkExprs = append(checkExprs, expr.NamedExpr{Name: echoExprName, Exprs: []expr.Expr{expCmdEcho}})
+		}
+		if withPrompt {
+			checkExprs = append(checkExprs, expr.NamedExpr{Name: promptExprName, Exprs: []expr.Expr{cli.prompt}})
+		}
+		checkExprs = append(checkExprs,
+			expr.NamedExpr{Name: pagerExprName, Exprs: []expr.Expr{cli.pager}},
+			expr.NamedExpr{Name: questionExprName, Exprs: questions},
+		)
+		if connector.HasFeature(streamer.LoginInsteadEOF) && cli.login != nil {
+			checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login}})
+		}
+		res := expr.NewSimpleExprListNamedOrdered(checkExprs)
+		for _, exprCB := range exprsAdd {
+			res.Add(cbExprName, expr.NewSimpleExpr().FromPattern(exprCB))
+		}
+		return res
 	}
+	exprs := makeExprs(true, true)
 	cbLimit := 100
 	seenEcho := false
+	var lastPromptBeforeEchoError *promptBeforeEchoError
 	var lastQuestion []byte // GOP3
 	repeatedQuestionCount := 0
 	for { // pager loop
@@ -617,6 +634,10 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		if err != nil {
 			var perr *streamer.ReadTimeoutException
 			if errors.As(err, &perr) {
+				// we may receive timeout due to our read retry without prompt approach on prompt before echo errors
+				if lastPromptBeforeEchoError != nil {
+					return nil, lastPromptBeforeEchoError
+				}
 				// in some cases device messing up with output
 				outputErr := checkError(cli.error, perr.LastRead)
 				if outputErr != nil {
@@ -630,7 +651,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 
 		if matchName == echoExprName {
 			seenEcho = true
-			exprs.Delete(echoExprName)
+			exprs = makeExprs(false, true)
+			lastPromptBeforeEchoError = nil
 			continue
 		}
 		mbefore := match.GetBefore()
@@ -647,6 +669,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				if exprs.GetName(mres.PatternNo) == echoExprName {
 					seenEcho = true
+					exprs = makeExprs(false, true)
 				}
 				mbefore = termParsedEcho[mres.End:]
 			}
@@ -675,18 +698,32 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				mres, ok = exprs.Match(termParsedEcho)
 				if !ok {
-					return nil, device.ThrowEchoReadException(mbefore, promptFound)
+					// A CLI may redraw the prompt while receiving command characters. Do
+					// not treat that redraw as final before the complete echo is received.
+					exprs = makeExprs(true, false)
+					// store current error in case of complete output
+					lastPromptBeforeEchoError = &promptBeforeEchoError{
+						device.ThrowEchoReadException(mbefore, promptFound),
+					}
+					continue
 				}
 			}
 			// assuring that it is echo
 			if exprs.GetName(mres.PatternNo) != echoExprName {
-				return nil, device.ThrowEchoReadException(mbefore, promptFound)
+				// A CLI may redraw the prompt while receiving command characters. Do
+				// not treat that redraw as final before the complete echo is received.
+				exprs = makeExprs(true, false)
+				// store current error in case of complete output
+				lastPromptBeforeEchoError = &promptBeforeEchoError{
+					device.ThrowEchoReadException(mbefore, promptFound),
+				}
+				continue
 			}
 			if mres.End > len(termParsedEcho) {
 				return nil, errors.New("termParsedEcho len less than mres.End")
 			}
 			seenEcho = true
-			exprs.Delete(echoExprName)
+			exprs = makeExprs(false, true)
 			// delete echo
 			mbefore = termParsedEcho[mres.End:]
 		}

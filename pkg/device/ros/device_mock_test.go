@@ -124,168 +124,172 @@ func TestRos(t *testing.T) {
 						"                                                                                              " +
 						"                                                                                              " +
 						"                                                                      \u001b[K\r[username12345" +
-						"@mk-rb3011-test] > /ip ser\r\r[username12345@mk-rb3011-test] > /ip ser                        " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                        \u001b" +
-						"[K\r[username12345@mk-rb3011-test] > /ip serv\r\r[username12345@mk-rb3011-test] > /ip serv    " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"             \u001b[K\r[username12345@mk-rb3011-test] > /ip servi\r\r[username12345@mk-rb3011-" +
-						"test] > /ip servi                                                                             " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                 \u001b[K\r[username12345@mk-rb3011-test] > /ip servic\r\r[use" +
-						"rname12345@mk-rb3011-test] > /ip servic                                                       " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                      \u001b[K\r[username12345@mk-rb3011-test]" +
-						" > /ip service\r\r[username12345@mk-rb3011-test] > /ip service                                " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                            \u001b[K\r[usernam" +
-						"e12345@mk-rb3011-test] > /ip service \r\r[username12345@mk-rb3011-test] > /ip service         " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"     \u001b[K\r[username12345@mk-rb3011-test] > /ip service e\r\r[username12345@mk-rb3011-test" +
-						"] > /ip service e                                                                             " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                             \u001b[K\r[username12345@mk-rb3011-test] > /ip service ex\r\r[use" +
-						"rname12345@mk-rb3011-test] > /ip service ex                                                   " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                      \u001b[K\r[username12345@mk-rb3011-test]" +
-						" > /ip service exp\r\r[username12345@mk-rb3011-test] > /ip service exp                        " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                \u001b[K\r[use" +
-						"rname12345@mk-rb3011-test] > /ip service expo\r\r[username12345@mk-rb3011-test] > /ip service " +
-						"expo                                                                                          " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"             \u001b[K\r[username12345@mk-rb3011-test] > /ip service expor\r\r[username12345@mk" +
-						"-rb3011-test] > /ip service expor                                                             " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                         \u001b[K\r[username12345@mk-rb3011-test] > /ip servic" +
-						"e export\r\r[username12345@mk-rb3011-test] > /ip service export                               " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                      \u001b[K\r[username12345" +
-						"@mk-rb3011-test] > /ip service export\r[username12345@mk-rb3011-test] > /ip service export\r\n" +
-						"\r# oct/17/2024 10:17:11 by RouterOS 6.49.17\r\n# software id = 1111-1111\r\n#\r\n# model = RB" +
-						"3011UiAS\r\n# serial number = 111111111111\r\n/ip service\r\nset telnet disabled=yes\r\nset ft" +
-						"p disabled=yes\r\nset www disabled=yes\r\nset api disabled=yes\r\nset api-ssl disabled=yes\r\n" +
-						"\r\r\r\r[username12345@mk-rb3011-test] >                                                      " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                  \r[username12345@mk-rb3011-t" +
-						"est] > \r\r[username12345@mk-rb3011-test3] >                                                   " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                                              " +
-						"                                                                     \u001b[K\r" +
-						"",
+						"@mk-rb3011-test] > ",
+					),
+					m.Sleep(1),
+					m.Send(
+						"/ip ser\r\r[username12345@mk-rb3011-test] > /ip ser                        " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                        \u001b" +
+							"[K\r[username12345@mk-rb3011-test] > /ip serv\r\r[username12345@mk-rb3011-test] > /ip serv    " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"             \u001b[K\r[username12345@mk-rb3011-test] > /ip servi\r\r[username12345@mk-rb3011-" +
+							"test] > /ip servi                                                                             " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                 \u001b[K\r[username12345@mk-rb3011-test] > /ip servic\r\r[use" +
+							"rname12345@mk-rb3011-test] > /ip servic                                                       " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                      \u001b[K\r[username12345@mk-rb3011-test]" +
+							" > /ip service\r\r[username12345@mk-rb3011-test] > /ip service                                " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                            \u001b[K\r[usernam" +
+							"e12345@mk-rb3011-test] > /ip service \r\r[username12345@mk-rb3011-test] > /ip service         " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"     \u001b[K\r[username12345@mk-rb3011-test] > /ip service e\r\r[username12345@mk-rb3011-test" +
+							"] > /ip service e                                                                             " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                             \u001b[K\r[username12345@mk-rb3011-test] > /ip service ex\r\r[use" +
+							"rname12345@mk-rb3011-test] > /ip service ex                                                   " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                      \u001b[K\r[username12345@mk-rb3011-test]" +
+							" > /ip service exp\r\r[username12345@mk-rb3011-test] > /ip service exp                        " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                \u001b[K\r[use" +
+							"rname12345@mk-rb3011-test] > /ip service expo\r\r[username12345@mk-rb3011-test] > /ip service " +
+							"expo                                                                                          " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"             \u001b[K\r[username12345@mk-rb3011-test] > /ip service expor\r\r[username12345@mk" +
+							"-rb3011-test] > /ip service expor                                                             " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                         \u001b[K\r[username12345@mk-rb3011-test] > /ip servic" +
+							"e export\r\r[username12345@mk-rb3011-test] > /ip service export                               " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                      \u001b[K\r[username12345" +
+							"@mk-rb3011-test] > /ip service export\r[username12345@mk-rb3011-test] > /ip service export\r\n" +
+							"\r# oct/17/2024 10:17:11 by RouterOS 6.49.17\r\n# software id = 1111-1111\r\n#\r\n# model = RB" +
+							"3011UiAS\r\n# serial number = 111111111111\r\n/ip service\r\nset telnet disabled=yes\r\nset ft" +
+							"p disabled=yes\r\nset www disabled=yes\r\nset api disabled=yes\r\nset api-ssl disabled=yes\r\n" +
+							"\r\r\r\r[username12345@mk-rb3011-test] >                                                      " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                  \r[username12345@mk-rb3011-t" +
+							"est] > \r\r[username12345@mk-rb3011-test3] >                                                   " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                                              " +
+							"                                                                     \u001b[K\r" +
+							"",
 					),
 					m.Send("[username12345@mk-rb3011-test2] > "),
 				},
