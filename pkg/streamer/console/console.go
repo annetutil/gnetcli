@@ -350,7 +350,7 @@ func (m *Streamer) connectConsolePort(ctx context.Context) (err error) {
 	case bytes.HasPrefix(res, []byte("ambiguous console abbreviation")) ||
 		bytes.HasSuffix(res, []byte(" not found\r\n")):
 		return ThrowBadConsolePortException(res)
-	case bytes.HasPrefix(res, []byte("#")) || unicode.IsDigit(rune(res[0])):
+	case bytes.HasPrefix(res, []byte("@")) || unicode.IsDigit(rune(res[0])):
 		// redirect
 		redirect := strings.TrimSpace(string(res))
 		var newPort int
