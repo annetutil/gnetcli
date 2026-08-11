@@ -26,8 +26,9 @@ func ThrowExecException(data string) error {
 }
 
 type EchoReadException struct {
-	lastRead    []byte
-	promptFound bool // indicates if we found prompt after echo read error
+	lastRead      []byte
+	promptFound   bool // indicates if we found prompt after echo read error
+	questionFound bool // indicates if we found question after echo error
 }
 
 func (e *EchoReadException) Error() string {
@@ -39,10 +40,16 @@ func (e *EchoReadException) PromptFound() bool {
 	return e.promptFound
 }
 
-func ThrowEchoReadException(lastRead []byte, promptFound bool) error {
+// QuestionFound indicates if gnetcli succeeded in reading question after echo read failure
+func (e *EchoReadException) QuestionFound() bool {
+	return e.questionFound
+}
+
+func ThrowEchoReadException(lastRead []byte, promptFound bool, questionFound bool) error {
 	return &EchoReadException{
-		lastRead:    lastRead,
-		promptFound: promptFound,
+		lastRead:      lastRead,
+		promptFound:   promptFound,
+		questionFound: questionFound,
 	}
 }
 

@@ -554,14 +554,6 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	}
 }
 
-type promptBeforeEchoError struct {
-	err error
-}
-
-func (p *promptBeforeEchoError) Error() string {
-	return p.err.Error()
-}
-
 func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI, logger *zap.Logger) (cmd.CmdRes, error) {
 	ctx := context.Background()
 	if cmdTimeout := command.GetCmdTimeout(); cmdTimeout > 0 {
@@ -601,6 +593,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	if len(cmdQuestions) > 0 {
 		questions = append(cmdQuestions, questions...)
 	}
+
 	exprsAdd, exprsAddMap := command.GetExprCallback()
 	makeExprs := func(withEcho, withPrompt bool) expr.ExprList {
 		checkExprs := []expr.NamedExpr{}
@@ -624,17 +617,23 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		return res
 	}
 	exprs := makeExprs(true, true)
+
 	cbLimit := 100
 	seenEcho := false
-	var lastPromptBeforeEchoError *promptBeforeEchoError
 	var lastQuestion []byte // GOP3
+	var lastPromptBeforeEchoError error
+	var lastPromptBeforeEchoBuffer []byte
 	repeatedQuestionCount := 0
 	for { // pager loop
 		match, err := connector.ReadTo(ctx, exprs)
 		if err != nil {
 			var perr *streamer.ReadTimeoutException
 			if errors.As(err, &perr) {
-				// we may receive timeout due to our read retry without prompt approach on prompt before echo errors
+				// This case means we got prompt without echo previously.
+				// This could mean 2 separate problems, which are hard to distinguish:
+				// 1) Device redraws terminal, partially echoing; we got chunk ending on prompt before device wrote full echo
+				// 2) Prompt/echo is configured incorrect for this device.
+				// For the 1) case we retry read until we read echo. If we receive read timeout - it was actually 2) case - so we return original error.
 				if lastPromptBeforeEchoError != nil {
 					return nil, lastPromptBeforeEchoError
 				}
@@ -652,81 +651,66 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		if matchName == echoExprName {
 			seenEcho = true
 			exprs = makeExprs(false, true)
-			lastPromptBeforeEchoError = nil
 			continue
 		}
 		mbefore := match.GetBefore()
-		if !seenEcho {
-			if matchName == questionExprName { // caught question before echo
-				// check for echo, drop it and proceed with question
-				termParsedEcho, err := terminal.ParseDropLastReturn(mbefore)
-				if err != nil {
-					return nil, fmt.Errorf("echo terminal parse error %w", err)
-				}
-				mres, ok := exprs.Match(termParsedEcho)
-				if !ok {
-					return nil, device.ThrowEchoReadException(mbefore, true)
-				}
-				if exprs.GetName(mres.PatternNo) == echoExprName {
-					seenEcho = true
-					exprs = makeExprs(false, true)
-				}
-				mbefore = termParsedEcho[mres.End:]
+		checkEcho := func(mBefore []byte) ([]byte, error) {
+			seenPrompt := matchName == promptExprName
+			seenQuestion := matchName == questionExprName
+			if len(mBefore) < 2 {
+				return nil, device.ThrowEchoReadException(append(lastPromptBeforeEchoBuffer, mBefore...), seenPrompt, seenQuestion)
 			}
-		}
-
-		if !seenEcho {
-			promptFound := matchName == promptExprName
-			// case where we caught prompt before echo because of term codes in echo
-			if len(mbefore) < 2 || !promptFound { // don't bother to do complex logic
-				return nil, device.ThrowEchoReadException(mbefore, promptFound)
-			}
-
-			termParsedEcho, err := terminal.ParseDropLastReturn(mbefore)
+			// check for echo, drop it and proceed with question
+			termParsedEcho, err := terminal.ParseDropLastReturn(mBefore)
 			if err != nil {
-				return nil, fmt.Errorf("echo terminal parse error %w", err)
+				return nil, fmt.Errorf("echo terminal before question parse error %w", err)
 			}
 			mres, ok := exprs.Match(termParsedEcho)
 			if !ok {
-				// prompt expression may consume newline from echo, but it must be presented in echo
-				if mbefore[len(mbefore)-1] != '\n' {
-					mbefore = append(mbefore, '\n')
-				}
-				termParsedEcho, err = terminal.ParseDropLastReturn(mbefore)
-				if err != nil {
-					return nil, fmt.Errorf("echo terminal parse error %w", err)
-				}
-				mres, ok = exprs.Match(termParsedEcho)
-				if !ok {
-					// A CLI may redraw the prompt while receiving command characters. Do
-					// not treat that redraw as final before the complete echo is received.
-					exprs = makeExprs(true, false)
-					// store current error in case of complete output
-					lastPromptBeforeEchoError = &promptBeforeEchoError{
-						device.ThrowEchoReadException(mbefore, promptFound),
-					}
-					continue
-				}
+				return nil, device.ThrowEchoReadException(append(lastPromptBeforeEchoBuffer, mBefore...), seenPrompt, seenQuestion)
 			}
-			// assuring that it is echo
 			if exprs.GetName(mres.PatternNo) != echoExprName {
-				// A CLI may redraw the prompt while receiving command characters. Do
-				// not treat that redraw as final before the complete echo is received.
-				exprs = makeExprs(true, false)
-				// store current error in case of complete output
-				lastPromptBeforeEchoError = &promptBeforeEchoError{
-					device.ThrowEchoReadException(mbefore, promptFound),
-				}
-				continue
-			}
-			if mres.End > len(termParsedEcho) {
-				return nil, errors.New("termParsedEcho len less than mres.End")
+				return nil, device.ThrowEchoReadException(append(lastPromptBeforeEchoBuffer, mBefore...), seenPrompt, seenQuestion)
 			}
 			seenEcho = true
-			exprs = makeExprs(false, true)
-			// delete echo
-			mbefore = termParsedEcho[mres.End:]
+			return termParsedEcho[mres.End:], nil
 		}
+		if !seenEcho {
+			switch {
+			case matchName == questionExprName:
+				// check for echo, drop it and proceed with question
+				mBefore, err := checkEcho(mbefore)
+				if err != nil {
+					return nil, err
+				}
+				mbefore = mBefore
+			case matchName == promptExprName:
+				// todo: this case is considered impossible, so I dropped it
+				// if mres.End > len(termParsedEcho) {
+				// 	return nil, errors.New("termParsedEcho len less than mres.End")
+				// }
+				mBefore, err := checkEcho(mbefore)
+				// prompt expression may consume newline from echo, but it must be presented in echo
+				if err != nil && mbefore[len(mbefore)-1] != '\n' {
+					mBefore, err = checkEcho(append(mbefore, '\n'))
+				}
+				// in such case we consider that we got partial output from device due to it's redraw of console
+				// so we retry read and preserver error/buffer for future error info
+				if err != nil {
+					lastPromptBeforeEchoError = err
+					lastPromptBeforeEchoBuffer = append(lastPromptBeforeEchoBuffer, mbefore...)
+					exprs = makeExprs(true, false)
+					continue
+				}
+
+				exprs = makeExprs(false, true)
+				mbefore = mBefore
+
+			default:
+				return nil, device.ThrowEchoReadException(mbefore, false, false)
+			}
+		}
+
 		if matchName == promptExprName {
 			buffer.Write(mbefore)
 			if store, ok := match.GetMatchedGroups()["store"]; ok {
