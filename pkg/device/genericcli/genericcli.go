@@ -655,10 +655,12 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		}
 		mbefore := match.GetBefore()
 		checkEcho := func(mBefore []byte) ([]byte, error) {
+			// for buffer reported in errors merge with previous partial prompt read buffers
+			fullErrorBuffer := append(lastPromptBeforeEchoBuffer, mBefore...)
 			seenPrompt := matchName == promptExprName
 			seenQuestion := matchName == questionExprName
 			if len(mBefore) < 2 {
-				return nil, device.ThrowEchoReadException(append(lastPromptBeforeEchoBuffer, mBefore...), seenPrompt, seenQuestion)
+				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
 			}
 			// check for echo, drop it and proceed with question
 			termParsedEcho, err := terminal.ParseDropLastReturn(mBefore)
@@ -667,10 +669,10 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			mres, ok := exprs.Match(termParsedEcho)
 			if !ok {
-				return nil, device.ThrowEchoReadException(append(lastPromptBeforeEchoBuffer, mBefore...), seenPrompt, seenQuestion)
+				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
 			}
 			if exprs.GetName(mres.PatternNo) != echoExprName {
-				return nil, device.ThrowEchoReadException(append(lastPromptBeforeEchoBuffer, mBefore...), seenPrompt, seenQuestion)
+				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
 			}
 			seenEcho = true
 			return termParsedEcho[mres.End:], nil
@@ -685,10 +687,6 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				}
 				mbefore = mBefore
 			case matchName == promptExprName:
-				// todo: this case is considered impossible, so I dropped it
-				// if mres.End > len(termParsedEcho) {
-				// 	return nil, errors.New("termParsedEcho len less than mres.End")
-				// }
 				mBefore, err := checkEcho(mbefore)
 				// prompt expression may consume newline from echo, but it must be presented in echo
 				if err != nil && mbefore[len(mbefore)-1] != '\n' {
