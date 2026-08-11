@@ -651,6 +651,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		if matchName == echoExprName {
 			seenEcho = true
 			exprs = makeExprs(false, true)
+			lastPromptBeforeEchoBuffer = nil
+			lastPromptBeforeEchoError = nil
 			continue
 		}
 		mbefore := match.GetBefore()
@@ -672,6 +674,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
 			}
 			seenEcho = true
+			lastPromptBeforeEchoBuffer = nil
+			lastPromptBeforeEchoError = nil
 			return termParsedEcho[mres.End:], nil
 		}
 		if !seenEcho {
