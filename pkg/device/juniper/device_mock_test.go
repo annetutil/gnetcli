@@ -208,7 +208,7 @@ func TestInvalidShowCommandsWithException(t *testing.T) {
 				},
 				everyDayByeBye,
 			},
-			err: device.ThrowEchoReadException([]byte("dis \r\n                                  ^\r\nunknown command.\r\n"), true),
+			err: device.ThrowEchoReadException([]byte("dis \r\n                                  ^\r\nunknown command.\r\n"), true, false),
 		},
 	}
 

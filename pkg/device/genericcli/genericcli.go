@@ -629,19 +629,19 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		if err != nil {
 			var perr *streamer.ReadTimeoutException
 			if errors.As(err, &perr) {
-				// This case means we got prompt without echo previously.
-				// This could mean 2 separate problems, which are hard to distinguish:
-				// 1) Device redraws terminal, partially echoing; we got chunk ending on prompt before device wrote full echo
-				// 2) Prompt/echo is configured incorrect for this device.
-				// For the 1) case we retry read until we read echo. If we receive read timeout - it was actually 2) case - so we return original error.
-				if lastPromptBeforeEchoError != nil {
-					return nil, lastPromptBeforeEchoError
-				}
 				// in some cases device messing up with output
 				outputErr := checkError(cli.error, perr.LastRead)
 				if outputErr != nil {
 					return nil, outputErr
 				}
+			}
+			// This case means we got prompt without echo previously.
+			// This could mean 2 separate problems, which are hard to distinguish:
+			// 1) Device redraws terminal, partially echoing; we got chunk ending on prompt before device wrote full echo
+			// 2) Prompt/echo is configured incorrect for this device.
+			// For the 1) case we retry read until we read echo. If we receive read error - it was actually 2) case - so we return original error.
+			if lastPromptBeforeEchoError != nil {
+				return nil, lastPromptBeforeEchoError
 			}
 			return nil, err
 		}
@@ -654,14 +654,11 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			continue
 		}
 		mbefore := match.GetBefore()
+		// for buffer reported in errors merge with previous partial prompt read buffers
+		fullErrorBuffer := append(lastPromptBeforeEchoBuffer, mbefore...)
+		seenPrompt := matchName == promptExprName
+		seenQuestion := matchName == questionExprName
 		checkEcho := func(mBefore []byte) ([]byte, error) {
-			// for buffer reported in errors merge with previous partial prompt read buffers
-			fullErrorBuffer := append(lastPromptBeforeEchoBuffer, mBefore...)
-			seenPrompt := matchName == promptExprName
-			seenQuestion := matchName == questionExprName
-			if len(mBefore) < 2 {
-				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
-			}
 			// check for echo, drop it and proceed with question
 			termParsedEcho, err := terminal.ParseDropLastReturn(mBefore)
 			if err != nil {
@@ -678,6 +675,9 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			return termParsedEcho[mres.End:], nil
 		}
 		if !seenEcho {
+			if len(mbefore) < 2 {
+				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
+			}
 			switch {
 			case matchName == questionExprName:
 				// check for echo, drop it and proceed with question
@@ -685,6 +685,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				if err != nil {
 					return nil, err
 				}
+				exprs = makeExprs(false, true)
 				mbefore = mBefore
 			case matchName == promptExprName:
 				mBefore, err := checkEcho(mbefore)
