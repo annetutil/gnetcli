@@ -287,6 +287,9 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 	for _, v := range append(opts, requiredOpt) {
 		v(&cfg)
 	}
+	if cfg.maxDuration == 0 && cfg.maxReadSize == 0 && cfg.regExpr == nil {
+		return nil, nil, nil, errors.New("specify maxDuration, maxReadSize or regExpr via options")
+	}
 	buffer := inBuffer
 	maxDurationTimeout := NewTimerWithDefault(cfg.maxDuration)
 	for {

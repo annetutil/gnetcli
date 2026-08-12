@@ -25,6 +25,22 @@ At a network-read boundary, the `\r[robot@router] > ` part is indistinguishable 
 
 Previously, matching this prompt before the expected echo caused command execution to fail immediately with `echo read error`.
 
+## Failure dialog from RouterOS logs
+
+The following is a shortened and sanitized dialog from the original failure. Runs of terminal-padding spaces are replaced with `…`; `\x1b[K` clears the rest of the line.
+
+```text
+client -> /user export\n
+
+device -> \r[robot@router] > /user exp\r\r[robot@router] > <space>
+                                         ^ prompt matcher stops here
+
+device -> \x1b[K\r[robot@router] > /user ex\r\r[robot@router] > /user ex…
+device -> \x1b[K\r[robot@router] > /user exp\r\r[robot@router] > /user exp…
+```
+
+The first read ends immediately after a redraw prompt. At that point `/user exp` is only a partial line, so it cannot match the expected `/user export\r\n` echo. Before GOP 4, `GenericExecute` returned `EchoReadException` at the marked prompt and never read the later redraw data.
+
 ## Proposal
 
 `streamer.Connector` provides:

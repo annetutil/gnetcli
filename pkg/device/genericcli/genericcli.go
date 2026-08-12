@@ -605,6 +605,10 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login}})
 	}
 	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
+	callbackPatternStart := 0
+	for _, namedExpr := range checkExprs {
+		callbackPatternStart += len(namedExpr.Exprs)
+	}
 	for _, exprCB := range exprsAdd {
 		exprs.Add("cb", expr.NewSimpleExpr().FromPattern(exprCB))
 	}
@@ -642,6 +646,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		if matchName == echoExprName {
 			seenEcho = true
 			exprs.Delete(echoExprName)
+			callbackPatternStart--
 			lastPromptBeforeEchoError = nil
 			continue
 		}
@@ -649,7 +654,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		seenPrompt := matchName == promptExprName
 		seenQuestion := matchName == questionExprName
 		checkEcho := func(mBefore []byte) ([]byte, error) {
-			// check for echo, drop it and proceed with question
+			// Check for echo, drop it, and continue handling the matched expression.
 			termParsedEcho, err := terminal.ParseDropLastReturn(mBefore)
 			if err != nil {
 				return nil, fmt.Errorf("echo terminal before question parse error %w", err)
@@ -663,6 +668,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			seenEcho = true
 			exprs.Delete(echoExprName)
+			callbackPatternStart--
 			lastPromptBeforeEchoError = nil
 			return termParsedEcho[mres.End:], nil
 		}
@@ -747,7 +753,11 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				return nil, fmt.Errorf("callback limit")
 			}
 			cbLimit--
-			wr := exprsAddMap[exprsAdd[matchId-3]]
+			callbackIndex := matchId - callbackPatternStart
+			if callbackIndex < 0 || callbackIndex >= len(exprsAdd) {
+				return nil, fmt.Errorf("invalid callback pattern index %d", matchId)
+			}
+			wr := exprsAddMap[exprsAdd[callbackIndex]]
 			logger.Debug("write callback result")
 			err := connector.Write([]byte(wr))
 			if err != nil {

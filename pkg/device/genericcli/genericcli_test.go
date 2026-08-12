@@ -314,3 +314,33 @@ func TestQuestionWithAnswerNotSendNL(t *testing.T) {
 	require.NoError(t, resErr)
 	require.Equal(t, cmdRes, []cmd.CmdRes{cmd.NewCmdRes(nil)})
 }
+
+func TestCommandCallbackWithAdditionalQuestionExpression(t *testing.T) {
+	logger := zap.Must(zap.NewDevelopmentConfig().Build())
+	dialog := [][]gmock.Action{
+		{
+			gmock.Send("<device>"),
+			gmock.Expect("test\n"),
+			gmock.SendEcho("test\r\n"),
+			gmock.Send("callback"),
+			gmock.Expect("answer"),
+			gmock.Send("done\r\n<device>"),
+			gmock.Close(),
+		},
+	}
+
+	command := cmd.NewCmd(
+		"test",
+		cmd.WithAddAnswers(cmd.NewAnswer("unused-question", "unused", true)),
+		cmd.WithExprCallback(cmd.NewExprCallback("callback", "answer")),
+	)
+	cmdRes, resErr, serverErr, err := gmock.RunCmd(func(connector streamer.Connector) device.Device {
+		dev := newDevice(fullQuestion, connector, logger)
+		return &dev
+	}, gmock.ConcatMultipleSlices(dialog), []cmd.Cmd{command}, logger)
+
+	require.NoError(t, err)
+	require.NoError(t, serverErr)
+	require.NoError(t, resErr)
+	require.Equal(t, []cmd.CmdRes{cmd.NewCmdRes([]byte("done"))}, cmdRes)
+}
