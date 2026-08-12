@@ -113,7 +113,7 @@ func TestGenericReadXTimeoutNoExtraLeak(t *testing.T) {
 	ctx := context.Background()
 	pat := expr.NewSimpleExpr().FromPattern("never-matches")
 	// readTimeout > maxDuration so that maxDurationTimeout fires first (Timeout path).
-	res, extra, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, WithRegExpr(pat), WithMaxDuratiion(50*time.Millisecond))
+	res, extra, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, WithRegExpr(pat), WithMaxDuration(50*time.Millisecond))
 	require.NoError(t, err)
 	assert.Equal(t, Timeout, res.RetType)
 	assert.Equal(t, []byte("hello"), res.BytesRes)

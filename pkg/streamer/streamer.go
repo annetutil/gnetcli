@@ -264,8 +264,8 @@ func WithRegExpr(regExpr expr.Expr) GenericReadOption {
 	}
 }
 
-// WithMaxDuratiion specifies maximum time for readign. Results in timeout result without error
-func WithMaxDuratiion(maxDuration time.Duration) GenericReadOption {
+// WithMaxDuration specifies maximum time for readign. Results in timeout result without error
+func WithMaxDuration(maxDuration time.Duration) GenericReadOption {
 	return func(grc *GenericReadConfig) {
 		grc.maxDuration = maxDuration
 	}
