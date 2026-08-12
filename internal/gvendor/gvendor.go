@@ -459,7 +459,7 @@ func (m *connWrapper) Close() error {
 
 func (m *connWrapper) ReadTo(ctx context.Context, expr expr.Expr) (streamer.ReadRes, error) {
 	m.log.Debug("read to", zap.String("expr", expr.Repr()))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.stdoutBufferExtra, m.stdoutBuffer, defaultReadSize, readTimeout, expr, 0, 0)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.stdoutBufferExtra, m.stdoutBuffer, defaultReadSize, readTimeout, streamer.WithRegExpr(expr))
 	m.stdoutBufferExtra = extra
 	if err != nil {
 		return nil, err

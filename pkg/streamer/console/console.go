@@ -897,7 +897,7 @@ func (m *Streamer) closeForChangePort() error {
 func (m *Streamer) ReadTo(ctx context.Context, exp expr.Expr) (streamer.ReadRes, error) {
 	m.logger.Debug("read to", zap.String("expr", exp.Repr()))
 	exprs := expr.NewSimpleExprList(exp, expr.NewSimpleExpr().FromPattern(regExErrors))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, exprs, 0, 0)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, streamer.WithRegExpr(exprs))
 	if m.trace != nil {
 		m.trace(trace.Read, read)
 	}
@@ -940,7 +940,7 @@ func (m *Streamer) CheckConsoleError(readRes streamer.ReadRes) error {
 
 func (m *Streamer) Read(ctx context.Context, size int) ([]byte, error) {
 	m.logger.Debug("read", zap.Int("size", size))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, nil, size, 0)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, readBufferSize, m.readTimeout, streamer.WithMaxReadSize(size))
 	if err == nil && res.RetType != streamer.Size {
 		return nil, fmt.Errorf("unexpected res type %d", res.RetType)
 	}
@@ -953,7 +953,7 @@ func (m *Streamer) Read(ctx context.Context, size int) ([]byte, error) {
 
 func (m *Streamer) XRead(ctx context.Context, size int, duration time.Duration, expr expr.Expr) (*streamer.ReadXRes, error) {
 	m.logger.Debug("read to", zap.Int("size", size), zap.Any("expr", expr), zap.Duration("duration", duration))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, size, duration, expr, size, duration)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, size, duration, streamer.WithRegExpr(expr), streamer.WithMaxReadSize(size), streamer.WithMaxDuratiion(duration))
 	m.bufferExtra = extra
 	if m.trace != nil {
 		m.trace(trace.Read, read)

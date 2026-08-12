@@ -324,7 +324,7 @@ func (m *Streamer) Read(ctx context.Context, size int) ([]byte, error) {
 			return nil, err
 		}
 	}
-	res, extra, read, err := streamer.GenericReadX(ctx, m.session.stdoutBufferExtra, m.session.stdoutBuffer, defaultReadSize, m.readTimeout, nil, size, 0)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.session.stdoutBufferExtra, m.session.stdoutBuffer, defaultReadSize, m.readTimeout, streamer.WithMaxReadSize(size))
 	if m.trace != nil {
 		m.trace(trace.Read, read)
 	}
@@ -347,7 +347,7 @@ func (m *Streamer) ReadTo(ctx context.Context, expr expr.Expr) (streamer.ReadRes
 			return nil, err
 		}
 	}
-	res, extra, read, err := streamer.GenericReadX(ctx, m.session.stdoutBufferExtra, m.session.stdoutBuffer, defaultReadSize, m.readTimeout, expr, 0, 0)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.session.stdoutBufferExtra, m.session.stdoutBuffer, defaultReadSize, m.readTimeout, streamer.WithRegExpr(expr))
 	if m.trace != nil {
 		m.trace(trace.Read, read)
 	}

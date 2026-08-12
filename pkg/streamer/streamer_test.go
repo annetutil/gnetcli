@@ -19,7 +19,7 @@ func TestGenericReadNSimple(t *testing.T) {
 	buffer := []byte{}
 	readSize := 2
 	readTimeout := 2 * time.Second
-	res, extra, read, err := GenericReadX(ctx, buffer, ch, readSize, readTimeout, nil, 5, 0)
+	res, extra, read, err := GenericReadX(ctx, buffer, ch, readSize, readTimeout, WithMaxReadSize(5))
 
 	left := readAll(ch)
 	assert.NoError(t, err)
@@ -37,7 +37,7 @@ func TestGenericReadNBuff(t *testing.T) {
 	for i := 0; i < len(data); i++ {
 		ch <- []byte{data[i]}
 	}
-	res, extra, read, err := GenericReadX(ctx, buffer, ch, 1, 2*time.Second, nil, 3, 0)
+	res, extra, read, err := GenericReadX(ctx, buffer, ch, 1, 2*time.Second, WithMaxReadSize(3))
 
 	left := readAll(ch)
 	assert.NoError(t, err)
@@ -67,7 +67,7 @@ func TestGenericReadToSimple(t *testing.T) {
 	readTimeout := 2 * time.Second
 	ch := setupChan([]byte("aest"))
 	pat := expr.NewSimpleExpr().FromPattern("es")
-	res, extra, read, err := GenericReadX(ctx, buffer, ch, readSize, readTimeout, pat, 0, 0)
+	res, extra, read, err := GenericReadX(ctx, buffer, ch, readSize, readTimeout, WithRegExpr(pat))
 
 	left := readAll(ch)
 	assert.NoError(t, err)
@@ -93,7 +93,7 @@ func TestGenericReadXCtxDoneFlushChannel(t *testing.T) {
 	cancel()
 
 	pat := expr.NewSimpleExpr().FromPattern("never-matches")
-	_, _, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, pat, 0, 0)
+	_, _, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, WithRegExpr(pat))
 	require.Error(t, err)
 
 	require.ErrorIs(t, err, context.Canceled)
@@ -113,7 +113,7 @@ func TestGenericReadXTimeoutNoExtraLeak(t *testing.T) {
 	ctx := context.Background()
 	pat := expr.NewSimpleExpr().FromPattern("never-matches")
 	// readTimeout > maxDuration so that maxDurationTimeout fires first (Timeout path).
-	res, extra, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, pat, 0, 50*time.Millisecond)
+	res, extra, _, err := GenericReadX(ctx, nil, ch, 4096, time.Second, WithRegExpr(pat), WithMaxDuratiion(50*time.Millisecond))
 	require.NoError(t, err)
 	assert.Equal(t, Timeout, res.RetType)
 	assert.Equal(t, []byte("hello"), res.BytesRes)

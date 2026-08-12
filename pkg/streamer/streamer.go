@@ -7,7 +7,6 @@ package streamer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"time"
@@ -249,19 +248,46 @@ func flushCh(ch <-chan []byte) []byte {
 	}
 }
 
+type GenericReadConfig struct {
+	maxDuration time.Duration
+	maxReadSize int
+	regExpr     expr.Expr
+}
+
+type GenericReadOption func(*GenericReadConfig)
+
+// WithRegExpr stops read on regExpr match
+func WithRegExpr(regExpr expr.Expr) GenericReadOption {
+	return func(grc *GenericReadConfig) {
+		grc.regExpr = regExpr
+	}
+}
+
+// WithMaxDuratiion specifies maximum time for readign. Results in timeout result without error
+func WithMaxDuratiion(maxDuration time.Duration) GenericReadOption {
+	return func(grc *GenericReadConfig) {
+		grc.maxDuration = maxDuration
+	}
+}
+
+// WithMaxReadSize specifies maximum size of bytes returned. Any leftover bytes from read will be returned as left bytes
+func WithMaxReadSize(maxReadSize int) GenericReadOption {
+	return func(grc *GenericReadConfig) {
+		grc.maxReadSize = maxReadSize
+	}
+}
+
 // GenericReadX reads from readCh till expr matched, exceeded time or read more than size.
 // Returns error if nothing was read during readTimeout or ctx was Done
-// readSize - maximum read size
-// maxDuration - maximum time for reading
-// regExpr - read till regex match
 // Returns read res, left bytes, read bytes, error
 func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, readSize int, readTimeout time.Duration,
-	regExpr expr.Expr, maxReadSize int, maxDuration time.Duration) (*ReadXRes, []byte, []byte, error) {
-	if maxDuration == 0 && maxReadSize == 0 && regExpr == nil {
-		return nil, nil, nil, fmt.Errorf("specify maxDuration, maxReadSize or regExpr")
+	requiredOpt GenericReadOption, opts ...GenericReadOption) (*ReadXRes, []byte, []byte, error) {
+	cfg := GenericReadConfig{}
+	for _, v := range append(opts, requiredOpt) {
+		v(&cfg)
 	}
 	buffer := inBuffer
-	maxDurationTimeout := NewTimerWithDefault(maxDuration)
+	maxDurationTimeout := NewTimerWithDefault(cfg.maxDuration)
 	for {
 		select {
 		case <-ctx.Done():
@@ -272,16 +298,16 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 		}
 		readIterTimeout := NewTimerWithDefault(readTimeout)
 		// check size
-		if maxReadSize > 0 && len(buffer) >= maxReadSize {
-			data, extra := splitBytes(buffer, maxReadSize)
+		if cfg.maxReadSize > 0 && len(buffer) >= cfg.maxReadSize {
+			data, extra := splitBytes(buffer, cfg.maxReadSize)
 			StopTimer(readIterTimeout)
 			StopTimer(maxDurationTimeout)
 			return NewReadXRes(Size, data, nil, []byte{}), extra, buffer[len(inBuffer):], nil
 		}
 
-		if regExpr != nil {
+		if cfg.regExpr != nil {
 			// check expr
-			mRes, ok := regExpr.Match(buffer)
+			mRes, ok := cfg.regExpr.Match(buffer)
 			if ok {
 				var underlyingRes ReadRes
 				if mRes.Underlying != nil {

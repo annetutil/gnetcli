@@ -253,7 +253,7 @@ func (m *Streamer) Read(context.Context, int) ([]byte, error) {
 
 func (m *Streamer) ReadTo(ctx context.Context, expr expr.Expr) (streamer.ReadRes, error) {
 	m.logger.Debug("read to", zap.String("expr", expr.Repr()))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.stdoutBufferExtra, m.stdoutBuffer, defaultReadSize, m.readTimeout, expr, 0, 0)
+	res, extra, read, err := streamer.GenericReadX(ctx, m.stdoutBufferExtra, m.stdoutBuffer, defaultReadSize, m.readTimeout, streamer.WithRegExpr(expr))
 	if m.trace != nil {
 		m.trace(trace.Read, read)
 	}
