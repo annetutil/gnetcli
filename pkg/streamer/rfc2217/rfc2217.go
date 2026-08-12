@@ -95,6 +95,13 @@ func (m *Streamer) SetReadTimeout(duration time.Duration) time.Duration {
 	return prev
 }
 
+func (m *Streamer) PrependBuffer(data []byte) error {
+	buffer := make([]byte, 0, len(data)+len(m.stdoutBufferExtra))
+	buffer = append(buffer, data...)
+	m.stdoutBufferExtra = append(buffer, m.stdoutBufferExtra...)
+	return nil
+}
+
 func (m *Streamer) SetTrace(cb trace.CB) {
 	m.trace = cb
 }

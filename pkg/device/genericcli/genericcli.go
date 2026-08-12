@@ -595,34 +595,24 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 	}
 
 	exprsAdd, exprsAddMap := command.GetExprCallback()
-	makeExprs := func(withEcho, withPrompt bool) expr.ExprList {
-		checkExprs := []expr.NamedExpr{}
-		if withEcho {
-			checkExprs = append(checkExprs, expr.NamedExpr{Name: echoExprName, Exprs: []expr.Expr{expCmdEcho}})
-		}
-		if withPrompt {
-			checkExprs = append(checkExprs, expr.NamedExpr{Name: promptExprName, Exprs: []expr.Expr{cli.prompt}})
-		}
-		checkExprs = append(checkExprs,
-			expr.NamedExpr{Name: pagerExprName, Exprs: []expr.Expr{cli.pager}},
-			expr.NamedExpr{Name: questionExprName, Exprs: questions},
-		)
-		if connector.HasFeature(streamer.LoginInsteadEOF) && cli.login != nil {
-			checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login}})
-		}
-		res := expr.NewSimpleExprListNamedOrdered(checkExprs)
-		for _, exprCB := range exprsAdd {
-			res.Add(cbExprName, expr.NewSimpleExpr().FromPattern(exprCB))
-		}
-		return res
+	checkExprs := []expr.NamedExpr{
+		{Name: echoExprName, Exprs: []expr.Expr{expCmdEcho}},
+		{Name: promptExprName, Exprs: []expr.Expr{cli.prompt}},
+		{Name: pagerExprName, Exprs: []expr.Expr{cli.pager}},
+		{Name: questionExprName, Exprs: questions},
 	}
-	exprs := makeExprs(true, true)
+	if connector.HasFeature(streamer.LoginInsteadEOF) && cli.login != nil {
+		checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login}})
+	}
+	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
+	for _, exprCB := range exprsAdd {
+		exprs.Add("cb", expr.NewSimpleExpr().FromPattern(exprCB))
+	}
 
 	cbLimit := 100
 	seenEcho := false
 	var lastQuestion []byte // GOP3
 	var lastPromptBeforeEchoError error
-	var lastPromptBeforeEchoBuffer []byte
 	repeatedQuestionCount := 0
 	for { // pager loop
 		match, err := connector.ReadTo(ctx, exprs)
@@ -639,7 +629,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			// This could mean 2 separate problems, which are hard to distinguish:
 			// 1) Device redraws terminal, partially echoing; we got chunk ending on prompt before device wrote full echo
 			// 2) Prompt/echo is configured incorrect for this device.
-			// For the 1) case we retry read until we read echo. If we receive read error - it was actually 2) case - so we return original error.
+			// For the 1) case we prepend existing buffer and retry read until we read echo. If we receive read error - it was actually 2) case - so we return original error.
 			if lastPromptBeforeEchoError != nil {
 				return nil, lastPromptBeforeEchoError
 			}
@@ -650,14 +640,11 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 
 		if matchName == echoExprName {
 			seenEcho = true
-			exprs = makeExprs(false, true)
-			lastPromptBeforeEchoBuffer = nil
+			exprs.Delete(echoExprName)
 			lastPromptBeforeEchoError = nil
 			continue
 		}
 		mbefore := match.GetBefore()
-		// for buffer reported in errors merge with previous partial prompt read buffers
-		fullErrorBuffer := append(lastPromptBeforeEchoBuffer, mbefore...)
 		seenPrompt := matchName == promptExprName
 		seenQuestion := matchName == questionExprName
 		checkEcho := func(mBefore []byte) ([]byte, error) {
@@ -668,19 +655,19 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			}
 			mres, ok := exprs.Match(termParsedEcho)
 			if !ok {
-				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
+				return nil, device.ThrowEchoReadException(mbefore, seenPrompt, seenQuestion)
 			}
 			if exprs.GetName(mres.PatternNo) != echoExprName {
-				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
+				return nil, device.ThrowEchoReadException(mbefore, seenPrompt, seenQuestion)
 			}
 			seenEcho = true
-			lastPromptBeforeEchoBuffer = nil
+			exprs.Delete(echoExprName)
 			lastPromptBeforeEchoError = nil
 			return termParsedEcho[mres.End:], nil
 		}
 		if !seenEcho {
 			if len(mbefore) < 2 {
-				return nil, device.ThrowEchoReadException(fullErrorBuffer, seenPrompt, seenQuestion)
+				return nil, device.ThrowEchoReadException(mbefore, seenPrompt, seenQuestion)
 			}
 			switch {
 			case matchName == questionExprName:
@@ -689,7 +676,6 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				if err != nil {
 					return nil, err
 				}
-				exprs = makeExprs(false, true)
 				mbefore = mBefore
 			case matchName == promptExprName:
 				mBefore, err := checkEcho(mbefore)
@@ -698,17 +684,21 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 					mBefore, err = checkEcho(append(mbefore, '\n'))
 				}
 				// in such case we consider that we got partial output from device due to it's redraw of console
-				// so we retry read and preserver error/buffer for future error info
+				// so we retry read with previous buffer prepended
 				if err != nil {
 					lastPromptBeforeEchoError = err
-					lastPromptBeforeEchoBuffer = append(lastPromptBeforeEchoBuffer, mbefore...)
-					exprs = makeExprs(true, false)
+					err := connector.PrependBuffer(mbefore)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"prepend consumed output after prompt-before-echo: %w; %w",
+							err,
+							device.ThrowEchoReadException(mbefore, true, false),
+						)
+					}
 					continue
 				}
 
-				exprs = makeExprs(false, true)
 				mbefore = mBefore
-
 			default:
 				return nil, device.ThrowEchoReadException(mbefore, false, false)
 			}

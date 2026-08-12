@@ -26,6 +26,7 @@ type Connector interface {
 	SetCredentialsInterceptor(func(credentials.Credentials) credentials.Credentials)
 	SetTrace(trace.CB)
 	SetReadTimeout(time.Duration) time.Duration
+	PrependBuffer([]byte) error
 	Close()
 	ReadTo(context.Context, expr.Expr) (ReadRes, error)
 	Read(ctx context.Context, n int) ([]byte, error)

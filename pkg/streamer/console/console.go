@@ -117,10 +117,11 @@ func (m *Streamer) GetBuffer() []byte {
 // PrependBuffer makes already consumed data available to the next read.
 // It is intended for protocol detectors which peek at the stream before the
 // device implementation starts its own login sequence.
-func (m *Streamer) PrependBuffer(data []byte) {
+func (m *Streamer) PrependBuffer(data []byte) error {
 	buffer := make([]byte, 0, len(data)+len(m.bufferExtra))
 	buffer = append(buffer, data...)
 	m.bufferExtra = append(buffer, m.bufferExtra...)
+	return nil
 }
 
 func (m *Streamer) FlushBuffer() {
