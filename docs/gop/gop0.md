@@ -59,3 +59,4 @@ The numerical index contains a table of all GOPs, ordered by number.
 | 1   | Core CLI Primitives | Active | Informational | Core |
 | 2   | Login Expression Detection in Execution Loop for Console Streamers | Accepted | Standards Track | Drivers/Transports |
 | 3   | Repeated Question Detection in Execution Loop | Accepted | Standards Track | Core |
+| 4   | Recovering Command Echo After a Transient Prompt | Accepted | Standards Track | Core |

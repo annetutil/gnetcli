@@ -630,6 +630,7 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 			// 1) Device redraws terminal, partially echoing; we got chunk ending on prompt before device wrote full echo
 			// 2) Prompt/echo is configured incorrect for this device.
 			// For the 1) case we prepend existing buffer and retry read until we read echo. If we receive read error - it was actually 2) case - so we return original error.
+			// gop4 for more details.
 			if lastPromptBeforeEchoError != nil {
 				return nil, lastPromptBeforeEchoError
 			}
@@ -683,8 +684,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 				if err != nil && mbefore[len(mbefore)-1] != '\n' {
 					mBefore, err = checkEcho(append(mbefore, '\n'))
 				}
-				// in such case we consider that we got partial output from device due to it's redraw of console
-				// so we retry read with previous buffer prepended
+				// GOP 4: a CLI may redraw its prompt before the complete echo arrives.
+				// Preserve consumed bytes and retry the normal matcher with them prepended.
 				if err != nil {
 					lastPromptBeforeEchoError = err
 					err := connector.PrependBuffer(mbefore)
