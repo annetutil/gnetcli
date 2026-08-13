@@ -642,7 +642,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 		if !m.tunnel.IsConnected() {
 			err := m.tunnel.CreateConnect(ctx)
 			if err != nil {
-				return err
+				return fmt.Errorf("unable to establish SSH tunnel: %w", err)
 			}
 		}
 		for i, v := range endpoints {
@@ -654,7 +654,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 				break
 			}
 			if i == len(endpoints)-1 {
-				return fmt.Errorf("tunnel forward error %w", err)
+				return fmt.Errorf("unable to forward SSH tunnel to %s: %w", v.HostPort(), err)
 			}
 			logger.Debug("failed to connect endpoint, trying next", zap.String("remote endpoint", v.HostPort()), zap.Error(err))
 		}
@@ -677,13 +677,13 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 	defer m.SetReadTimeout(prev)
 	err := m.startBufferReader(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to start connection reader: %w", err)
 	}
 
 	// initial ok read
 	res, err := m.readLine(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to read initial response: %w", err)
 	}
 
 	if string(res) != ok {
@@ -692,7 +692,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 	if m.ssl {
 		res, err = m.ConsoleCmd(ctx, ssl, true)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to enable SSL: %w", err)
 		}
 
 		if string(res) != ok {
@@ -702,18 +702,18 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 		_ = m.stopBufferReader()
 		sslConn, err := m.setSSL(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to establish SSL connection: %w", err)
 		}
 		m.conn = sslConn
 		err = m.startBufferReader(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to restart connection reader after enabling SSL: %w", err)
 		}
 	}
 
 	err = m.login(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to login to console server: %w", err)
 	}
 	return nil
 }
@@ -810,11 +810,11 @@ func (m *Streamer) DiscoveryAllPorts(ctx context.Context) (CommandsInfoResult, e
 	res := map[string]CommandInfoPort{}
 	err := m.setupConnection(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to setup connection for groups discovery: %w", err)
 	}
 	groupsRes, err := m.ConsoleCmd(ctx, cmdMasterGroups, true)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to discover groups: %w", err)
 	}
 	groups := strings.Trim(string(groupsRes), "\r\n")
 	m.logger.Debug("found groups", zap.String("groups", groups))
@@ -823,25 +823,25 @@ func (m *Streamer) DiscoveryAllPorts(ctx context.Context) (CommandsInfoResult, e
 		_ = m.stopBufferReader()
 		portParsed, err := strconv.Atoi(port)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to parse group port %q: %w", port, err)
 		}
 		m.port = portParsed
 		err = m.setupConnection(ctx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to setup connection to port %d: %w", portParsed, err)
 		}
 		err = m.Write([]byte(cmdGroupInfo + "\r\n")) // multiline answer
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to request info from port %d: %w", portParsed, err)
 		}
 		// there is no definitive end of output, so we rely on help's answer
 		err = m.Write([]byte(cmdGroupHelp + "\r\n"))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to request help from port %d: %w", portParsed, err)
 		}
 		info, err := m.ReadTo(ctx, expr.NewSimpleExpr().FromPattern("send broadcast message")) // start of help message
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to read info from port %d: %w", portParsed, err)
 		}
 		_ = m.Write([]byte("exit\r\n"))
 		read := info.GetBefore()
@@ -850,7 +850,7 @@ func (m *Streamer) DiscoveryAllPorts(ctx context.Context) (CommandsInfoResult, e
 		for _, line := range lines {
 			lineRes, err := parseInfoLine(line)
 			if err != nil {
-				return nil, fmt.Errorf("parse line='%s' error: %s", line, err)
+				return nil, fmt.Errorf("unable to parse info line %q from port %d: %w", line, portParsed, err)
 			}
 			res[lineRes.GetPortName()] = lineRes
 		}
