@@ -87,3 +87,24 @@ func TestValidateRedirectExitChecksResponseAndUnexpectedErrors(t *testing.T) {
 	err := validateRedirectExit(nil, unexpectedErr)
 	require.ErrorIs(t, err, unexpectedErr)
 }
+
+type teardownErrorConn struct{}
+
+func (c *teardownErrorConn) Read([]byte) (int, error)         { return 0, io.EOF }
+func (c *teardownErrorConn) Write(data []byte) (int, error)   { return len(data), nil }
+func (c *teardownErrorConn) Close() error                     { return errors.New("close failed") }
+func (c *teardownErrorConn) LocalAddr() net.Addr              { return nil }
+func (c *teardownErrorConn) RemoteAddr() net.Addr             { return nil }
+func (c *teardownErrorConn) SetDeadline(time.Time) error      { return errors.New("deadline failed") }
+func (c *teardownErrorConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *teardownErrorConn) SetWriteDeadline(time.Time) error { return nil }
+
+func TestCloseForChangePortIgnoresDiscardedConnectionErrors(t *testing.T) {
+	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil)
+	consoleStreamer.conn = &teardownErrorConn{}
+
+	err := consoleStreamer.closeForChangePort()
+
+	require.NoError(t, err)
+	require.Nil(t, consoleStreamer.conn)
+}

@@ -918,14 +918,28 @@ func (m *Streamer) Close() {
 }
 
 func (m *Streamer) closeForChangePort() error {
-	if m.conn != nil {
-		err := m.conn.Close()
-		if err != nil {
-			return err
-		}
+	if m.conn == nil {
+		return nil
+	}
+	if err := m.conn.SetDeadline(time.Now()); err != nil {
+		m.logger.Debug("unable to interrupt discarded connection reader", zap.Error(err))
+	}
+	if m.readerCancel != nil {
+		m.readerCancel()
+	}
+	if m.readerWg != nil {
+		_ = m.readerWg.Wait()
+	}
+	if m.buffer != nil {
+		close(m.buffer)
+		m.buffer = nil
+	}
+	if err := m.conn.Close(); err != nil {
+		m.logger.Debug("unable to close discarded connection", zap.Error(err))
 	}
 	m.conn = nil
-
+	m.readerCancel = nil
+	m.bufferExtra = nil
 	return nil
 }
 
