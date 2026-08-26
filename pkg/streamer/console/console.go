@@ -89,6 +89,7 @@ type Streamer struct {
 	tunnelHost             string // we manage a tunnel
 	credentialsInterceptor func(credentials.Credentials) credentials.Credentials
 	readTimeout            time.Duration
+	setupReadTimeout       time.Duration
 	trace                  trace.CB
 }
 
@@ -156,6 +157,7 @@ func NewStreamer(host, consolePort string, credentials credentials.Credentials, 
 		tunnelHost:             "",
 		credentialsInterceptor: nil,
 		readTimeout:            defaultReadTimeout,
+		setupReadTimeout:       setupConnReadTimeout,
 		trace:                  nil,
 	}
 
@@ -207,6 +209,12 @@ func WithHackedSSL() StreamerOption {
 func WithSpeed(speed int) StreamerOption {
 	return func(h *Streamer) {
 		h.speed = speed
+	}
+}
+
+func WithSetupReadTimeout(timeout time.Duration) StreamerOption {
+	return func(h *Streamer) {
+		h.setupReadTimeout = timeout
 	}
 }
 
@@ -340,7 +348,7 @@ func (m *Streamer) login(ctx context.Context) (err error) {
 }
 
 func (m *Streamer) connectConsolePort(ctx context.Context) (err error) {
-	prev := m.SetReadTimeout(setupConnReadTimeout)
+	prev := m.SetReadTimeout(m.setupReadTimeout)
 	defer m.SetReadTimeout(prev)
 	res, err := m.ConsoleCmd(ctx, cmdCall+m.consolePort, true)
 	if err != nil {
@@ -673,7 +681,7 @@ func (m *Streamer) setupConnection(ctx context.Context) error {
 			logger.Debug("failed to connect endpoint, trying next", zap.String("remote endpoint", v.HostPort()), zap.Error(err))
 		}
 	}
-	prev := m.SetReadTimeout(setupConnReadTimeout)
+	prev := m.SetReadTimeout(m.setupReadTimeout)
 	defer m.SetReadTimeout(prev)
 	err := m.startBufferReader(ctx)
 	if err != nil {

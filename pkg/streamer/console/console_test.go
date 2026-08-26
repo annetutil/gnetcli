@@ -49,3 +49,9 @@ func TestParseInfoLine(t *testing.T) {
 	require.Equal(t, res.iostate, "up")
 	require.Equal(t, res.port, 10103)
 }
+
+func TestWithSetupReadTimeout(t *testing.T) {
+	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil, WithSetupReadTimeout(42*time.Second))
+
+	require.Equal(t, 42*time.Second, consoleStreamer.setupReadTimeout)
+}
