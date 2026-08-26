@@ -2,9 +2,15 @@ package console
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net"
+	"syscall"
 	"testing"
 	"time"
 
+	"github.com/annetutil/gnetcli/pkg/streamer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,4 +60,30 @@ func TestWithSetupReadTimeout(t *testing.T) {
 	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil, WithSetupReadTimeout(42*time.Second))
 
 	require.Equal(t, 42*time.Second, consoleStreamer.setupReadTimeout)
+}
+
+func TestValidateRedirectExitAcceptsExpectedConnectionClose(t *testing.T) {
+	expectedErrors := []error{
+		io.EOF,
+		net.ErrClosed,
+		io.ErrClosedPipe,
+		syscall.EPIPE,
+		streamer.ThrowReadTimeoutException(nil),
+		streamer.ThrowEOFException(nil),
+		fmt.Errorf("wrapped: %w", syscall.EPIPE),
+	}
+	for _, err := range expectedErrors {
+		t.Run(err.Error(), func(t *testing.T) {
+			require.NoError(t, validateRedirectExit(nil, err))
+		})
+	}
+}
+
+func TestValidateRedirectExitChecksResponseAndUnexpectedErrors(t *testing.T) {
+	require.NoError(t, validateRedirectExit([]byte(ansGoodbye), nil))
+	require.ErrorContains(t, validateRedirectExit([]byte("unexpected\r\n"), nil), "expected: goodbye")
+
+	unexpectedErr := errors.New("authentication failed")
+	err := validateRedirectExit(nil, unexpectedErr)
+	require.ErrorIs(t, err, unexpectedErr)
 }

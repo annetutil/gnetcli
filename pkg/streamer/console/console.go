@@ -5,10 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"unicode"
 
@@ -374,15 +376,8 @@ func (m *Streamer) connectConsolePort(ctx context.Context) (err error) {
 		exitCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
 		defer cancel()
 		res, err = m.ConsoleCmd(exitCtx, cmdExit, true)
-		if err != nil {
-			//nolint:exhaustivestruct
-			if !errors.Is(err, &streamer.ReadTimeoutException{}) {
-				return err
-			}
-		} else {
-			if string(res) != ansGoodbye {
-				return ThrowConsoleException([]byte("unexpected data " + string(res) + " expected: " + "goodbye" + newLine))
-			}
+		if err := validateRedirectExit(res, err); err != nil {
+			return err
 		}
 
 		m.redirectNo++
@@ -462,6 +457,31 @@ func (m *Streamer) connectConsolePort(ctx context.Context) (err error) {
 	}
 
 	return nil
+}
+
+func validateRedirectExit(res []byte, err error) error {
+	if err != nil {
+		if isExpectedRedirectClose(err) {
+			return nil
+		}
+		return fmt.Errorf("unable to finish old connection before redirect: %w", err)
+	}
+	if string(res) != ansGoodbye {
+		return ThrowConsoleException([]byte("unexpected data " + string(res) + " expected: " + ansGoodbye))
+	}
+	return nil
+}
+
+func isExpectedRedirectClose(err error) bool {
+	// The old master connection is intentionally discarded after it returns a
+	// group port. With TLS or an SSH forward, its close can surface before the
+	// optional goodbye response reaches the client.
+	return errors.Is(err, &streamer.ReadTimeoutException{}) ||
+		errors.Is(err, &streamer.EOFException{}) ||
+		errors.Is(err, io.EOF) ||
+		errors.Is(err, net.ErrClosed) ||
+		errors.Is(err, io.ErrClosedPipe) ||
+		errors.Is(err, syscall.EPIPE)
 }
 
 func (m *Streamer) setSpeed(ctx context.Context, speed int) (err error) {
