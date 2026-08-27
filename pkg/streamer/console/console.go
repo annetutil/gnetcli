@@ -1002,7 +1002,7 @@ func (m *Streamer) Read(ctx context.Context, size int) ([]byte, error) {
 
 func (m *Streamer) XRead(ctx context.Context, size int, duration time.Duration, expr expr.Expr) (*streamer.ReadXRes, error) {
 	m.logger.Debug("read to", zap.Int("size", size), zap.Any("expr", expr), zap.Duration("duration", duration))
-	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, size, duration, streamer.WithRegExpr(expr), streamer.WithMaxReadSize(size), streamer.WithMaxDuration(duration))
+	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, size, m.readTimeout, streamer.WithRegExpr(expr), streamer.WithMaxReadSize(size), streamer.WithMaxDuration(duration))
 	m.bufferExtra = extra
 	if m.trace != nil {
 		m.trace(trace.Read, read)

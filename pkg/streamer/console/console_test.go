@@ -24,6 +24,17 @@ func TestPrependBufferReturnsConsumedBytesToNextRead(t *testing.T) {
 	require.Empty(t, consoleStreamer.GetBuffer())
 }
 
+func TestXReadPollingDurationDoesNotBecomeReadTimeout(t *testing.T) {
+	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil)
+	consoleStreamer.SetReadTimeout(100 * time.Millisecond)
+
+	for range 20 {
+		res, err := consoleStreamer.XRead(context.Background(), 1, time.Millisecond, nil)
+		require.NoError(t, err)
+		require.Equal(t, streamer.Timeout, res.RetType)
+	}
+}
+
 func TestParseInfoLine(t *testing.T) {
 	line := "ttyS16:consoles-dc.domain,147,10102:/:/dev/ttyMI23,9600n,4::up:rw:,log,noact,nobrk,notask,0,-1:1:noautoup::reinitoncc,autoreinit,login::0:"
 	res, err := parseInfoLine([]byte(line))
