@@ -251,8 +251,17 @@ func flushCh(ch <-chan []byte) []byte {
 
 type GenericReadConfig struct {
 	maxDuration time.Duration
+	minReadSize int
 	maxReadSize int
 	regExpr     expr.Expr
+}
+
+// WithMinReadSize stops reading as soon as at least minReadSize bytes are buffered.
+// Combine it with WithMaxReadSize to return all currently buffered data up to a limit.
+func WithMinReadSize(minReadSize int) GenericReadOption {
+	return func(grc *GenericReadConfig) {
+		grc.minReadSize = minReadSize
+	}
 }
 
 type GenericReadOption func(*GenericReadConfig)
@@ -287,8 +296,14 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 	for _, v := range append(opts, requiredOpt) {
 		v(&cfg)
 	}
-	if cfg.maxDuration == 0 && cfg.maxReadSize == 0 && cfg.regExpr == nil {
-		return nil, nil, nil, errors.New("specify maxDuration, maxReadSize or regExpr via options")
+	if cfg.maxDuration == 0 && cfg.minReadSize == 0 && cfg.maxReadSize == 0 && cfg.regExpr == nil {
+		return nil, nil, nil, errors.New("specify maxDuration, minReadSize, maxReadSize or regExpr via options")
+	}
+	if cfg.minReadSize < 0 {
+		return nil, nil, nil, errors.New("minReadSize must not be negative")
+	}
+	if cfg.maxReadSize > 0 && cfg.minReadSize > cfg.maxReadSize {
+		return nil, nil, nil, errors.New("minReadSize must not exceed maxReadSize")
 	}
 	buffer := inBuffer
 	maxDurationTimeout := NewTimerWithDefault(cfg.maxDuration)
@@ -304,6 +319,16 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 		// check size
 		if cfg.maxReadSize > 0 && len(buffer) >= cfg.maxReadSize {
 			data, extra := splitBytes(buffer, cfg.maxReadSize)
+			StopTimer(readIterTimeout)
+			StopTimer(maxDurationTimeout)
+			return NewReadXRes(Size, data, nil, []byte{}), extra, buffer[len(inBuffer):], nil
+		}
+		if cfg.minReadSize > 0 && len(buffer) >= cfg.minReadSize {
+			returnSize := len(buffer)
+			if cfg.maxReadSize > 0 {
+				returnSize = min(returnSize, cfg.maxReadSize)
+			}
+			data, extra := splitBytes(buffer, returnSize)
 			StopTimer(readIterTimeout)
 			StopTimer(maxDurationTimeout)
 			return NewReadXRes(Size, data, nil, []byte{}), extra, buffer[len(inBuffer):], nil

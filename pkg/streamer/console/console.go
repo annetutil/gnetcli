@@ -1000,6 +1000,37 @@ func (m *Streamer) Read(ctx context.Context, size int) ([]byte, error) {
 	return res.BytesRes, err
 }
 
+// ReadSome waits for data and returns everything currently buffered up to maxSize.
+func (m *Streamer) ReadSome(ctx context.Context, maxSize int) ([]byte, error) {
+	if maxSize <= 0 {
+		return nil, fmt.Errorf("maxSize must be positive, got %d", maxSize)
+	}
+	m.logger.Debug("read some", zap.Int("max_size", maxSize))
+	res, extra, read, err := streamer.GenericReadX(
+		ctx,
+		m.bufferExtra,
+		m.buffer,
+		readBufferSize,
+		m.readTimeout,
+		streamer.WithMinReadSize(1),
+		streamer.WithMaxReadSize(maxSize),
+	)
+	m.bufferExtra = extra
+	if m.trace != nil {
+		m.trace(trace.Read, read)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if res.RetType == streamer.EOF {
+		return res.BytesRes, io.EOF
+	}
+	if res.RetType != streamer.Size {
+		return nil, fmt.Errorf("unexpected res type %d", res.RetType)
+	}
+	return res.BytesRes, nil
+}
+
 func (m *Streamer) XRead(ctx context.Context, size int, duration time.Duration, expr expr.Expr) (*streamer.ReadXRes, error) {
 	m.logger.Debug("read to", zap.Int("size", size), zap.Any("expr", expr), zap.Duration("duration", duration))
 	res, extra, read, err := streamer.GenericReadX(ctx, m.bufferExtra, m.buffer, size, m.readTimeout, streamer.WithRegExpr(expr), streamer.WithMaxReadSize(size), streamer.WithMaxDuration(duration))

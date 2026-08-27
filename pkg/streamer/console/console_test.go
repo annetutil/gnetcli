@@ -36,6 +36,27 @@ func TestXReadPollingDurationDoesNotBecomeReadTimeout(t *testing.T) {
 	}
 }
 
+func TestReadSomeReturnsAllCurrentlyBufferedData(t *testing.T) {
+	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil)
+	consoleStreamer.buffer = make(chan []byte, 2)
+	consoleStreamer.buffer <- []byte("abc")
+	consoleStreamer.buffer <- []byte("def")
+
+	data, err := consoleStreamer.ReadSome(context.Background(), 4)
+
+	require.NoError(t, err)
+	require.Equal(t, []byte("abcd"), data)
+	require.Equal(t, []byte("ef"), consoleStreamer.bufferExtra)
+}
+
+func TestReadSomeRejectsNonPositiveMaximum(t *testing.T) {
+	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil)
+
+	_, err := consoleStreamer.ReadSome(context.Background(), 0)
+
+	require.ErrorContains(t, err, "maxSize must be positive")
+}
+
 func TestParseInfoLine(t *testing.T) {
 	line := "ttyS16:consoles-dc.domain,147,10102:/:/dev/ttyMI23,9600n,4::up:rw:,log,noact,nobrk,notask,0,-1:1:noautoup::reinitoncc,autoreinit,login::0:"
 	res, err := parseInfoLine([]byte(line))

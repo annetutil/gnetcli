@@ -47,6 +47,59 @@ func TestGenericReadNBuff(t *testing.T) {
 	assert.Equal(t, []byte("test"), read)
 }
 
+func TestGenericReadXReturnsCurrentlyBufferedData(t *testing.T) {
+	ch := make(chan []byte, 2)
+	ch <- []byte("abc")
+	ch <- []byte("def")
+
+	res, extra, read, err := GenericReadX(
+		context.Background(),
+		nil,
+		ch,
+		4096,
+		time.Second,
+		WithMinReadSize(1),
+		WithMaxReadSize(4),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, Size, res.RetType)
+	require.Equal(t, []byte("abcd"), res.BytesRes)
+	require.Equal(t, []byte("ef"), extra)
+	require.Equal(t, []byte("abcdef"), read)
+}
+
+func TestGenericReadXMinReadSizeUsesExistingBuffer(t *testing.T) {
+	res, extra, read, err := GenericReadX(
+		context.Background(),
+		[]byte("buffered"),
+		nil,
+		4096,
+		time.Second,
+		WithMinReadSize(1),
+		WithMaxReadSize(32),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, []byte("buffered"), res.BytesRes)
+	require.Empty(t, extra)
+	require.Empty(t, read)
+}
+
+func TestGenericReadXRejectsMinReadSizeAboveMaximum(t *testing.T) {
+	_, _, _, err := GenericReadX(
+		context.Background(),
+		nil,
+		nil,
+		4096,
+		time.Second,
+		WithMinReadSize(2),
+		WithMaxReadSize(1),
+	)
+
+	require.ErrorContains(t, err, "minReadSize must not exceed maxReadSize")
+}
+
 func readAll(ch chan []byte) []byte {
 	close(ch)
 	left := []byte{}
