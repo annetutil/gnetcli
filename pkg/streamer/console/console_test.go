@@ -1,6 +1,7 @@
 package console
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -65,6 +66,38 @@ func TestParseInfoLine(t *testing.T) {
 	require.Equal(t, res.portName, "ttyS23")
 	require.Equal(t, res.iostate, "up")
 	require.Equal(t, res.port, 10103)
+}
+
+type partialWriteConn struct {
+	bytes.Buffer
+	maxWrite int
+}
+
+func (c *partialWriteConn) Read([]byte) (int, error)         { return 0, io.EOF }
+func (c *partialWriteConn) Close() error                     { return nil }
+func (c *partialWriteConn) LocalAddr() net.Addr              { return nil }
+func (c *partialWriteConn) RemoteAddr() net.Addr             { return nil }
+func (c *partialWriteConn) SetDeadline(time.Time) error      { return nil }
+func (c *partialWriteConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *partialWriteConn) SetWriteDeadline(time.Time) error { return nil }
+
+func (c *partialWriteConn) Write(data []byte) (int, error) {
+	if len(data) > c.maxWrite {
+		data = data[:c.maxWrite]
+	}
+	return c.Buffer.Write(data)
+}
+
+func TestWriteRetriesPartialWrites(t *testing.T) {
+	conn := &partialWriteConn{maxWrite: 3}
+	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil)
+	consoleStreamer.conn = conn
+	payload := []byte("0123456789")
+
+	err := consoleStreamer.Write(payload)
+
+	require.NoError(t, err)
+	require.Equal(t, payload, conn.Bytes())
 }
 
 func TestWithSetupReadTimeout(t *testing.T) {

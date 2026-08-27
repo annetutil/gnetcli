@@ -1021,10 +1021,17 @@ func (m *Streamer) Write(text []byte) error {
 	if m.trace != nil {
 		m.trace(trace.Write, text)
 	}
-	written, err := m.conn.Write(text)
-	m.logger.Debug("write", zap.ByteString("text", text), zap.Int("written", written))
-	if err != nil {
-		return err
+	totalWritten := 0
+	for totalWritten < len(text) {
+		written, err := m.conn.Write(text[totalWritten:])
+		totalWritten += written
+		m.logger.Debug("write", zap.ByteString("text", text), zap.Int("written", written), zap.Int("total_written", totalWritten))
+		if err != nil {
+			return err
+		}
+		if written == 0 {
+			return io.ErrShortWrite
+		}
 	}
 
 	return nil
