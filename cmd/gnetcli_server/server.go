@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"syscall"
+	"time"
 
 	gateway "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 
@@ -37,6 +39,7 @@ const (
 	ErrorTypeGeneric    ExecErrorType = "generic_error"
 	ErrorTypeConnection ExecErrorType = "connection_error"
 	ErrorTypeConnect    ExecErrorType = "connect_error"
+	shutdownTimeout                   = 10 * time.Second
 )
 
 func path(rel string) string {
@@ -213,15 +216,28 @@ func main() {
 		wg.Go(func() error {
 			return grpcServer.Serve(wListener)
 		})
-		context.AfterFunc(ctx, func() {
-			logger.Debug("close ", zap.Any("wListener", wListener))
-			_ = wListener.Close()
-		})
 	}
 	context.AfterFunc(wCtx, func() {
-		grpcServer.Stop()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+
 		if gatewayServer != nil {
-			gatewayServer.Close()
+			if err := gatewayServer.Shutdown(shutdownCtx); err != nil {
+				logger.Error("http gateway graceful shutdown failed", zap.Error(err))
+			}
+		}
+
+		grpcStopped := make(chan struct{})
+		go func() {
+			grpcServer.GracefulStop()
+			close(grpcStopped)
+		}()
+		select {
+		case <-grpcStopped:
+			logger.Debug("grpc server stopped gracefully")
+		case <-shutdownCtx.Done():
+			logger.Warn("grpc graceful shutdown timed out")
+			grpcServer.Stop()
 		}
 	})
 	if gatewayServer != nil {
@@ -235,9 +251,17 @@ func main() {
 		return err
 	})
 	err = wg.Wait()
-	if err != nil {
+	if err != nil && !isExpectedShutdown(err) {
 		panic(err)
 	}
+	logger.Info("server stopped", zap.Error(err))
+}
+
+func isExpectedShutdown(err error) bool {
+	var interrupted Interrupted
+	return errors.As(err, &interrupted) ||
+		errors.Is(err, grpc.ErrServerStopped) ||
+		errors.Is(err, http.ErrServerClosed)
 }
 
 func newUnixSocket(path string) (net.Listener, error) {
@@ -272,6 +296,7 @@ func WaitInterrupted(ctx context.Context) error {
 	ch := make(chan os.Signal, 1)
 
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(ch)
 	select {
 	case v := <-ch:
 		return Interrupted{Signal: v}
