@@ -615,6 +615,7 @@ func (m *Server) Download(ctx context.Context, req *pb.FileDownloadRequest) (*pb
 		logger.Debug("download error", zap.Error(err))
 		return nil, status.Error(codes.Internal, fmt.Sprintf("download error: %s", err))
 	}
+	defer devInited.Close()
 	err = devInited.Connect(ctx)
 	if err != nil {
 		logger.Debug("download error", zap.Error(err))
@@ -647,6 +648,7 @@ func (m *Server) Upload(ctx context.Context, req *pb.FileUploadRequest) (*emptyp
 		logger.Debug("upload error", zap.Error(err))
 		return nil, status.Error(codes.Internal, fmt.Sprintf("upload error: %s", err))
 	}
+	defer devInited.Close()
 	err = devInited.Connect(ctx)
 	if err != nil {
 		logger.Debug("upload error", zap.Error(err))
