@@ -7,7 +7,7 @@ The project consist of go-library, GRPC server and CLI tool. It is typically use
 * **Execute commands instead of just reading and writing.**
 * **Pager, questions and error handling are supported.**  
   Describe CLI interface in a few expressions and get full power of the project.
-* **The project supports several network vendors, including Huawei, Juniper, Cisco, and RouterOS.**
+* **The project supports several network vendors, including Huawei, Juniper, Cisco, FortiGate (FortiOS), and RouterOS.**
 * **Netconf is supported.**  
   Exec netconf in same manner as text command to simplify automation workflow.
 * **SSH tunneling is supported.**

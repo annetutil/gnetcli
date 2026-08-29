@@ -35,7 +35,7 @@ Usage of cli:
   -dev-conf string
     	Path to yaml with device types
   -devtype string
-    	Device type from dev-conf file or from predifined: juniper, huawei, cisco, nxos, pc, netconf
+    	Device type from dev-conf file or from predifined: juniper, huawei, h3c, arista, cisco, nxos, bcomos, pc, ros, netconf, aruos, eltex, asa, fortios, sitonica
   -hostname string
     	Hostname
   -json
