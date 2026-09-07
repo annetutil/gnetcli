@@ -32,6 +32,7 @@ const (
 )
 
 var autoCommands = []cmd.Cmd{
+	cmd.NewCmd("terminal no monitor", cmd.WithErrorIgnore()),
 	cmd.NewCmd("terminal length 0", cmd.WithErrorIgnore()),
 }
 
