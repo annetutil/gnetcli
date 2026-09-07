@@ -13,6 +13,7 @@ func TestPrompt(t *testing.T) {
 		[]byte("\r\n{master}\r\nloginlog@xdc-13f3> "),
 		[]byte("\r\n[edit]\r\nlogin-login@host-dc-1d# "),
 		[]byte("\r\n{master}[edit]\r\nlogin-login@hosth# "),
+		[]byte("login-name@router-name> "),
 	}
 	testutils.ExprTester(t, cases, promptExpression)
 }
