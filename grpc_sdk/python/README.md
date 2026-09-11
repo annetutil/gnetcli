@@ -5,6 +5,11 @@ eliminating the need for screen scraping with expect.
 
 See documentation on [gnetcli server](https://annetutil.github.io/gnetcli/).
 
+Start the server on `127.0.0.1:50051` with explicit authentication.
+Set `GNETCLI_AUTH` to `Basic <base64(server-login:server-password)>`;
+`LOGIN`/`PASSWORD` below are the device credentials. Plaintext gRPC is for
+local testing only. See the server guide for TLS.
+
 Example:
 
 ```python
@@ -12,8 +17,7 @@ from gnetclisdk.client import Credentials, Gnetcli, HostParams
 import os, asyncio
 
 async def example():
-    api = Gnetcli(insecure_grpc=True)
-    # api = Gnetcli(insecure_grpc=True, auth_token="Basic " + base64.b64encode(f"{username}:{password}".encode('utf-8')).decode("ascii")
+    api = Gnetcli(server="localhost:50051", insecure_grpc=True, auth_token=os.environ["GNETCLI_AUTH"])
     dev_creds = Credentials(os.environ.get("LOGIN"), os.environ.get("PASSWORD"))
     res = await api.cmd(hostname="myhost", cmd="dis clock", host_params=HostParams(device="huawei", credentials=dev_creds))
     print("err=%s status=%s out=%s" % (res.error, res.status, res.out))
