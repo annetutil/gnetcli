@@ -36,7 +36,10 @@ func main() {
 		panic(err)
     }
 	defer dev.Close()
-	res, _ := dev.Execute(cmd.NewCmd("display clock"))
+	res, err := dev.ExecuteCtx(ctx, cmd.NewCmd("display clock"))
+	if err != nil {
+		panic(err)
+	}
 	if res.Status() == 0 {
 		fmt.Printf("Result: %s\n", res.Output())
 	} else {
