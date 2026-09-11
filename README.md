@@ -64,11 +64,14 @@ func main() {
 		panic(err)
     }
 	defer dev.Close()
-	res, _ := dev.Execute(cmd.NewCmd("display interfaces"))
+	res, err := dev.ExecuteCtx(ctx, cmd.NewCmd("display interfaces"))
+	if err != nil {
+		panic(err)
+	}
 	if res.Status() == 0 {
 		fmt.Printf("Result: %s\n", res.Output())
 	} else {
-		fmt.Printf("Error: %s\nStatus: %d\n", res.Status(), res.Error())
+		fmt.Printf("Error: %s\nStatus: %d\n", res.Error(), res.Status())
 	}
 }
 ```
