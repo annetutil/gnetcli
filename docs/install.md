@@ -16,5 +16,5 @@ You can download it manually from [Github releases](https://github.com/annetutil
 
 ```shell
 go install github.com/annetutil/gnetcli/cmd/gnetcli_server@latest
-server ...
+gnetcli_server ...
 ```
