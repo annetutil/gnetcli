@@ -104,12 +104,18 @@ cli -hostname myhost -devtype huawei -debug -command $'dis clock\ndis ver0' -pas
 Install and start the server:
 ```shell
 go install github.com/annetutil/gnetcli/cmd/gnetcli_server@latest
-gnetcli_server -debug -basic-auth mylogin:mysecret
+LOGIN=mylogin
+PASSWORD=mysecret
+gnetcli_server -debug -basic-auth "$LOGIN:$PASSWORD"
 ```
 
 Exec a command on a device using GRPC 
 ```shell
-TOKEN=$(echo -n "$LOGIN:$PASSWORD" | base64)
+# In another terminal, use the same server credentials as above.
+# These are not the network device credentials in host_params.
+LOGIN=mylogin
+PASSWORD=mysecret
+TOKEN=$(printf '%s' "$LOGIN:$PASSWORD" | base64 | tr -d '\n')
 grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "huawei", "credentials": {"login": "test", "password": "test"}}, "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
 ```
 
