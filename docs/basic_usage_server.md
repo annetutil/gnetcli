@@ -27,11 +27,60 @@ TOKEN=$(printf '%s' "$LOGIN:$PASSWORD" | base64 | tr -d '\n')
 grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "juniper", "credentials": {"login": "test", "password": "test"}}, "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
 ```
 
-Using http-gateway:
+### HTTP gateway on the gRPC port
 
+Restart the server with the **same address** for `-port` and `-http_port`:
+
+```shell
+LOGIN=mylogin
+PASSWORD=mysecret
+gnetcli_server -port 127.0.0.1:50051 -http_port 127.0.0.1:50051 -basic-auth "$LOGIN:$PASSWORD"
 ```
-curl -v -X POST -k 'http://localhost:50052/api/v1/exec' -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "juniper", "credentials": {"login": "test", "password": "test"}}, "string_result": true}'
+
+In another terminal, send HTTP/1 requests to that same port. The gateway
+forwards authentication to the native gRPC server; it does not bypass its
+interceptors. These are demonstration credentials for local testing only.
+
+```shell
+LOGIN=mylogin
+PASSWORD=mysecret
+TOKEN=$(printf '%s' "$LOGIN:$PASSWORD" | base64 | tr -d '\n')
+curl --http1.1 -H "Authorization: Basic $TOKEN" -H 'Content-Type: application/json' \
+  'http://127.0.0.1:50051/api/v1/exec' \
+  -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "huawei", "credentials": {"login": "test", "password": "test"}}, "string_result": true}'
 ```
+
+The previous `grpcurl` invocation still works on port 50051. For separate ports,
+set `-http_port 127.0.0.1:50052` instead. Omitting `http_port` keeps gRPC-only
+mode. HTTP requires TCP; combining `http_port` with `disable_tcp` is an error.
+Unix-socket gRPC remains available independently.
+
+Equivalent shared-listener YAML:
+
+```yaml
+port: "127.0.0.1:50051"
+http_port: "127.0.0.1:50051"
+basic_auth: "mylogin:mysecret" # Local example only; protect the configuration file.
+```
+
+Addresses are compared after expanding a bare port to `127.0.0.1:PORT`.
+Use identical host spelling: DNS aliases are not resolved for this comparison.
+Equal `127.0.0.1:0` values share one allocated ephemeral port, reported in the
+startup logs. Different addresses still create separate listeners.
+
+The multiplexer routes plaintext **HTTP/1** to the gateway and native HTTP/2 or
+TLS connections to gRPC. gRPC streaming and reflection use the native server.
+HTTP/2 REST, HTTPS, and gRPC-Web are not supported by this shared listener.
+With `tls: true`, gRPC uses TLS, but the HTTP gateway remains plaintext; do not
+send Basic credentials over it across an untrusted network. Use a trusted TLS
+reverse proxy if HTTPS is required. The gateway's internal gRPC connection uses
+TLS too, trusting the configured server certificate and verifying its name and
+validity period (a DNS/IP SAN is required).
+
+Protocol classification and gRPC transport handshakes each have a five-second
+timeout. Closing the shared listener drops incomplete classifications, not
+connections already handed to a protocol server. On shutdown, HTTP handlers
+are drained before gRPC; the process waits for shutdown completion.
 
 ### Help
 

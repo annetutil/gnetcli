@@ -119,6 +119,15 @@ TOKEN=$(printf '%s' "$LOGIN:$PASSWORD" | base64 | tr -d '\n')
 grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "huawei", "credentials": {"login": "test", "password": "test"}}, "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
 ```
 
+### HTTP and gRPC on one port
+
+Set `-http_port` to the same address as `-port` to enable the HTTP/1 gateway
+without a second TCP listener. For example, add
+`-port 127.0.0.1:50051 -http_port 127.0.0.1:50051` to the server command above.
+Native gRPC, including streaming and reflection, remains on that port.
+See the [gateway guide](docs/basic_usage_server.md#http-gateway-on-the-grpc-port)
+for authentication, separate-port compatibility, and TLS limitations.
+
 ## Start GRPC-server via docker
 Clone the repository, build the image and run the container:
 ```shell

@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
-	"log"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -28,6 +30,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 
+	"github.com/annetutil/gnetcli/internal/listenermux"
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/server"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
@@ -132,32 +135,63 @@ func main() {
 		// also should be placed after the listener creation to avoid race condition
 		// when GnetcliStarter client tries to connect to a socket that does not exist yet
 		logger.Warn("init unix socket", zap.String("path", cfg.UnixSocket))
+		defer unixSocketLn.Close()
 		grpcListeners = append(grpcListeners, unixSocketLn)
 	}
 	var gatewayServer *http.Server
+	var gatewayListener net.Listener
+	var sharedMux *listenermux.Mux
+	var gatewayEndpoint string
+	if cfg.DisableTcp && cfg.HttpListen != "" {
+		logger.Panic("http_port requires TCP to be enabled")
+	}
 	if !cfg.DisableTcp {
-		address := cfg.Listen
-		if !strings.Contains(cfg.Listen, ":") { // just port
-			address = net.JoinHostPort("127.0.0.1", address)
-		}
+		address := listenAddress(cfg.Listen)
 		tcpSocketLn, err := newTcpSocket(address)
 		if err != nil {
 			logger.Panic("tcp socket error", zap.Error(err))
 		}
-		// log level and "init tcp socket", "address" is used in GnetcliStarter
+		defer tcpSocketLn.Close()
+		// Keep this message/field for GnetcliStarter, including ephemeral ports.
 		logger.Warn("init tcp socket", zap.String("address", tcpSocketLn.Addr().String()))
-		grpcListeners = append(grpcListeners, tcpSocketLn)
+		grpcListener := tcpSocketLn
 		if cfg.HttpListen != "" {
-			logger.Warn("init http gateway socket", zap.String("address", cfg.HttpListen))
-			mux := gateway.NewServeMux()
-			pb.RegisterGnetcliHandlerFromEndpoint(context.Background(), mux, address, []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
-			gatewayServer = &http.Server{Addr: cfg.HttpListen, Handler: mux}
+			httpAddress := listenAddress(cfg.HttpListen)
+			if httpAddress == address {
+				sharedMux, err = listenermux.New(tcpSocketLn)
+				if err != nil {
+					logger.Panic("shared listener error", zap.Error(err))
+				}
+				defer sharedMux.Close()
+				grpcListener = sharedMux.GRPCListener()
+				gatewayListener = sharedMux.HTTPListener()
+			} else {
+				gatewayListener, err = newTcpSocket(httpAddress)
+				if err != nil {
+					logger.Panic("http socket error", zap.Error(err))
+				}
+			}
+			defer gatewayListener.Close()
+			logger.Warn("init http gateway socket", zap.String("address", gatewayListener.Addr().String()))
+			// Dial the allocated port, never the configured ":0" or a wildcard.
+			endpoint := tcpSocketLn.Addr().(*net.TCPAddr)
+			ip := endpoint.IP
+			if ip.IsUnspecified() {
+				if ip.To4() != nil {
+					ip = net.IPv4(127, 0, 0, 1)
+				} else {
+					ip = net.IPv6loopback
+				}
+			}
+			gatewayEndpoint = net.JoinHostPort(ip.String(), fmt.Sprint(endpoint.Port))
 		}
+		grpcListeners = append(grpcListeners, grpcListener)
 	}
 	if len(grpcListeners) == 0 {
 		logger.Panic("specify tcp or unix socket")
 	}
 	var opts []grpc.ServerOption
+	var gatewayCredentials credentials.TransportCredentials = insecure.NewCredentials()
 	if cfg.Tls {
 		if cfg.CertFile == "" {
 			cfg.CertFile = path("x509/server_cert.pem")
@@ -165,11 +199,33 @@ func main() {
 		if cfg.KeyFile == "" {
 			cfg.KeyFile = path("x509/server_key.pem")
 		}
-		creds, err := credentials.NewServerTLSFromFile(cfg.CertFile, cfg.KeyFile)
+		certificate, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
 		if err != nil {
-			log.Fatalf("Failed to generate credentials: %v", err)
+			logger.Panic("load TLS key pair", zap.Error(err))
 		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
+		opts = []grpc.ServerOption{grpc.Creds(credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12,
+		}))}
+		if gatewayListener != nil {
+			// The gateway connects back to this server. Trust its configured
+			// certificate, but still verify the certificate name and lifetime.
+			leaf, err := x509.ParseCertificate(certificate.Certificate[0])
+			if err != nil {
+				logger.Panic("parse TLS certificate", zap.Error(err))
+			}
+			roots := x509.NewCertPool()
+			roots.AddCert(leaf)
+			name := ""
+			if len(leaf.DNSNames) > 0 {
+				name = leaf.DNSNames[0]
+				if strings.HasPrefix(name, "*.") {
+					name = "localhost" + name[1:]
+				}
+			} else if len(leaf.IPAddresses) > 0 {
+				name = leaf.IPAddresses[0].String()
+			}
+			gatewayCredentials = credentials.NewTLS(&tls.Config{RootCAs: roots, ServerName: name, MinVersion: tls.VersionTLS12})
+		}
 	}
 	var auth *server.Auth
 	if len(cfg.BasicAuth) > 0 {
@@ -182,6 +238,9 @@ func main() {
 	}
 
 	opts = append(opts,
+		// Bound incomplete HTTP/2/TLS handshakes as well as mux sniffing.
+		// Otherwise native gRPC shutdown can wait for its 120s default.
+		grpc.ConnectionTimeout(5*time.Second),
 		grpc.UnaryInterceptor(grpcmiddleware.ChainUnaryServer(
 			grpczap.UnaryServerInterceptor(logger),
 			auth.AuthenticateUnary,
@@ -207,6 +266,18 @@ func main() {
 	if err != nil {
 		logger.Panic("failed to load external device map. Check your config!", zap.Error(err))
 	}
+	if gatewayListener != nil {
+		conn, err := grpc.DialContext(context.Background(), gatewayEndpoint, grpc.WithTransportCredentials(gatewayCredentials))
+		if err != nil {
+			logger.Panic("gateway dial error", zap.Error(err))
+		}
+		defer conn.Close()
+		mux := gateway.NewServeMux()
+		if err := pb.RegisterGnetcliHandler(context.Background(), mux, conn); err != nil {
+			logger.Panic("gateway registration error", zap.Error(err))
+		}
+		gatewayServer = &http.Server{Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	}
 	pb.RegisterGnetcliServer(grpcServer, s)
 	reflection.Register(grpcServer)
 	ctx := context.Background()
@@ -217,14 +288,21 @@ func main() {
 			return grpcServer.Serve(wListener)
 		})
 	}
+	shutdownDone := make(chan struct{})
 	context.AfterFunc(wCtx, func() {
+		defer close(shutdownDone)
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 
 		if gatewayServer != nil {
 			if err := gatewayServer.Shutdown(shutdownCtx); err != nil {
 				logger.Error("http gateway graceful shutdown failed", zap.Error(err))
+				_ = gatewayServer.Close()
 			}
+		}
+
+		if sharedMux != nil {
+			_ = sharedMux.Close()
 		}
 
 		grpcStopped := make(chan struct{})
@@ -242,8 +320,11 @@ func main() {
 	})
 	if gatewayServer != nil {
 		wg.Go(func() error {
-			return gatewayServer.ListenAndServe()
+			return gatewayServer.Serve(gatewayListener)
 		})
+	}
+	if sharedMux != nil {
+		wg.Go(func() error { return sharedMux.Serve(context.Background()) })
 	}
 	wg.Go(func() error {
 		err := WaitInterrupted(wCtx)
@@ -251,6 +332,7 @@ func main() {
 		return err
 	})
 	err = wg.Wait()
+	<-shutdownDone
 	if err != nil && !isExpectedShutdown(err) {
 		panic(err)
 	}
@@ -261,7 +343,8 @@ func isExpectedShutdown(err error) bool {
 	var interrupted Interrupted
 	return errors.As(err, &interrupted) ||
 		errors.Is(err, grpc.ErrServerStopped) ||
-		errors.Is(err, http.ErrServerClosed)
+		errors.Is(err, http.ErrServerClosed) ||
+		errors.Is(err, net.ErrClosed)
 }
 
 func newUnixSocket(path string) (net.Listener, error) {
@@ -274,6 +357,13 @@ func newUnixSocket(path string) (net.Listener, error) {
 		return nil, err
 	}
 	return l, nil
+}
+
+func listenAddress(address string) string {
+	if !strings.Contains(address, ":") {
+		return net.JoinHostPort("127.0.0.1", address)
+	}
+	return address
 }
 
 func newTcpSocket(address string) (net.Listener, error) {
