@@ -12,12 +12,18 @@ Or download latest release from [Github release](https://github.com/annetutil/gn
 Starting:
 ```shell
 # ~/go/bin/gnetcli_server
-gnetcli_server -debug -basic-auth mylogin:mysecret
+LOGIN=mylogin
+PASSWORD=mysecret
+gnetcli_server -debug -basic-auth "$LOGIN:$PASSWORD"
 ```
 
 Exec a command on a device using `grpcurl`:
 ```shell
-TOKEN=$(echo -n "$LOGIN:$PASSWORD" | base64)
+# In another terminal, use the same server credentials as above.
+# These are not the network device credentials in host_params.
+LOGIN=mylogin
+PASSWORD=mysecret
+TOKEN=$(printf '%s' "$LOGIN:$PASSWORD" | base64 | tr -d '\n')
 grpcurl -H "Authorization: Basic $TOKEN" -plaintext -d '{"host": "hostname", "cmd": "dis clock", "host_params": {"device": "juniper", "credentials": {"login": "test", "password": "test"}}, "string_result": true}' localhost:50051 gnetcli.Gnetcli.Exec
 ```
 
