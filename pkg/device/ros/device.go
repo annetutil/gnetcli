@@ -51,6 +51,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 		genericcli.WithResultCB(dataCallback),
 		genericcli.WithCredentialInterceptor(credentialLoginModifier),
 		genericcli.WithWriteNewLine([]byte("\r\n")),
+		genericcli.WithSFTPEnabled(),
 	)
 	return genericcli.MakeGenericDevice(cli, connector, opts...)
 }
