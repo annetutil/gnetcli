@@ -17,6 +17,7 @@ import (
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
 	"github.com/annetutil/gnetcli/pkg/devconf"
 	"github.com/annetutil/gnetcli/pkg/device"
+	"github.com/annetutil/gnetcli/pkg/models"
 	"github.com/annetutil/gnetcli/pkg/server"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
 	"go.uber.org/zap"
@@ -50,6 +51,8 @@ func main() {
 	hostname := flag.String("hostname", "", "Hostname")
 	port := flag.Int("port", 22, "Port")
 	command := flag.String("command", "", "Command")
+	model := flag.String("model", "", "Starlark model name (instead of -command)")
+	modelsDir := flag.String("models-dir", "", "Directory containing Starlark models")
 	flag.Var(&question, "question", "Question")
 	devType := flag.String("devtype", "", fmt.Sprintf("Device type from dev-conf file or from predifined: %s", dt))
 	login := flag.String("login", "", "Login")
@@ -62,6 +65,14 @@ func main() {
 	jsonOut := flag.Bool("json", false, "Output in JSON")
 	deviceFiles := flag.String("dev-conf", "", "Path to yaml with device types")
 	flag.Parse()
+	if *model != "" && (*command != "" || *test || *modelsDir == "") {
+		fmt.Fprintln(os.Stderr, "-model requires -models-dir and is incompatible with -command and -test")
+		os.Exit(2)
+	}
+	if *modelsDir != "" && *model == "" {
+		fmt.Fprintln(os.Stderr, "-models-dir requires -model")
+		os.Exit(2)
+	}
 	var passwordSet, passwordFileSet bool
 	flag.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -108,10 +119,18 @@ func main() {
 	if len(*hostname) == 0 {
 		panic("empty hostname")
 	}
-	if len(*command) == 0 {
+	if len(*command) == 0 && *model == "" {
 		panic("empty command")
 	}
 	commands := strings.Split(*command, "\n")
+	var modelRunner *models.Runner
+	if *model != "" {
+		modelRunner, err = models.New(*modelsDir, models.WithCommandOptions(parseQuestions(question)...))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(2)
+		}
+	}
 	creds, err := buildCreds(*login, *password, *hostname, *sshConfigPassphrase, *useSSHConfig, logger)
 	if err != nil {
 		panic(err)
@@ -128,6 +147,15 @@ func main() {
 	dev := devFn(connector)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if modelRunner != nil {
+		result, err := collectModel(ctx, modelRunner, dev, *devType, *model)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(string(result))
+		return
+	}
 	cmdQuestion := parseQuestions(question)
 	res, err := exec(ctx, dev, commands, cmdQuestion, logger)
 	if err != nil {
@@ -252,4 +280,16 @@ func exec(ctx context.Context, dev device.Device, commands []string, cmdopts []c
 		res = append(res, cRes)
 	}
 	return res, nil
+}
+
+// collectModel owns the CLI connection, unlike Runner.Collect.
+func collectModel(ctx context.Context, runner *models.Runner, dev device.Device, deviceType, name string) (json.RawMessage, error) {
+	defer dev.Close()
+	if err := runner.Check(name); err != nil {
+		return nil, err
+	}
+	if err := dev.Connect(ctx); err != nil {
+		return nil, err
+	}
+	return runner.Collect(ctx, dev, deviceType, name)
 }

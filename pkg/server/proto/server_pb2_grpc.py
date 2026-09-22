@@ -15,6 +15,11 @@ class GnetcliStub(object):
         Args:
             channel: A grpc.Channel.
         """
+        self.CollectModel = channel.unary_unary(
+                '/gnetcli.Gnetcli/CollectModel',
+                request_serializer=server__pb2.CollectModelRequest.SerializeToString,
+                response_deserializer=server__pb2.CollectModelResult.FromString,
+                )
         self.SetupHostParams = channel.unary_unary(
                 '/gnetcli.Gnetcli/SetupHostParams',
                 request_serializer=server__pb2.HostParams.SerializeToString,
@@ -59,6 +64,12 @@ class GnetcliStub(object):
 
 class GnetcliServicer(object):
     """Missing associated documentation comment in .proto file."""
+
+    def CollectModel(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
 
     def SetupHostParams(self, request, context):
         """Missing associated documentation comment in .proto file."""
@@ -111,6 +122,11 @@ class GnetcliServicer(object):
 
 def add_GnetcliServicer_to_server(servicer, server):
     rpc_method_handlers = {
+            'CollectModel': grpc.unary_unary_rpc_method_handler(
+                    servicer.CollectModel,
+                    request_deserializer=server__pb2.CollectModelRequest.FromString,
+                    response_serializer=server__pb2.CollectModelResult.SerializeToString,
+            ),
             'SetupHostParams': grpc.unary_unary_rpc_method_handler(
                     servicer.SetupHostParams,
                     request_deserializer=server__pb2.HostParams.FromString,
@@ -160,6 +176,23 @@ def add_GnetcliServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class Gnetcli(object):
     """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def CollectModel(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/gnetcli.Gnetcli/CollectModel',
+            server__pb2.CollectModelRequest.SerializeToString,
+            server__pb2.CollectModelResult.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
     def SetupHostParams(request,

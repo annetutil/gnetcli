@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"io"
 	"os"
 	"time"
@@ -19,6 +20,7 @@ import (
 )
 
 type Config struct {
+	ModelsDir  string    `config:"models-dir,description=Directory containing Starlark models" yaml:"models_dir"`
 	Logging    LogConfig `yaml:"logging"`
 	Listen     string    `config:"port,description=Listen address" yaml:"port"`
 	HttpListen string    `config:"http_port,description=HTTP/1 gateway address; use the same address as port to share one TCP listener" yaml:"http_port"`
@@ -91,6 +93,14 @@ func LoadConf() (Config, error) {
 			return Config{}, err
 		}
 		// merge with flags
+		if flagCfg.ModelsDir != "" {
+			pcfg.ModelsDir = flagCfg.ModelsDir
+		}
+		flag.Visit(func(f *flag.Flag) {
+			if f.Name == "models-dir" {
+				pcfg.ModelsDir = flagCfg.ModelsDir
+			}
+		})
 		if len(flagCfg.DevLogin) > 0 {
 			pcfg.DevLogin = flagCfg.DevLogin
 		}

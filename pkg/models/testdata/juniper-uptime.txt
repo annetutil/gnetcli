@@ -1,0 +1,5 @@
+Current time: 2026-01-20 10:30:00 UTC
+Time Source: NTP CLOCK
+Node booted: 2026-01-20 00:00:00 UTC (10:30 ago)
+System booted: 2026-01-01 10:30:00 UTC (2w5d 00:00 ago)
+Protocols started: 2026-01-01 10:30:02 UTC (2w4d 23:59 ago)
