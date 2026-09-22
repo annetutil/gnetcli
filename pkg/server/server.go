@@ -29,6 +29,7 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/expr"
+	"github.com/annetutil/gnetcli/pkg/models"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
 	"github.com/annetutil/gnetcli/pkg/streamer"
 	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
@@ -52,6 +53,7 @@ const (
 )
 
 type Server struct {
+	modelRunner *models.Runner
 	pb.UnimplementedGnetcliServer
 	log                *zap.Logger
 	deviceMaps         map[string]func(streamer.Connector) device.Device

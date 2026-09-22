@@ -217,3 +217,32 @@ async def test_dev_auth_private_key_used_no_grpc_credentials(
                 ),
             )
             assert b"Cisco IOS Software" in bytes(res.out)
+
+
+@pytest.mark.asyncio
+async def test_collect_model_with_server_directory(go_binaries: Tuple[str, str], tmp_path: Path) -> None:
+    gnetcli_server_bin, gswitch_bin = go_binaries
+    (tmp_path / "sample.star").write_text(
+        'def collect(d):\n'
+        '    output = d.execute("show version")\n'
+        '    return {"version": output, "value": 1770000000123456789, "type": d.type}\n',
+        encoding="utf-8",
+    )
+    config = _wrong_default_server_config()
+    config.models_dir = str(tmp_path)
+    async with _gswitch_emu_listen(gswitch_bin) as port:
+        async with GnetcliStarter(gnetcli_server_bin, server_conf=config, start_timeout=30) as url:
+            client = Gnetcli(server=url, insecure_grpc=True)
+            params = HostParams(
+                device="cisco", ip="127.0.0.1", port=port,
+                credentials=Credentials(login=EMU_USER, password=EMU_PASS),
+            )
+            result = await client.collect_model("pytest-host", "sample", params)
+            assert result["value"] == 1770000000123456789
+            assert result["type"] == "cisco"
+            assert "Cisco IOS Software" in result["version"]
+            with pytest.raises(GnetcliException):
+                await client.collect_model("pytest-host", "missing", params)
+            # A model error must not break ordinary command execution.
+            result = await client.cmd("pytest-host", "show version", host_params=params)
+            assert b"Cisco IOS Software" in bytes(result.out)
