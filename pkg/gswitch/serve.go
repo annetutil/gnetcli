@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -32,7 +33,12 @@ type AuthCallback func(AuthRequest) error
 
 // SSHServerOptions configures the mock SSH switch listener.
 type SSHServerOptions struct {
-	Logger *zap.Logger
+	// Config, if nil, is initialized once per ServeSSH/ServeTelnet invocation.
+	// Pass the same pointer to both functions to emulate one device over both transports.
+	Config *RunningConfig
+	// CommandDelay delays each CLI command for timeout/shutdown tests. Zero disables it.
+	CommandDelay time.Duration
+	Logger       *zap.Logger
 	// Username and Password are used for password-based client auth when AuthCallback is nil.
 	Username string
 	Password string
@@ -116,6 +122,13 @@ func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error
 		return err
 	}
 	conns := newConnections(opts.Username, opts.Password, opts.AuthCallback, opts.ConnectionErrorProb)
+	conns.config = opts.Config
+	if conns.config == nil {
+		conns.config = NewRunningConfig()
+	}
+	conns.commandDelay = opts.CommandDelay
+	stop := context.AfterFunc(ctx, func() { _ = ln.Close() })
+	defer stop()
 
 	for {
 		select {
@@ -143,6 +156,8 @@ func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error
 			continue
 		}
 		go func() {
+			stop := context.AfterFunc(ctx, func() { _ = tcpConn.Close() })
+			defer stop()
 			err := conns.handleSSHConnection(ctx, tcpConn, cfg, log)
 			if err != nil {
 				log.Error("SSH connection error", zap.Error(err))
@@ -155,6 +170,13 @@ func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error
 func ServeTelnet(ctx context.Context, ln net.Listener, opts SSHServerOptions) error {
 	log := opts.logger()
 	conns := newConnections(opts.Username, opts.Password, opts.AuthCallback, opts.ConnectionErrorProb)
+	conns.config = opts.Config
+	if conns.config == nil {
+		conns.config = NewRunningConfig()
+	}
+	conns.commandDelay = opts.CommandDelay
+	stop := context.AfterFunc(ctx, func() { _ = ln.Close() })
+	defer stop()
 
 	for {
 		select {
@@ -182,6 +204,8 @@ func ServeTelnet(ctx context.Context, ln net.Listener, opts SSHServerOptions) er
 		}
 
 		go func() {
+			stop := context.AfterFunc(ctx, func() { _ = tcpConn.Close() })
+			defer stop()
 			err := conns.handleTelnetConnection(ctx, tcpConn, log)
 			if err != nil {
 				log.Error("Telnet connection error", zap.Error(err))
