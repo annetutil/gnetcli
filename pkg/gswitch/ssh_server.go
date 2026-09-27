@@ -8,12 +8,15 @@ import (
 	"net"
 	"strconv"
 	"sync/atomic"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 )
 
 type connections struct {
+	config              *RunningConfig
+	commandDelay        time.Duration
 	inFlight            atomic.Int32
 	done                atomic.Int32
 	username            string
@@ -88,6 +91,8 @@ func (c *connections) handleSessionChannel(ctx context.Context, newChannel ssh.N
 
 		logger.Debug("start CLI session")
 		session := NewCLISession(channel, c.username, c.password, logger, vendors["cisco"])
+		session.state.config = c.config
+		session.commandDelay = c.commandDelay
 		err := session.Run(ctx)
 		if err != nil {
 			logger.Debug("CLI session ended", zap.Error(err))
@@ -197,6 +202,8 @@ func (c *connections) handleTelnetConnection(ctx context.Context, tcpConn net.Co
 
 	logger.Debug("start Telnet CLI session")
 	session := newCLISessionWithAuth(telnetConn, c.username, c.password, c.authCallback, logger)
+	session.state.config = c.config
+	session.commandDelay = c.commandDelay
 	err = session.Run(ctx)
 	if err != nil {
 		logger.Debug("Telnet CLI session ended", zap.Error(err))

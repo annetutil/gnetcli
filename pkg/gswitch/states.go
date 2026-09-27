@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"time"
 
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
@@ -36,11 +37,12 @@ type CLIState struct {
 	enablePass    string
 	authCallback  AuthCallback
 	authenticated bool
-	config        map[string]interface{}
+	config        *RunningConfig
 }
 
 func (s *CLIState) NewMode(mode CLIMode) {
 	s.mode = mode
+	s.subMode = ""
 }
 
 func (s *CLIState) NewSubMode(mode string) {
@@ -55,7 +57,7 @@ func NewCLIState(username, password string) *CLIState {
 		password:      password,
 		enablePass:    password,
 		authenticated: false,
-		config:        make(map[string]interface{}),
+		config:        NewRunningConfig(),
 	}
 }
 
@@ -72,17 +74,18 @@ func newCLIStateWithAuth(username, password string, authCallback AuthCallback) *
 		enablePass:    password,
 		authCallback:  authCallback,
 		authenticated: false,
-		config:        make(map[string]interface{}),
+		config:        NewRunningConfig(),
 	}
 }
 
 type CLISession struct {
-	conn   ssh.Channel
-	state  *CLIState
-	logger *zap.Logger
-	reader *bufio.Reader
-	writer io.Writer
-	vendor vendor
+	commandDelay time.Duration
+	conn         ssh.Channel
+	state        *CLIState
+	logger       *zap.Logger
+	reader       *bufio.Reader
+	writer       io.Writer
+	vendor       vendor
 }
 
 // NewCLISession creates new CLI session
@@ -139,6 +142,15 @@ func (s *CLISession) Run(ctx context.Context) error {
 			}
 			switch op {
 			case "command":
+				if s.commandDelay > 0 {
+					timer := time.NewTimer(s.commandDelay)
+					select {
+					case <-ctx.Done():
+						timer.Stop()
+						return ctx.Err()
+					case <-timer.C:
+					}
+				}
 				isExit := s.handleCommand(opArgs)
 				s.logger.Debug("command result", zap.Bool("isExit", isExit))
 

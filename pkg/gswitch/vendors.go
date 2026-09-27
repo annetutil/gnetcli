@@ -16,11 +16,19 @@ func init() {
 	ciscoVendorCommands := map[string]string{
 		"show version":                       showVersion(),
 		"terminal length 0":                  "Terminal length set to 0.",
+		"terminal width 0":                   "",
+		"terminal no monitor":                "",
+		"terminal monitor disable":           "",
+		"write memory":                       "",
+		"show clock":                         "12:00:00 UTC Mon Jan 1 2024",
 		"copy running-config startup-config": "",
 	}
 	vendors["cisco"] = vendor{
 		promptMaker: func(state *CLIState) string {
 			if state.mode == ModeConfig {
+				if state.subMode != "" {
+					return state.hostname + "(config-if)#"
+				}
 				return state.hostname + "(config)#"
 			}
 			return state.hostname + "#"
@@ -41,7 +49,7 @@ func init() {
 				return commandResultContinue, "", nil
 			case "q", "exit", "logout":
 				return commandResultExit, "", nil
-			case "conf t":
+			case "conf t", "configure terminal":
 				state.NewMode(ModeConfig)
 				return commandResultContinue, "", nil
 			case "?":
@@ -56,27 +64,48 @@ func init() {
 				}
 				return commandResultContinue, res.String(), nil
 			case "show running-config":
-				res := strings.Builder{}
-				res.WriteString("\r\n")
-				for k := range state.config {
-					res.WriteString(k)
-					res.WriteString("\r\n")
-				}
-				return commandResultContinue, res.String(), nil
+				return commandResultContinue, "\r\n" + strings.ReplaceAll(state.config.String(), "\n", "\r\n"), nil
 			case "":
 				return commandResultContinue, "", nil
 			}
-			return commandResultContinue, "% Invalid command at '^' marker.", nil
+			return commandResultContinue, "% Invalid input detected at '^' marker.", nil
 		},
 		handleConfigCommand: func(state *CLIState, command string) (commandResult, string, error) {
 			switch command {
+			case "":
+				return commandResultContinue, "", nil
+			case "end":
+				state.NewMode(ModeEnable)
+				return commandResultContinue, "", nil
 			case "q", "exit", "logout":
-				if state.mode == ModeConfig {
-					state.NewMode(ModeUser)
+				if state.subMode != "" {
+					state.NewSubMode("")
+				} else {
+					state.NewMode(ModeEnable)
 				}
 				return commandResultContinue, "", nil
+			case "interface", "no interface", "description", "no":
+				return commandResultContinue, "% Invalid input detected at '^' marker.", nil
 			}
-			state.config[command] = true
+			if strings.HasPrefix(command, "interface ") {
+				name := strings.TrimSpace(strings.TrimPrefix(command, "interface "))
+				if !validInterfaceName(name) {
+					return commandResultContinue, "% Invalid input detected at '^' marker.", nil
+				}
+				state.config.ensureInterface(name)
+				state.NewSubMode(name)
+			} else if strings.HasPrefix(command, "no interface ") {
+				name := strings.TrimSpace(strings.TrimPrefix(command, "no interface "))
+				if !validInterfaceName(name) {
+					return commandResultContinue, "% Invalid input detected at '^' marker.", nil
+				}
+				state.config.removeInterface(name)
+				if state.subMode == name {
+					state.NewSubMode("")
+				}
+			} else {
+				state.config.apply(state.subMode, command)
+			}
 			return commandResultContinue, "", nil
 		},
 	}
