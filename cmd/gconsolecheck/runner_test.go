@@ -291,6 +291,145 @@ func TestRunAllPairsContinuesAfterConnectionFailure(t *testing.T) {
 	require.Contains(t, output.String(), "time_to_connect=")
 }
 
+type observedLoopbackSession struct {
+	dataSession
+	activeReads     atomic.Int64
+	concurrentReads atomic.Bool
+	closeCalls      atomic.Int64
+	bytesRead       atomic.Uint64
+	bytesWritten    atomic.Uint64
+}
+
+func (s *observedLoopbackSession) ReadData(ctx context.Context, size int) ([]byte, error) {
+	if s.activeReads.Add(1) > 1 {
+		s.concurrentReads.Store(true)
+	}
+	defer s.activeReads.Add(-1)
+	data, err := s.dataSession.ReadData(ctx, size)
+	s.bytesRead.Add(uint64(len(data)))
+	return data, err
+}
+
+func (s *observedLoopbackSession) ReadAvailable(ctx context.Context, duration time.Duration) ([]byte, error) {
+	if s.activeReads.Add(1) > 1 {
+		s.concurrentReads.Store(true)
+	}
+	defer s.activeReads.Add(-1)
+	return s.dataSession.ReadAvailable(ctx, duration)
+}
+
+func (s *observedLoopbackSession) WriteData(ctx context.Context, data []byte) error {
+	s.bytesWritten.Add(uint64(len(data)))
+	return s.dataSession.WriteData(ctx, data)
+}
+
+func (s *observedLoopbackSession) Close() {
+	s.closeCalls.Add(1)
+	s.dataSession.Close()
+}
+
+func TestRunAllPairsLoopbackScenarios(t *testing.T) {
+	for _, scenario := range pairScenarios(allScenarioNames) {
+		t.Run(scenario, func(t *testing.T) {
+			loop, _ := newFakePair()
+			loop.peer = loop
+			session := &observedLoopbackSession{dataSession: loop}
+			var connections atomic.Int64
+			factory := func(_ context.Context, port string) (dataSession, error) {
+				connections.Add(1)
+				if port != "ttyS48" {
+					return nil, fmt.Errorf("unexpected port %s", port)
+				}
+				return session, nil
+			}
+			cfg := testConfig()
+			cfg.pairs = []portPair{{left: "ttyS48", right: "ttyS48"}}
+			cfg.scenarios = []string{scenario}
+			cfg.chunkSize = 1024 // Exercise multiple transport chunks during soak.
+			var output bytes.Buffer
+
+			results := runAllPairs(context.Background(), cfg, factory, &output)
+
+			require.Len(t, results, 1)
+			require.NoError(t, results[0].err)
+			require.True(t, results[0].passed)
+			require.Positive(t, results[0].bytesVerified)
+			require.Equal(t, session.bytesWritten.Load(), results[0].bytesVerified)
+			require.Equal(t, session.bytesRead.Load(), results[0].bytesVerified)
+			if scenario == "test_all_bytes" {
+				require.Equal(t, uint64(512), results[0].bytesVerified)
+			}
+			require.Equal(t, int64(1), connections.Load())
+			require.Equal(t, int64(1), session.closeCalls.Load())
+			require.False(t, session.concurrentReads.Load())
+			require.Contains(t, output.String(), "PASS pair=ttyS48=ttyS48 scenario="+scenario)
+		})
+	}
+}
+
+func TestRunAllPairsLoopbackFailures(t *testing.T) {
+	testCases := []struct {
+		name       string
+		transform  func([]byte) []byte
+		skipWrites int
+		want       string
+	}{
+		{
+			name: "corrupt data",
+			transform: func(data []byte) []byte {
+				data[17] ^= 1
+				return data
+			},
+			want: "first_difference_offset=17",
+		},
+		{
+			name:       "extra data",
+			skipWrites: 1,
+			transform: func(data []byte) []byte {
+				return append(data, 0x42)
+			},
+			want: "unexpected bytes",
+		},
+		{
+			name:      "no loopback",
+			transform: func([]byte) []byte { return nil },
+			want:      "read error after 0/",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			loop, _ := newFakePair()
+			loop.peer = loop
+			writes := 0
+			loop.transform = func(data []byte) []byte {
+				writes++
+				if writes <= testCase.skipWrites {
+					return data
+				}
+				return testCase.transform(data)
+			}
+			factory := func(context.Context, string) (dataSession, error) { return loop, nil }
+			cfg := testConfig()
+			cfg.timeout = 100 * time.Millisecond
+			cfg.pairs = []portPair{{left: "ttyS48", right: "ttyS48"}}
+			cfg.scenarios = []string{"test_discovery"}
+			var output bytes.Buffer
+
+			results := runAllPairs(context.Background(), cfg, factory, &output)
+
+			require.Len(t, results, 1)
+			require.False(t, results[0].passed)
+			require.ErrorContains(t, results[0].err, testCase.want)
+			require.Contains(t, output.String(), "FAIL pair=ttyS48=ttyS48")
+			select {
+			case <-loop.closed:
+			default:
+				t.Fatal("loopback session was not closed")
+			}
+		})
+	}
+}
+
 func TestRunAllPairsLimitsParallelPairs(t *testing.T) {
 	sessions := make(map[string]dataSession)
 	for index := 0; index < 3; index++ {

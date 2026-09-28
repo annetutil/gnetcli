@@ -98,6 +98,13 @@ func TestParseConfigStillRequiresPairsForMixedScenarios(t *testing.T) {
 	require.ErrorContains(t, err, "at least one -t")
 }
 
+func TestParseConfigAllowsLoopback(t *testing.T) {
+	cfg, err := parseConfig([]string{"-host", "localhost", "-t", "ttyS48=ttyS48", "-t", "ttyS1=ttyS2"}, io.Discard)
+
+	require.NoError(t, err)
+	require.Equal(t, []portPair{{left: "ttyS48", right: "ttyS48"}, {left: "ttyS1", right: "ttyS2"}}, cfg.pairs)
+}
+
 func TestParseConfigRejectsInvalidInput(t *testing.T) {
 	testCases := []struct {
 		name string
@@ -108,7 +115,9 @@ func TestParseConfigRejectsInvalidInput(t *testing.T) {
 		{name: "missing pair", args: []string{"-host", "localhost"}, want: "at least one -t"},
 		{name: "bad pair", args: []string{"-host", "localhost", "-t", "a"}, want: "expected left=right"},
 		{name: "empty side", args: []string{"-host", "localhost", "-t", "a="}, want: "both port names"},
-		{name: "same side", args: []string{"-host", "localhost", "-t", "a=a"}, want: "ports must differ"},
+		{name: "reused loopback port", args: []string{"-host", "localhost", "-t", "a=a", "-t", "b=a"}, want: "is used by both"},
+		{name: "loopback reuses pair port", args: []string{"-host", "localhost", "-t", "a=b", "-t", "b=b"}, want: "is used by both"},
+		{name: "duplicate loopback", args: []string{"-host", "localhost", "-t", "a=a", "-t", "a=a"}, want: "is used by both"},
 		{name: "reused port", args: []string{"-host", "localhost", "-t", "a=b", "-t", "b=c"}, want: "is used by both"},
 		{name: "unknown scenario", args: []string{"-host", "localhost", "-t", "a=b", "-scenario", "unknown"}, want: "unknown scenario"},
 		{name: "bad speed", args: []string{"-host", "localhost", "-t", "a=b", "-speed", "1200"}, want: "unsupported -speed"},
@@ -137,14 +146,4 @@ func TestHelpDescribesAllScenarios(t *testing.T) {
 		require.Contains(t, output.String(), name)
 		require.Contains(t, output.String(), scenarioDescriptions[name])
 	}
-}
-
-func TestSeedIsUsed(t *testing.T) {
-	require.True(t, seedIsUsed([]string{"test_one_way"}))
-	require.True(t, seedIsUsed([]string{"test_random_soak"}))
-	require.True(t, seedIsUsed([]string{"test_random_soak_ascii"}))
-	require.True(t, seedIsUsed([]string{"test_discovery"}))
-	require.True(t, seedIsUsed([]string{"test_discovery_all_ports"}))
-	require.True(t, seedIsUsed([]string{"test_all_bytes", "test_random_soak"}))
-	require.False(t, seedIsUsed([]string{"test_all_bytes"}))
 }

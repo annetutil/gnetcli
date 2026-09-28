@@ -29,7 +29,7 @@ var scenarioDescriptions = map[string]string{
 	"test_random_soak":         "exchange framed iter_N deterministic random data in full duplex for -duration",
 	"test_random_soak_ascii":   "exchange only printable ASCII characters in full duplex for -duration; disabled by default",
 	"test_discovery":           "exchange fixed-size source/target markers and verify console pairing; disabled by default",
-	"test_discovery_all_ports": "discover all conserver ports, exchange printable source markers, and report physical pairing; disabled by default",
+	"test_discovery_all_ports": "discover all conserver ports, exchange source markers followed by a newline and a probe, and report physical pairing; disabled by default",
 }
 
 type stringList []string
@@ -97,7 +97,7 @@ func parseConfig(args []string, output io.Writer) (config, error) {
 		cfg.seed = seed
 		return nil
 	})
-	fs.Var(&cfg.pairValues, "t", "Console port pair in left=right form; may be repeated")
+	fs.Var(&cfg.pairValues, "t", "Console port pair in left=right form; use port=port for single-session loopback with sequential payloads; may be repeated")
 	fs.Var(&cfg.scenarioValues, "scenario", scenarioHelp())
 	fs.BoolVar(&cfg.debug, "debug", false, "Enable console streamer debug logs")
 	fs.BoolVar(&cfg.ssl, "ssl", true, "Enable conserver SSL (use -ssl=false for plaintext)")
@@ -197,15 +197,13 @@ func (c *config) validate() error {
 		if pair.left == "" || pair.right == "" {
 			return fmt.Errorf("invalid pair %q: both port names are required", value)
 		}
-		if pair.left == pair.right {
-			return fmt.Errorf("invalid pair %q: ports must differ", value)
-		}
 		for _, port := range []string{pair.left, pair.right} {
 			if previous, ok := usedPorts[port]; ok {
 				return fmt.Errorf("port %q is used by both %s and %s", port, previous, pair.String())
 			}
-			usedPorts[port] = pair.String()
 		}
+		usedPorts[pair.left] = pair.String()
+		usedPorts[pair.right] = pair.String()
 		c.pairs = append(c.pairs, pair)
 	}
 
