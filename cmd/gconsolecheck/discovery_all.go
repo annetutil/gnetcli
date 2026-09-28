@@ -3,15 +3,16 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/annetutil/gnetcli/pkg/streamer/console"
+	"golang.org/x/sync/errgroup"
 )
 
 const allPortsDiscoveryPayloadSize = 128
@@ -55,29 +56,22 @@ func runDiscoveryAllPorts(ctx context.Context, cfg config, factory sessionFactor
 	if parallel == 0 || parallel > len(names) {
 		parallel = len(names)
 	}
-	jobs := make(chan int)
-	var workers sync.WaitGroup
-	for range parallel {
-		workers.Add(1)
-		go func() {
-			defer workers.Done()
-			for index := range jobs {
-				name := names[index]
-				states[index] = allPortsState{name: name, info: ports[name]}
-				if ports[name].GetPCLwr() != "" {
-					continue
-				}
-				started := time.Now()
-				states[index].session, states[index].connectErr = factory(ctx, name)
-				states[index].connectTime = time.Since(started)
-			}
-		}()
-	}
+	var workers errgroup.Group
+	workers.SetLimit(parallel)
 	for index := range names {
-		jobs <- index
+		workers.Go(func() error {
+			name := names[index]
+			states[index] = allPortsState{name: name, info: ports[name]}
+			if ports[name].GetPCLwr() != "" {
+				return nil
+			}
+			started := time.Now()
+			states[index].session, states[index].connectErr = factory(ctx, name)
+			states[index].connectTime = time.Since(started)
+			return states[index].connectErr
+		})
 	}
-	close(jobs)
-	workers.Wait()
+	_ = workers.Wait() // Report all per-port errors below instead of stopping at the first.
 
 	sessions := make([]dataSession, 0, len(states))
 	for index := range states {
@@ -101,7 +95,7 @@ func runDiscoveryAllPorts(ctx context.Context, cfg config, factory sessionFactor
 	runID := fmt.Sprintf("%x", time.Now().UnixNano())
 	opCtx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	stopWatcher := closeSessionsOnDone(opCtx, sessions...)
-	var exchange sync.WaitGroup
+	var exchange errgroup.Group
 	for index := range states {
 		state := &states[index]
 		if state.session == nil {
@@ -112,17 +106,16 @@ func runDiscoveryAllPorts(ctx context.Context, cfg config, factory sessionFactor
 			state.writeErr = payloadErr
 			continue
 		}
-		exchange.Add(2)
-		go func() {
-			defer exchange.Done()
+		exchange.Go(func() error {
 			state.readData, state.readErr = state.session.ReadData(opCtx, allPortsDiscoveryPayloadSize)
-		}()
-		go func() {
-			defer exchange.Done()
+			return state.readErr
+		})
+		exchange.Go(func() error {
 			state.writeErr = state.session.WriteData(opCtx, payload)
-		}()
+			return state.writeErr
+		})
 	}
-	exchange.Wait()
+	_ = exchange.Wait() // Keep all read/write results for per-port diagnostics below.
 	stopWatcher()
 	cancel()
 
@@ -162,7 +155,6 @@ func runDiscoveryAllPorts(ctx context.Context, cfg config, factory sessionFactor
 			continue
 		}
 		if source == receiver {
-			fmt.Fprintf(output, "DISCOVERY SELF_LOOP port=%s\n", receiver)
 			unpaired++
 			continue
 		}
@@ -214,12 +206,15 @@ func splitConsolePortNumber(value string) (string, int, bool) {
 }
 
 func reportDiscoveryReceived(output io.Writer, state *allPortsState) {
-	if state.readErr == nil && len(state.readData) == allPortsDiscoveryPayloadSize {
-		fmt.Fprintf(output, "DISCOVERY RECEIVED receiver=%s source=%s\n", state.name, state.marker.source)
-		return
+	if state.marker.source == state.name {
+		fmt.Fprintf(output, "DISCOVERY SELF_LOOP port=%s", state.name)
+	} else {
+		fmt.Fprintf(output, "DISCOVERY RECEIVED receiver=%s source=%s", state.name, state.marker.source)
 	}
-	fmt.Fprintf(output, "DISCOVERY RECEIVED receiver=%s source=%s bytes=%d read_error=%v\n",
-		state.name, state.marker.source, len(state.readData), state.readErr)
+	if state.readErr != nil || len(state.readData) != allPortsDiscoveryPayloadSize {
+		fmt.Fprintf(output, " bytes=%d read_error=%v", len(state.readData), state.readErr)
+	}
+	fmt.Fprintln(output)
 }
 
 func reportUnpairedDiscoveryPort(output io.Writer, state *allPortsState) {
@@ -227,18 +222,23 @@ func reportUnpairedDiscoveryPort(output io.Writer, state *allPortsState) {
 		fmt.Fprintf(output, "DISCOVERY UNPAIRED port=%s reason=empty_read\n", state.name)
 		return
 	}
-	fmt.Fprintf(output, "DISCOVERY UNPAIRED port=%s marker_not_received=true bytes=%d read_error=%v marker_error=%v\n",
-		state.name, len(state.readData), state.readErr, state.markerErr)
+	fmt.Fprintf(output, "DISCOVERY UNPAIRED port=%s received=true bytes=%d data=%q marker_not_received=true read_error=%v marker_error=%v\n",
+		state.name, len(state.readData), state.readData, state.readErr, state.markerErr)
 }
 
 func makeAllPortsDiscoveryPayload(source, runID string) ([]byte, error) {
 	marker := fmt.Sprintf("|test=test_discovery_all_ports|source=%s|run=%s|", source, runID)
-	if len(marker) > allPortsDiscoveryPayloadSize {
-		return nil, fmt.Errorf("all-ports discovery marker for %s is %d bytes, maximum is %d", source, len(marker), allPortsDiscoveryPayloadSize)
+	probe := sha256.Sum256([]byte(marker))
+	message := fmt.Sprintf("%s\n%x", marker, probe[:8])
+	if len(message) > allPortsDiscoveryPayloadSize {
+		return nil, fmt.Errorf("all-ports discovery payload for %s is %d bytes, maximum is %d", source, len(message), allPortsDiscoveryPayloadSize)
 	}
 	payload := bytes.Repeat([]byte{' '}, allPortsDiscoveryPayloadSize)
-	copy(payload, marker)
+	copy(payload, message)
 	for index, value := range payload {
+		if index == len(marker) && value == '\n' {
+			continue
+		}
 		if value < 0x20 || value > 0x7e {
 			return nil, fmt.Errorf("all-ports discovery payload contains control byte 0x%02x at offset %d", value, index)
 		}
@@ -247,7 +247,10 @@ func makeAllPortsDiscoveryPayload(source, runID string) ([]byte, error) {
 }
 
 func parseAllPortsDiscoveryPayload(payload []byte) (allPortsMarker, error) {
-	text := strings.TrimSpace(string(payload))
+	text, _, hasProbe := strings.Cut(string(payload), "\n")
+	if !hasProbe {
+		return allPortsMarker{}, fmt.Errorf("all-ports discovery probe not received")
+	}
 	fields := make(map[string]string)
 	for _, part := range strings.Split(strings.Trim(text, "|"), "|") {
 		key, value, ok := strings.Cut(part, "=")
@@ -257,6 +260,15 @@ func parseAllPortsDiscoveryPayload(payload []byte) (allPortsMarker, error) {
 	}
 	if fields["test"] != "test_discovery_all_ports" || fields["source"] == "" || fields["run"] == "" {
 		return allPortsMarker{}, fmt.Errorf("invalid all-ports discovery marker %q", text)
+	}
+	expected, err := makeAllPortsDiscoveryPayload(fields["source"], fields["run"])
+	if err != nil {
+		return allPortsMarker{}, err
+	}
+	// Ignore only trailing padding, not newlines or terminal decorations. A login
+	// prompt may echo the marker but suppress or alter the data after the newline.
+	if !bytes.Equal(bytes.TrimRight(payload, " "), bytes.TrimRight(expected, " ")) {
+		return allPortsMarker{}, fmt.Errorf("all-ports discovery payload mismatch (possible terminal echo)")
 	}
 	return allPortsMarker{source: fields["source"], runID: fields["run"]}, nil
 }

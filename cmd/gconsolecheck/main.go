@@ -53,9 +53,6 @@ func runCLI(args []string, stdout, stderr io.Writer) int {
 	}
 	defer closeFactory()
 	started := time.Now()
-	if seedIsUsed(cfg.scenarios) {
-		fmt.Fprintf(stdout, "SEED seed=%d\n", cfg.seed)
-	}
 	discoveryFailed := false
 	if scenarioSelected(cfg.scenarios, "test_discovery_all_ports") {
 		if err := runDiscoveryAllPorts(ctx, cfg, factory, discoverPorts, stdout); err != nil {
@@ -108,15 +105,6 @@ func pairScenarios(scenarios []string) []string {
 		}
 	}
 	return result
-}
-
-func seedIsUsed(scenarios []string) bool {
-	for _, scenario := range scenarios {
-		if scenario == "test_one_way" || scenario == "test_random_soak" || scenario == "test_random_soak_ascii" || scenario == "test_discovery" || scenario == "test_discovery_all_ports" {
-			return true
-		}
-	}
-	return false
 }
 
 type portsDiscovery func(context.Context) (console.CommandsInfoResult, error)

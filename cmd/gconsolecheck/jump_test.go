@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"net"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestSplitJumpTarget(t *testing.T) {
@@ -54,15 +54,13 @@ func (t *fakeTunnel) Close() {
 func TestManagedTunnelConnectsOnce(t *testing.T) {
 	underlying := &fakeTunnel{}
 	tunnel := &managedTunnel{tunnel: underlying}
-	var wg sync.WaitGroup
+	var group errgroup.Group
 	for range 10 {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			require.NoError(t, tunnel.EnsureConnected(context.Background(), time.Second))
-		}()
+		group.Go(func() error {
+			return tunnel.EnsureConnected(context.Background(), time.Second)
+		})
 	}
-	wg.Wait()
+	require.NoError(t, group.Wait())
 
 	require.Equal(t, int64(1), underlying.connectCalls.Load())
 	tunnel.Close()

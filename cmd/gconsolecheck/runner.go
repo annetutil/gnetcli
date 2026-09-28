@@ -74,23 +74,16 @@ func runAllPairs(ctx context.Context, cfg config, factory sessionFactory, output
 	if parallel == 0 || parallel > len(cfg.pairs) {
 		parallel = len(cfg.pairs)
 	}
-	jobs := make(chan int)
-	var wg sync.WaitGroup
-	for range parallel {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for index := range jobs {
-				pair := cfg.pairs[index]
-				results[index] = runPair(ctx, cfg, pair, factory, rep)
-			}
-		}()
-	}
+	var group errgroup.Group
+	group.SetLimit(parallel)
 	for index := range cfg.pairs {
-		jobs <- index
+		group.Go(func() error {
+			pair := cfg.pairs[index]
+			results[index] = runPair(ctx, cfg, pair, factory, rep)
+			return results[index].err
+		})
 	}
-	close(jobs)
-	wg.Wait()
+	_ = group.Wait() // Errors are reported by runPair and retained in results.
 	return results
 }
 
@@ -107,14 +100,17 @@ func runPair(ctx context.Context, cfg config, pair portPair, factory sessionFact
 		}
 		return nil
 	})
-	group.Go(func() error {
-		var err error
-		right, err = factory(ctx, pair.right)
-		if err != nil {
-			return fmt.Errorf("connect %s: %w", pair.right, err)
-		}
-		return nil
-	})
+	// A nil right session represents single-port loopback throughout the scenarios.
+	if pair.left != pair.right {
+		group.Go(func() error {
+			var err error
+			right, err = factory(ctx, pair.right)
+			if err != nil {
+				return fmt.Errorf("connect %s: %w", pair.right, err)
+			}
+			return nil
+		})
+	}
 	connectErr := group.Wait()
 	result.connectTime = time.Since(connectStarted)
 	if connectErr != nil {
@@ -385,12 +381,22 @@ func exchangeChunk(ctx context.Context, timeout time.Duration, left, right dataS
 type payloadComparator func(string, uint64, []byte, []byte) error
 
 func exchangeChunkWithComparator(ctx context.Context, timeout time.Duration, left, right dataSession, leftPayload, rightPayload []byte, label string, baseOffset uint64, comparator payloadComparator) error {
+	// Loopback has only one reader: verify the two payloads sequentially.
+	if right == nil && len(leftPayload) > 0 && len(rightPayload) > 0 {
+		if err := exchangeChunkWithComparator(ctx, timeout, left, nil, leftPayload, nil, label, baseOffset, comparator); err != nil {
+			return err
+		}
+		return exchangeChunkWithComparator(ctx, timeout, left, nil, nil, rightPayload, label, baseOffset, comparator)
+	}
 	opCtx, cancel := context.WithTimeout(ctx, timeout)
 	var group errgroup.Group
 	var firstErr error
 	var firstErrOnce sync.Once
 	stopWatcher := closeSessionsOnDone(opCtx, left, right)
 	defer stopWatcher()
+	if right == nil {
+		right = left
+	}
 	groupGo := func(task func() error) {
 		group.Go(func() error {
 			err := task()
@@ -592,6 +598,9 @@ func assertQuiet(ctx context.Context, timeout, window time.Duration, sessions ..
 	}
 	group, groupCtx := errgroup.WithContext(ctx)
 	for index, session := range sessions {
+		if session == nil {
+			continue
+		}
 		index, session := index, session
 		group.Go(func() error {
 			data, err := session.ReadAvailable(groupCtx, window)
