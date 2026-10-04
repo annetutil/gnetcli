@@ -651,7 +651,19 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		Auth:            auths,
 		HostKeyCallback: m.hostKeyCallback,
 		Config:          sshConf,
-		Timeout:         15 * time.Second,
+		// Allow legacy host-key algorithms so we can reach old devices that
+		// only offer ssh-rsa (SHA-1) or ssh-dss host keys (e.g. FS/FSOS
+		// switches, aging RouterOS). Go's x/crypto disables these by default
+		// since 1.20, which otherwise fails the handshake before auth. Modern
+		// algorithms are listed first so strong devices still negotiate them.
+		HostKeyAlgorithms: []string{
+			"ssh-ed25519",
+			"ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
+			"rsa-sha2-512", "rsa-sha2-256",
+			"ssh-rsa",
+			"ssh-dss",
+		},
+		Timeout: 15 * time.Second,
 	}
 	if m.onConfig != nil {
 		err := m.onConfig(conf)
