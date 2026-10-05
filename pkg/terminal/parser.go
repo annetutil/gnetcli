@@ -24,6 +24,8 @@ const (
 	SGR     = 'm'
 	CUP     = 'H'
 	ED      = 'J'
+	CUU     = 'A' // cursor up
+	CUD     = 'B' // cursor down
 )
 
 func sliceEdit(s []byte, begin, finish int) []byte {
@@ -157,7 +159,7 @@ func (m *Parser) parse() ([]byte, error) {
 				// Rolling back to the place of the deleted esc-1, consume moved to the esc old pos
 				// Necessary in case of two esc sequences in a row
 				m.pos = escStart - 1
-			case CUP, ED: // not implemented
+			case CUP, ED, CUU, CUD: // cursor positioning we don't render - strip it
 				m.data = sliceEdit(m.data, escStart, m.pos+1)
 				m.pos = escStart - 1
 				continue
