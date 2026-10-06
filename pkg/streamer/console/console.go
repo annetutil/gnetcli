@@ -344,6 +344,9 @@ func (m *Streamer) login(ctx context.Context) (err error) {
 	}
 
 	if string(res) != ok {
+		if bytes.HasPrefix(res, []byte("passwd?")) {
+			return ThrowConsoleException([]byte(fmt.Sprintf("console server unexpectedly requested a password during login; password authentication is not supported; response: %q", res)))
+		}
 		return ThrowConsoleException([]byte("unexpected data " + string(res) + " expected: " + ok))
 	}
 	return nil

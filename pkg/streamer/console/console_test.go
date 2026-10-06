@@ -12,8 +12,71 @@ import (
 	"time"
 
 	"github.com/annetutil/gnetcli/pkg/streamer"
+	"github.com/annetutil/gnetcli/pkg/testutils/mock"
 	"github.com/stretchr/testify/require"
 )
+
+type consoleTestTunnel struct {
+	conn net.Conn
+}
+
+func (m *consoleTestTunnel) Close()                                { _ = m.conn.Close() }
+func (m *consoleTestTunnel) IsConnected() bool                     { return true }
+func (m *consoleTestTunnel) CreateConnect(context.Context) error   { return nil }
+func (m *consoleTestTunnel) StartForward(string) (net.Conn, error) { return m.conn, nil }
+
+func TestInitLoginResponse(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		response string
+		wantErr  string
+	}{
+		{"password with server", "passwd? consoles.example.net\r\n", "console server unexpectedly requested a password during login; password authentication is not supported"},
+		{"password", "passwd?\r\n", "console server unexpectedly requested a password during login; password authentication is not supported"},
+		{"unexpected response", "denied\r\n", "unexpected data denied\r\n expected: ok\r\n"},
+		{"successful login", "ok\r\n", "bad console port error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			client, server := net.Pipe()
+			t.Cleanup(func() { _ = client.Close(); _ = server.Close() })
+			require.NoError(t, server.SetDeadline(time.Now().Add(5*time.Second)))
+			dialog := []mock.Action{
+				mock.Send("ok\r\n"),
+				mock.Expect("login anonymous\r\n"),
+				mock.Send(tc.response),
+			}
+			if tc.response == "ok\r\n" {
+				dialog = append(dialog, mock.Expect("call ttyS1\r\n"), mock.Send("ttyS1 not found\r\n"))
+			}
+			done := make(chan error, 1)
+			go func() {
+				for _, action := range dialog {
+					if err := action.Exec(server); err != nil {
+						done <- err
+						return
+					}
+				}
+				done <- nil
+			}()
+			consoleStreamer := NewStreamer("127.0.0.1", "ttyS1", nil, nil,
+				WithSSHTunnelConn(&consoleTestTunnel{conn: client}))
+			t.Cleanup(consoleStreamer.Close)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			err := consoleStreamer.Init(ctx)
+			require.ErrorContains(t, err, tc.wantErr)
+			if tc.response != "ok\r\n" {
+				require.ErrorContains(t, err, "unable to login to console server")
+				var consoleErr *ConsoleException
+				require.ErrorAs(t, err, &consoleErr)
+			}
+			if tc.name == "password with server" {
+				require.ErrorContains(t, err, `response: "passwd? consoles.example.net\r\n"`)
+			}
+			require.NoError(t, <-done)
+		})
+	}
+}
 
 func TestPrependBufferReturnsConsumedBytesToNextRead(t *testing.T) {
 	consoleStreamer := NewStreamer("unused", "ttyS1", nil, nil)
