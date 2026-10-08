@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -15,6 +16,7 @@ import (
 	"syscall"
 
 	"github.com/annetutil/gnetcli/pkg/gswitch"
+	"github.com/annetutil/gnetcli/pkg/gswitch/emulator"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 )
@@ -39,9 +41,12 @@ func run() error {
 	configFile := flag.String("config-file", "", "Initial Cisco-style running configuration; changes remain in memory")
 	readyFile := flag.String("ready-file", "", "Write actual listener addresses as JSON when ready; remove on shutdown")
 	commandDelay := flag.Duration("command-delay", 0, "Delay each CLI command (including session setup) for timeout tests")
+	profileFile := flag.String("profile", "", "Declarative emulator YAML profile (opt-in)")
+	scenarioFile := flag.String("scenario", "", "Scenario YAML for -profile")
+	consolePort := flag.Int("console-port", -1, "Raw TCP console for -profile; -1 disables, 0 selects a free port")
 	flag.Parse()
-	if !*enableSSH && !*enableTelnet {
-		return errors.New("at least one server (SSH or Telnet) must be enabled")
+	if !*enableSSH && !*enableTelnet && *consolePort < 0 {
+		return errors.New("at least one server (SSH, Telnet or console) must be enabled")
 	}
 	if *commandDelay < 0 {
 		return errors.New("command-delay cannot be negative")
@@ -50,6 +55,12 @@ func run() error {
 		if err := os.Remove(*readyFile); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("remove stale ready-file: %w", err)
 		}
+	}
+	if *profileFile == "" && (*scenarioFile != "" || *consolePort >= 0) {
+		return errors.New("-scenario and -console-port require -profile")
+	}
+	if *profileFile != "" && (*enableTelnet || *configFile != "" || *commandDelay != 0) {
+		return errors.New("-profile does not support legacy -enable-telnet, -config-file or -command-delay; use profile actions and raw console")
 	}
 	logConfig := zap.NewProductionConfig()
 	if *debug {
@@ -78,8 +89,52 @@ func run() error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	var emulated *emulator.Device
+	if *profileFile != "" {
+		f, err := os.Open(*profileFile)
+		if err != nil {
+			return err
+		}
+		root, err := os.OpenRoot(filepath.Dir(*profileFile))
+		if err != nil {
+			f.Close()
+			return err
+		}
+		profile, err := emulator.LoadProfile(f, root.FS())
+		f.Close()
+		root.Close()
+		if err != nil {
+			return fmt.Errorf("load profile: %w", err)
+		}
+		var scenario *emulator.Scenario
+		if *scenarioFile != "" {
+			f, err := os.Open(*scenarioFile)
+			if err != nil {
+				return err
+			}
+			root, err := os.OpenRoot(filepath.Dir(*scenarioFile))
+			if err != nil {
+				f.Close()
+				return err
+			}
+			scenario, err = emulator.LoadScenario(f, root.FS())
+			f.Close()
+			root.Close()
+			if err != nil {
+				return fmt.Errorf("load scenario: %w", err)
+			}
+		}
+		emulated, err = emulator.New(profile, emulator.Options{Username: *username, Password: *password, Scenario: scenario})
+		if err != nil {
+			return err
+		}
+		defer emulated.Close()
+		opts.SSHHandler = func(ctx context.Context, channel io.ReadWriteCloser, user string) error {
+			return emulated.Serve(ctx, channel, emulator.AttachOptions{Username: user, Authenticated: true})
+		}
+	}
 	wg, wCtx := errgroup.WithContext(ctx)
-	var sshListener, telnetListener net.Listener
+	var sshListener, telnetListener, consoleListener net.Listener
 	addresses := make(map[string]string)
 	if *enableSSH {
 		var err error
@@ -100,6 +155,21 @@ func run() error {
 		defer telnetListener.Close()
 		addresses["telnet"] = telnetListener.Addr().String()
 		logger.Warn("Telnet server listening on", zap.String("addr", addresses["telnet"]))
+	}
+	if *consolePort >= 0 {
+		var err error
+		consoleListener, err = net.Listen("tcp", net.JoinHostPort(*host, strconv.Itoa(*consolePort)))
+		if err != nil {
+			return fmt.Errorf("listen console: %w", err)
+		}
+		defer consoleListener.Close()
+		addresses["console"] = consoleListener.Addr().String()
+	}
+	if emulated != nil {
+		wg.Go(func() error { return emulated.Run(wCtx) })
+	}
+	if consoleListener != nil {
+		wg.Go(func() error { return emulated.ServeConsole(wCtx, consoleListener, "console0") })
 	}
 	if *readyFile != "" {
 		if err := writeReadyFile(*readyFile, addresses); err != nil {

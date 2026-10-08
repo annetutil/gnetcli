@@ -1,0 +1,131 @@
+apiVersion: cli-emulator/v1
+name: iosxe-lab
+initialMode: user
+abbreviations: true
+validation:
+  file: validators/unique-descriptions.star
+initialState:
+  hostname: sw1
+  interfaces:
+    Ethernet1:
+      description: initial
+      adminUp: true
+terminal:
+  pageLines: 24
+  pager: "--More--"
+  logPolicy: redraw
+login:
+  usernamePrompt: "Username: "
+  passwordPrompt: "Password: "
+  attempts: 3
+modes:
+  user: {prompt: "{{ .Config.hostname }}>"}
+  exec: {prompt: "{{ .Config.hostname }}#"}
+  config: {prompt: "{{ .Config.hostname }}(config)#"}
+  interface: {prompt: "{{ .Config.hostname }}(config-if)#"}
+boot:
+  - {at: 100ms, kind: raw, file: fixtures/boot.txt, route: console, source: boot}
+  - {at: 250ms, kind: ready, text: "true"}
+  - {at: 500ms, kind: log, text: "SYSTEM: interfaces initializing", source: kernel, route: console}
+  - {at: 1s, kind: lifecycle, text: operational}
+commands:
+  - id: enable
+    modes: [user, exec]
+    syntax: enable
+    actions: [{op: mode, mode: exec}]
+  - id: configure
+    modes: [exec]
+    syntax: configure terminal
+    actions: [{op: push, mode: config}]
+  - id: interface
+    modes: [config]
+    syntax: "interface <name:word>"
+    completions:
+      name:
+        statePath: [interfaces]
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "{{ .Args.name }}"}
+  - id: description
+    modes: [interface]
+    syntax: "description <text:rest>"
+    actions:
+      - op: set
+        path: [interfaces, "{{ .Context.ifname }}", description]
+        value: "{{ .Args.text }}"
+  - id: no-description
+    modes: [interface]
+    syntax: no description
+    actions:
+      - op: delete
+        path: [interfaces, "{{ .Context.ifname }}", description]
+  - id: hostname
+    modes: [config]
+    syntax: "hostname <name:word>"
+    actions: [{op: set, path: [hostname], value: "{{ .Args.name }}"}]
+  - id: end
+    modes: [config, interface]
+    syntax: end
+    actions: [{op: mode, mode: exec}]
+  - id: exit-mode
+    modes: [config, interface]
+    syntax: exit
+    actions: [{op: pop}]
+  - id: logout
+    modes: [user, exec]
+    syntax: exit
+    actions: [{op: logout}]
+  - id: terminal-length
+    modes: [user, exec]
+    syntax: "terminal length <lines:uint>"
+    actions: [{op: pager, value: "{{ .Args.lines }}"}]
+  - id: terminal-width
+    modes: [user, exec]
+    syntax: "terminal width <columns:uint>"
+    actions: []
+  - id: monitor-off
+    modes: [user, exec]
+    syntax: terminal no monitor
+    actions: [{op: monitor, value: false}]
+  - id: monitor-on
+    modes: [user, exec]
+    syntax: terminal monitor
+    actions: [{op: monitor, value: true}]
+  - id: show-version
+    modes: [user, exec]
+    syntax: show version
+    actions:
+      - {op: output, text: "Cisco IOS XE Software (synthetic lab profile)\n"}
+  - id: show-running
+    modes: [exec]
+    syntax: show running-config
+    actions:
+      - {op: output, file: fixtures/running.gotmpl}
+  - id: save
+    modes: [exec]
+    syntax: write memory
+    actions: [{op: save}, {op: output, text: "[OK]\n"}]
+  - id: copy-config
+    modes: [exec]
+    syntax: copy running-config startup-config
+    actions: [{op: save}]
+  - id: show-slow
+    modes: [exec]
+    syntax: show slow
+    actions:
+      - {op: output, text: "Header\n"}
+      - {op: checkpoint, name: after-header}
+      - {op: output, after: 1s, text: "Body\n"}
+  - id: reload
+    modes: [exec]
+    syntax: reload
+    actions: [{op: dialog, dialog: reload}]
+dialogs:
+  reload:
+    prompt: "Proceed with reload? [confirm]"
+    answers:
+      - input: ""
+        actions: [{op: reboot}]
+      - input: "n"
+        actions: []

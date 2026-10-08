@@ -15,6 +15,7 @@ import (
 )
 
 type connections struct {
+	sshHandler          func(context.Context, io.ReadWriteCloser, string) error
 	config              *RunningConfig
 	commandDelay        time.Duration
 	inFlight            atomic.Int32
@@ -62,8 +63,12 @@ func (c *connections) handleSSHConnection(ctx context.Context, tcpConn net.Conn,
 	for newChannel := range chans {
 		switch newChannel.ChannelType() {
 		case "session":
-			c.handleSessionChannel(ctx, newChannel, logger)
+			c.handleSessionChannel(ctx, newChannel, sshConn.User(), logger)
 		case "direct-tcpip":
+			if c.sshHandler != nil {
+				newChannel.Reject(ssh.Prohibited, "forwarding disabled for custom CLI")
+				continue
+			}
 			c.handleDirectTCPIPChannel(ctx, newChannel, logger)
 		default:
 			newChannel.Reject(ssh.UnknownChannelType, "unknown channel type")
@@ -73,10 +78,15 @@ func (c *connections) handleSSHConnection(ctx context.Context, tcpConn net.Conn,
 	return nil
 }
 
-func (c *connections) handleSessionChannel(ctx context.Context, newChannel ssh.NewChannel, logger *zap.Logger) {
+func (c *connections) handleSessionChannel(ctx context.Context, newChannel ssh.NewChannel, username string, logger *zap.Logger) {
 	channel, requests, err := newChannel.Accept()
 	if err != nil {
 		logger.Error("could not accept channel", zap.Error(err))
+		return
+	}
+
+	if c.sshHandler != nil {
+		go c.handleCustomShell(ctx, channel, requests, username, logger)
 		return
 	}
 
@@ -229,4 +239,46 @@ func sendTelnetNegotiation(conn net.Conn, logger *zap.Logger) error {
 	}
 
 	return nil
+}
+
+// handleCustomShell rejects exec/subsystems rather than starting an interactive
+// CLI before the client has even requested a shell. Legacy behavior is unchanged.
+func (c *connections) handleCustomShell(ctx context.Context, channel ssh.Channel, requests <-chan *ssh.Request, username string, logger *zap.Logger) {
+	defer channel.Close()
+	done := make(chan error, 1)
+	started := false
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case err := <-done:
+			if err != nil {
+				logger.Debug("custom CLI ended", zap.Error(err))
+			}
+			return
+		case req, ok := <-requests:
+			if !ok {
+				return
+			}
+			accepted := false
+			switch req.Type {
+			case "pty-req":
+				var p struct {
+					Term                         string
+					Columns, Rows, Width, Height uint32
+					Modes                        string
+				}
+				accepted = !started && ssh.Unmarshal(req.Payload, &p) == nil
+			case "shell":
+				accepted = !started && len(req.Payload) == 0
+				if accepted {
+					started = true
+					req.Reply(true, nil)
+					go func() { done <- c.sshHandler(ctx, channel, username) }()
+					continue
+				}
+			}
+			req.Reply(accepted, nil)
+		}
+	}
 }

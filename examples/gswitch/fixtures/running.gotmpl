@@ -1,0 +1,6 @@
+hostname {{ .Running.hostname }}
+{{ range $name, $intf := .Running.interfaces -}}
+interface {{ $name }}
+{{ if index $intf "description" }} description {{ $intf.description }}
+{{ end }}!
+{{ end -}}
