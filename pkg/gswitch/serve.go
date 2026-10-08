@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -33,6 +34,10 @@ type AuthCallback func(AuthRequest) error
 
 // SSHServerOptions configures the mock SSH switch listener.
 type SSHServerOptions struct {
+	// SSHHandler overrides the legacy CLI after a shell request. Username is the
+	// authenticated SSH identity. The handler owns no authentication or listener.
+	SSHHandler func(context.Context, io.ReadWriteCloser, string) error
+
 	// Config, if nil, is initialized once per ServeSSH/ServeTelnet invocation.
 	// Pass the same pointer to both functions to emulate one device over both transports.
 	Config *RunningConfig
@@ -61,7 +66,7 @@ func (o *SSHServerOptions) logger() *zap.Logger {
 // buildSSHServerConfig builds server-side SSH config (host key + client auth).
 func buildSSHServerConfig(opts SSHServerOptions) (*ssh.ServerConfig, error) {
 	config := &ssh.ServerConfig{
-		ServerVersion: "SSH-gswitch",
+		ServerVersion: "SSH-2.0-gswitch",
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
 			if opts.AuthCallback != nil {
 				err := opts.AuthCallback(AuthRequest{
@@ -127,6 +132,7 @@ func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error
 		conns.config = NewRunningConfig()
 	}
 	conns.commandDelay = opts.CommandDelay
+	conns.sshHandler = opts.SSHHandler
 	stop := context.AfterFunc(ctx, func() { _ = ln.Close() })
 	defer stop()
 

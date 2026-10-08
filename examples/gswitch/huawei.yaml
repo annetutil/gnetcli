@@ -1,0 +1,361 @@
+apiVersion: cli-emulator/v1
+name: vrp-candidate-lab
+initialMode: user
+abbreviations: true
+validation:
+  file: validators/unique-descriptions.star
+initialState:
+  hostname: sw1
+  interfaces:
+    GE0/0/1: {description: initial, adminUp: true}
+terminal:
+  help:
+    rootHeader: "Current view commands:"
+    indent: 2
+    keywordWidth: 18
+    nestedKeywordWidth: 0
+    lineWidth: 80
+    tailOrder: ["|", ">", ">>", "<cr>"]
+    blankLineAfter: true
+    echoQuestion: true
+  pageLines: 24
+  pager: "  ---- More ----"
+  logPolicy: raw
+login:
+  usernamePrompt: "Username:"
+  passwordPrompt: "Password:"
+modes:
+  user: {prompt: "<{{ .Running.hostname }}>"}
+  system: {prompt: "[{{ if .Dirty }}*{{ else }}~{{ end }}{{ .Config.hostname }}]"}
+  interface: {prompt: "[{{ if .Dirty }}*{{ else }}~{{ end }}{{ .Config.hostname }}-{{ .Context.ifname }}]"}
+errors:
+  validation: "Error: {{ .Message }}\n"
+  invalid: "{{ .Caret }}\nError: Unrecognized command found at '^' position.\n"
+  incomplete: "{{ .ExpectedCaret }}\nError: Incomplete command found at '^' position.\n"
+  ambiguous: "{{ .Caret }}\nError: Ambiguous command found at '^' position.\n"
+commands:
+  - id: system-view
+    modes: [user]
+    syntax: system-view
+    help: ["Enter system view"]
+    actions: [{op: begin}, {op: push, mode: system}]
+  - id: interface
+    modes: [system]
+    syntax: "interface <name:word>"
+    completions:
+      name:
+        statePath: [interfaces]
+    help: ["Enter interface view", "Interface name"]
+    actions: [{op: push, mode: interface, context: {ifname: "{{ .Args.name }}"}}]
+  - id: interface-family-100ge
+    modes: [system]
+    syntax: "interface 100GE <number:word>"
+    help: ["Enter interface view", "100GE interface", "Interface number"]
+    completions:
+      number:
+        statePath: [interfaces]
+        prefix: "100GE"
+        stripPrefix: true
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "100GE{{ .Args.number }}"}
+  - id: interface-family-25ge
+    modes: [system]
+    syntax: "interface 25GE <number:word>"
+    help: ["Enter interface view", "25GE interface", "Interface number"]
+    completions:
+      number:
+        statePath: [interfaces]
+        prefix: "25GE"
+        stripPrefix: true
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "25GE{{ .Args.number }}"}
+  - id: interface-family-ethernet
+    modes: [system]
+    syntax: "interface Ethernet <number:word>"
+    help: ["Enter interface view", "Ethernet interface", "Interface number"]
+    completions:
+      number:
+        statePath: [interfaces]
+        prefix: "Ethernet"
+        stripPrefix: true
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "Ethernet{{ .Args.number }}"}
+  - id: interface-family-loopback
+    modes: [system]
+    syntax: "interface LoopBack <number:word>"
+    help: ["Enter interface view", "LoopBack interface", "Interface number"]
+    completions:
+      number:
+        statePath: [interfaces]
+        prefix: "LoopBack"
+        stripPrefix: true
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "LoopBack{{ .Args.number }}"}
+  - id: interface-family-meth
+    modes: [system]
+    syntax: "interface MEth <number:word>"
+    help: ["Enter interface view", "MEth interface", "Interface number"]
+    completions:
+      number:
+        statePath: [interfaces]
+        prefix: "MEth"
+        stripPrefix: true
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "MEth{{ .Args.number }}"}
+  - id: interface-family-null
+    modes: [system]
+    syntax: "interface NULL <number:word>"
+    help: ["Enter interface view", "NULL interface", "Interface number"]
+    completions:
+      number:
+        statePath: [interfaces]
+        prefix: "NULL"
+        stripPrefix: true
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "NULL{{ .Args.number }}"}
+  - id: interface-family-vlanif
+    modes: [system]
+    syntax: "interface Vlanif <number:word>"
+    help: ["Enter interface view", "VLAN interface", "Interface number"]
+    completions:
+      number:
+        statePath: [interfaces]
+        prefix: "Vlanif"
+        stripPrefix: true
+    actions:
+      - op: push
+        mode: interface
+        context: {ifname: "Vlanif{{ .Args.number }}"}
+  - id: description
+    modes: [interface]
+    syntax: "description <text:rest>"
+    help: ["Set interface description", "Description text"]
+    actions:
+      - op: set
+        path: [interfaces, "{{ .Context.ifname }}", description]
+        value: "{{ .Args.text }}"
+  - id: undo-description
+    modes: [interface]
+    syntax: undo description
+    help: ["Cancel configuration", "Remove interface description"]
+    actions: [{op: delete, path: [interfaces, "{{ .Context.ifname }}", description]}]
+  - id: commit
+    modes: [system, interface]
+    syntax: commit
+    help: ["Commit candidate configuration"]
+    actions: [{op: commit}]
+  - id: return
+    modes: [system, interface]
+    syntax: return
+    help: ["Return to user view"]
+    actions: [{op: abort}, {op: mode, mode: user}]
+  - id: quit-interface
+    modes: [interface]
+    syntax: quit
+    help: ["Exit the current view"]
+    actions: [{op: pop}]
+  - id: quit-system
+    modes: [system]
+    syntax: quit
+    help: ["Exit the current view"]
+    actions: [{op: abort}, {op: pop}]
+  - id: logout
+    modes: [user]
+    syntax: quit
+    help: ["Exit the current view"]
+    actions: [{op: logout}]
+  - id: screen-length
+    modes: [user]
+    syntax: "screen-length <lines:uint> temporary"
+    help: ["Set terminal screen length", "Number of lines (0 disables paging)", "Apply to the current terminal"]
+    actions: [{op: pager, value: "{{ .Args.lines }}"}]
+  - id: echo-mode
+    modes: [user]
+    syntax: terminal echo-mode line
+    help: ["Set terminal parameters", "Set command echo mode", "Echo complete input lines"]
+    actions: [{op: echo, value: line}]
+  - id: monitor-off
+    modes: [user]
+    syntax: undo terminal monitor
+    help: ["Cancel configuration", "Set terminal parameters", "Disable terminal monitoring"]
+    actions: [{op: monitor, value: false}]
+  - id: monitor-on
+    modes: [user]
+    syntax: terminal monitor
+    help: ["Set terminal parameters", "Enable terminal monitoring"]
+    actions: [{op: monitor, value: true}]
+  - id: display-version
+    modes: [user]
+    syntax: display version
+    help: ["Display current system information", "Display system version"]
+    actions: [{op: output, text: "Huawei VRP (synthetic lab profile)\n"}]
+  - id: display-config
+    modes: [user]
+    syntax: display current-configuration
+    help: ["Display current system information", "Display current configuration"]
+    actions:
+      - op: output
+        text: |
+          sysname {{ .Running.hostname }}
+          {{ range $name, $intf := .Running.interfaces -}}
+          interface {{ $name }}
+          {{ if index $intf "description" }} description {{ $intf.description }}
+          {{ end }}#
+          {{ end -}}
+  # Captured first-level display-interface grammar; output is not yet modeled.
+  - id: display-interface
+    modes: [user]
+    syntax: "display interface"
+    help: ["Display current system information", "Display interface information"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-type-100ge
+    modes: [user]
+    syntax: "display interface 100GE"
+    help: ["Display current system information", "Display interface information", "100GE interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-type-25ge
+    modes: [user]
+    syntax: "display interface 25GE"
+    help: ["Display current system information", "Display interface information", "25GE interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-type-ethernet
+    modes: [user]
+    syntax: "display interface Ethernet"
+    help: ["Display current system information", "Display interface information", "Ethernet interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-type-loopback
+    modes: [user]
+    syntax: "display interface LoopBack"
+    help: ["Display current system information", "Display interface information", "LoopBack interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-type-meth
+    modes: [user]
+    syntax: "display interface MEth"
+    help: ["Display current system information", "Display interface information", "MEth interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-type-null
+    modes: [user]
+    syntax: "display interface NULL"
+    help: ["Display current system information", "Display interface information", "NULL interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-type-vlanif
+    modes: [user]
+    syntax: "display interface Vlanif"
+    help: ["Display current system information", "Display interface information", "VLAN interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-brief
+    modes: [user]
+    syntax: "display interface brief"
+    help: ["Display current system information", "Display interface information", "Summary information about the interface status and configuration"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-counters
+    modes: [user]
+    syntax: "display interface counters"
+    help: ["Display current system information", "Display interface information", "Statistics information about the interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-description
+    modes: [user]
+    syntax: "display interface description"
+    help: ["Display current system information", "Display interface information", "Interface description"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-main
+    modes: [user]
+    syntax: "display interface main"
+    help: ["Display current system information", "Display interface information", "Main interface"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-slot
+    modes: [user]
+    syntax: "display interface slot"
+    help: ["Display current system information", "Display interface information", "Specify slot number"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-transceiver
+    modes: [user]
+    syntax: "display interface transceiver"
+    help: ["Display current system information", "Display interface information", "Transceiver information"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-troubleshooting
+    modes: [user]
+    syntax: "display interface troubleshooting"
+    help: ["Display current system information", "Display interface information", "Troubleshooting information"]
+    actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
+  - id: display-interface-filter
+    modes: [user]
+    syntax: "display interface | <filter:rest>"
+    help: ["Display current system information", "Display interface information", "Matching output", "Filter expression"]
+    actions: [{op: output, text: "Error: output filtering is not implemented in this emulator profile.\n"}]
+  - id: display-interface-redirect
+    modes: [user]
+    syntax: "display interface > <file:word>"
+    help: ["Display current system information", "Display interface information", "Redirect the output to a file", "Destination file"]
+    actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
+  - id: display-interface-append
+    modes: [user]
+    syntax: "display interface >> <file:word>"
+    help: ["Display current system information", "Display interface information", "Redirect the output to a file in append mode", "Destination file"]
+    actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
+  # Grammar-only fixtures from the captured help. Their execution is not yet
+  # modeled: fail explicitly, never pretend that a filter/file write succeeded.
+  - id: display-info-center
+    modes: [user]
+    syntax: display info-center
+    help: ["Display current system information", "Display information center"]
+    actions: [{op: output, text: "Error: display info-center is not implemented in this emulator profile.\n"}]
+  - id: display-info-center-channel
+    modes: [user]
+    syntax: display info-center channel
+    help: ["Display current system information", "Display information center", "Set the name of information channel"]
+    actions: [{op: output, text: "Error: info-center channel output is not implemented in this emulator profile.\n"}]
+  - id: display-info-center-statistics
+    modes: [user]
+    syntax: display info-center statistics
+    help: ["Display current system information", "Display information center", "Information statistics data of all modules"]
+    actions: [{op: output, text: "Error: info-center statistics output is not implemented in this emulator profile.\n"}]
+  - id: display-info-center-filter
+    modes: [user]
+    syntax: "display info-center | <filter:rest>"
+    help: ["Display current system information", "Display information center", "Matching output", "Filter expression"]
+    actions: [{op: output, text: "Error: output filtering is not implemented in this emulator profile.\n"}]
+  - id: display-info-center-redirect
+    modes: [user]
+    syntax: "display info-center > <file:word>"
+    help: ["Display current system information", "Display information center", "Redirect the output to a file", "Destination file"]
+    actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
+  - id: display-info-center-append
+    modes: [user]
+    syntax: "display info-center >> <file:word>"
+    help: ["Display current system information", "Display information center", "Redirect the output to a file in append mode", "Destination file"]
+    actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
+  # Synthetic counterpart of IOS "show slow" for the shared noisy scenario.
+  - id: display-slow
+    modes: [user]
+    syntax: display slow
+    help: ["Display current system information", "Demonstrate delayed output (emulator)"]
+    actions:
+      - {op: output, text: "Header\n"}
+      - {op: checkpoint, name: after-header}
+      - {op: output, after: 1s, text: "Body\n"}
+  - id: save
+    modes: [user]
+    syntax: save
+    help: ["Save configuration"]
+    actions: [{op: dialog, dialog: save}]
+dialogs:
+  save:
+    prompt: "Continue? [Y/N]:"
+    answers:
+      - input: "y"
+        actions: [{op: save}, {op: output, text: "Configuration saved.\n"}]
+      - input: "n"
+        actions: []
