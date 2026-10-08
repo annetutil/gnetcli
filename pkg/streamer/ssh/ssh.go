@@ -142,6 +142,8 @@ type Streamer struct {
 	credentials            credentials.Credentials
 	logger                 *zap.Logger
 	conn                   sshClient
+	agentConnections       []net.Conn
+	agentConnectionsMu     sync.Mutex
 	program                string // session params
 	programData            string
 	env                    map[string]string
@@ -475,6 +477,7 @@ func (m *Streamer) Close() {
 	if m.conn != nil {
 		_ = m.conn.Close()
 	}
+	m.closeAgentConnections()
 	// cancel chanReader goroutine
 	if m.session != nil && m.session.chanReaderCancel != nil {
 		m.session.chanReaderCancel()
@@ -564,7 +567,16 @@ func copySessionOutput(ctx context.Context, stdout io.Reader, stderr io.Reader) 
 	return stdoutBuffer.Bytes(), stderrBuffer.Bytes(), nil
 }
 
+// GetConfig returns the SSH client configuration. Agent connections used by the
+// returned signers remain open until Close or the end of Init's handshake.
 func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
+	var agentConnection net.Conn
+	defer func() {
+		if agentConnection != nil {
+			_ = agentConnection.Close()
+		}
+	}()
+
 	creds := m.credentials
 	if m.credentialsInterceptor != nil {
 		creds = m.credentialsInterceptor(creds)
@@ -608,6 +620,7 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 		if err != nil {
 			return nil, err
 		}
+		agentConnection = conn
 		agentClient := agent.NewClient(conn)
 		agentSigners, err := agentClient.Signers()
 		if err != nil {
@@ -659,7 +672,23 @@ func (m *Streamer) GetConfig(ctx context.Context) (*ssh.ClientConfig, error) {
 			return nil, fmt.Errorf("onConfig error: %w", err)
 		}
 	}
+	if agentConnection != nil {
+		m.agentConnectionsMu.Lock()
+		m.agentConnections = append(m.agentConnections, agentConnection)
+		m.agentConnectionsMu.Unlock()
+		agentConnection = nil
+	}
 	return conf, nil
+}
+
+func (m *Streamer) closeAgentConnections() {
+	m.agentConnectionsMu.Lock()
+	connections := m.agentConnections
+	m.agentConnections = nil
+	m.agentConnectionsMu.Unlock()
+	for _, conn := range connections {
+		_ = conn.Close()
+	}
 }
 
 func wrapSigner(signer ssh.Signer, logger *zap.Logger) ssh.Signer {
@@ -678,6 +707,7 @@ type sshClient interface {
 }
 
 func (m *Streamer) openConnect(ctx context.Context) (sshClient, error) {
+	defer m.closeAgentConnections()
 	conf, err := m.GetConfig(ctx)
 	if err != nil {
 		return nil, err

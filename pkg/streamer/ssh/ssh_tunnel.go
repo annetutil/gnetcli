@@ -94,6 +94,7 @@ func (m *SSHTunnel) CreateConnect(ctx context.Context) error {
 		strOpts = append(strOpts, WithSSHControlFIle(m.controlFile))
 	}
 	connector := NewStreamer(m.Host, m.credentials, strOpts...)
+	defer connector.Close()
 	conf, err := connector.GetConfig(ctx)
 	if err != nil {
 		m.logger.Error(err.Error())
