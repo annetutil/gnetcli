@@ -53,6 +53,7 @@ type Login struct {
 }
 
 type Command struct {
+	Arguments   map[string]ArgumentSpec       `yaml:"arguments"`
 	Completions map[string]ArgumentCompletion `yaml:"completions"`
 	Help        []string                      `yaml:"help"`
 	ID          string                        `yaml:"id"`
@@ -113,6 +114,7 @@ type Scenario struct {
 
 // Profile is immutable after compilation and may be shared by independent devices.
 type Profile struct {
+	arguments           map[string]map[string]ArgumentSpec
 	argumentCompletions map[string]map[string]ArgumentCompletion
 	helpDescriptions    map[string]map[string]string
 	validator           *validator
@@ -279,6 +281,9 @@ func LoadProfile(r io.Reader, files fs.FS) (*Profile, error) {
 			if err := p.registerHelp(mode, pat, cmd.Help); err != nil {
 				return nil, err
 			}
+			if err := p.registerArguments(mode, pat, cmd.Arguments); err != nil {
+				return nil, err
+			}
 			if err := p.registerArgumentCompletions(mode, pat, cmd.Completions); err != nil {
 				return nil, err
 			}
@@ -348,6 +353,10 @@ func (p *Profile) compileActions(actions []Action, files fs.FS) error {
 			if _, ok := p.def.Dialogs[a.Dialog]; !ok {
 				return fmt.Errorf("unknown dialog %q", a.Dialog)
 			}
+		case "require-lifecycle":
+			if state, ok := a.Value.(string); !ok || state == "" || a.Text == "" {
+				return fmt.Errorf("require-lifecycle needs a nonempty string value and rejection text")
+			}
 		case "set", "delete":
 			if len(a.Path) == 0 {
 				return fmt.Errorf("%s requires path", a.Op)
@@ -400,7 +409,7 @@ func compileEvent(e *Event, files fs.FS) error {
 		return fmt.Errorf("negative event time")
 	}
 	switch e.Kind {
-	case "log", "raw", "lifecycle":
+	case "log", "raw", "lifecycle", "console-reset":
 	case "ready":
 		if e.Text != "true" && e.Text != "false" {
 			return fmt.Errorf("ready text must be true or false")
@@ -413,6 +422,9 @@ func compileEvent(e *Event, files fs.FS) error {
 	}
 	if e.Route != "console" && e.Route != "monitor" && e.Route != "all" && e.Route != "session" {
 		return fmt.Errorf("unknown event route %q", e.Route)
+	}
+	if e.Kind == "console-reset" && (e.Route != "console" || e.Text != "" || e.Policy != "") {
+		return fmt.Errorf("console-reset requires route console and no text/policy")
 	}
 	if e.Policy != "" && !logPolicy(e.Policy) {
 		return fmt.Errorf("unknown log policy %q", e.Policy)

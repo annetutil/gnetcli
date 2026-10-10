@@ -167,6 +167,7 @@ func (d *Device) inputByte(s *terminalSession, b byte) {
 			s.username = line
 			s.interaction = "password"
 			d.prompt(s)
+			d.trigger("login:password", s)
 		case "password":
 			if s.username == d.options.Username && line == d.options.Password {
 				s.interaction = "editing"

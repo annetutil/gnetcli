@@ -321,6 +321,20 @@ func (d *Device) event(e Event, target *terminalSession) {
 	switch e.Kind {
 	case "lifecycle":
 		d.lifecycle = e.Text
+	case "console-reset":
+		// A CLI restart keeps the physical console attachment, but discards
+		// credentials, candidate/modes, history and pending command actions.
+		for _, s := range d.orderedSessions() {
+			if s.console == "" {
+				continue
+			}
+			s.reset(d.profile)
+			s.interaction = "boot"
+			if d.ready {
+				s.interaction = "username"
+				d.prompt(s)
+			}
+		}
 	case "ready":
 		d.ready = e.Text == "true"
 		if d.ready {
@@ -395,8 +409,13 @@ func (d *Device) reboot() {
 	}
 	d.record(nil, "reboot", "")
 	d.startBoot()
+	// Apply time-zero scenario readiness before exposing the restarted console.
+	d.advanceTo(d.now)
 	if d.ready {
 		for _, s := range d.orderedSessions() {
+			if s.interaction != "boot" {
+				continue
+			}
 			s.interaction = "username"
 			d.prompt(s)
 		}
@@ -424,5 +443,5 @@ func (d *Device) config(s *terminalSession) map[string]any {
 	return d.running
 }
 func (d *Device) data(s *terminalSession) map[string]any {
-	return map[string]any{"Config": d.config(s), "Running": d.running, "Startup": d.startup, "Args": s.args, "Context": s.mode().context, "Username": s.username, "Dirty": s.candidate != nil && !reflect.DeepEqual(s.candidate, d.running), "Input": s.answer}
+	return map[string]any{"Lifecycle": d.lifecycle, "Config": d.config(s), "Running": d.running, "Startup": d.startup, "Args": s.args, "Context": s.mode().context, "Username": s.username, "Dirty": s.candidate != nil && !reflect.DeepEqual(s.candidate, d.running), "Input": s.answer}
 }

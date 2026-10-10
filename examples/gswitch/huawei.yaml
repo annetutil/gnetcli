@@ -6,6 +6,11 @@ validation:
   file: validators/unique-descriptions.star
 initialState:
   hostname: sw1
+  # Captured lab configuration, not universal Huawei defaults.
+  aaa:
+    localUserSecurityEnhance: false
+    adminDomain: localuser
+    terminalForceDomain: default0
   interfaces:
     GE0/0/1: {description: initial, adminUp: true}
 terminal:
@@ -27,6 +32,7 @@ login:
 modes:
   user: {prompt: "<{{ .Running.hostname }}>"}
   system: {prompt: "[{{ if .Dirty }}*{{ else }}~{{ end }}{{ .Config.hostname }}]"}
+  aaa: {prompt: "[{{ if .Dirty }}*{{ else }}~{{ end }}{{ .Config.hostname }}-aaa]"}
   interface: {prompt: "[{{ if .Dirty }}*{{ else }}~{{ end }}{{ .Config.hostname }}-{{ .Context.ifname }}]"}
 errors:
   validation: "Error: {{ .Message }}\n"
@@ -39,6 +45,42 @@ commands:
     syntax: system-view
     help: ["Enter system view"]
     actions: [{op: begin}, {op: push, mode: system}]
+  - id: sysname
+    modes: [system]
+    syntax: "sysname <name:word>"
+    help: ["Set host name", "Host name (1 to 246 characters)"]
+    arguments:
+      name:
+        hint: "TEXT<1-246>"
+        minLength: 1
+        maxLength: 246
+    actions: [{op: set, path: [hostname], value: "{{ .Args.name }}"}]
+  - id: aaa
+    modes: [system]
+    syntax: aaa
+    help: ["Enter AAA view"]
+    actions: [{op: push, mode: aaa}]
+  # These settings model configuration only, not transport authentication.
+  - id: aaa-enable-security-enhance
+    modes: [aaa]
+    syntax: local-user policy security-enhance
+    help: ["Configure local users", "Configure local user policy", "Enable enhanced local user security"]
+    actions: [{op: set, path: [aaa, localUserSecurityEnhance], value: true}]
+  - id: aaa-disable-security-enhance
+    modes: [aaa]
+    syntax: undo local-user policy security-enhance
+    help: ["Cancel configuration", "Configure local users", "Configure local user policy", "Disable enhanced local user security"]
+    actions: [{op: set, path: [aaa, localUserSecurityEnhance], value: false}]
+  - id: aaa-admin-domain
+    modes: [aaa]
+    syntax: "default-domain admin <name:word>"
+    help: ["Configure default domain", "Administrative users", "Domain name"]
+    actions: [{op: set, path: [aaa, adminDomain], value: "{{ .Args.name }}"}]
+  - id: aaa-terminal-domain
+    modes: [aaa]
+    syntax: "service-type terminal force-domain <name:word>"
+    help: ["Configure service type", "Terminal access", "Set forced domain", "Domain name"]
+    actions: [{op: set, path: [aaa, terminalForceDomain], value: "{{ .Args.name }}"}]
   - id: interface
     modes: [system]
     syntax: "interface <name:word>"
@@ -152,17 +194,17 @@ commands:
     help: ["Cancel configuration", "Remove interface description"]
     actions: [{op: delete, path: [interfaces, "{{ .Context.ifname }}", description]}]
   - id: commit
-    modes: [system, interface]
+    modes: [system, interface, aaa]
     syntax: commit
     help: ["Commit candidate configuration"]
     actions: [{op: commit}]
   - id: return
-    modes: [system, interface]
+    modes: [system, interface, aaa]
     syntax: return
     help: ["Return to user view"]
     actions: [{op: abort}, {op: mode, mode: user}]
   - id: quit-interface
-    modes: [interface]
+    modes: [interface, aaa]
     syntax: quit
     help: ["Exit the current view"]
     actions: [{op: pop}]
@@ -197,149 +239,208 @@ commands:
     help: ["Set terminal parameters", "Enable terminal monitoring"]
     actions: [{op: monitor, value: true}]
   - id: display-version
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: display version
     help: ["Display current system information", "Display system version"]
     actions: [{op: output, text: "Huawei VRP (synthetic lab profile)\n"}]
   - id: display-config
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: display current-configuration
     help: ["Display current system information", "Display current configuration"]
     actions:
       - op: output
         text: |
           sysname {{ .Running.hostname }}
+          #
+          aaa
+          {{ if .Running.aaa.localUserSecurityEnhance }} local-user policy security-enhance
+          {{ else }} undo local-user policy security-enhance
+          {{ end }} default-domain admin {{ .Running.aaa.adminDomain }}
+           service-type terminal force-domain {{ .Running.aaa.terminalForceDomain }}
+          #
           {{ range $name, $intf := .Running.interfaces -}}
           interface {{ $name }}
           {{ if index $intf "description" }} description {{ $intf.description }}
           {{ end }}#
           {{ end -}}
+  - id: display-this-system
+    modes: [system]
+    syntax: display this
+    help: ["Display current system information", "Display current view configuration"]
+    actions:
+      - op: output
+        text: |
+          #
+          sysname {{ .Running.hostname }}
+          #
+          aaa
+          {{ if .Running.aaa.localUserSecurityEnhance }} local-user policy security-enhance
+          {{ else }} undo local-user policy security-enhance
+          {{ end }} default-domain admin {{ .Running.aaa.adminDomain }}
+           service-type terminal force-domain {{ .Running.aaa.terminalForceDomain }}
+          #
+          {{ range $name, $intf := .Running.interfaces -}}
+          interface {{ $name }}
+          {{ if index $intf "description" }} description {{ $intf.description }}
+          {{ end }}#
+          {{ end -}}
+          return
+  - id: display-this-interface
+    modes: [interface]
+    syntax: display this
+    help: ["Display current system information", "Display current view configuration"]
+    actions:
+      - op: output
+        text: |
+          #
+          interface {{ .Context.ifname }}
+          {{ with index .Running.interfaces .Context.ifname -}}
+          {{ if index . "description" }} description {{ .description }}
+          {{ end -}}
+          {{ end -}}
+          #
+          return
+  - id: display-this-aaa
+    modes: [aaa]
+    syntax: display this
+    help: ["Display current system information", "Display current view configuration"]
+    actions:
+      - op: output
+        text: |
+          #
+          aaa
+          {{ if .Running.aaa.localUserSecurityEnhance }} local-user policy security-enhance
+          {{ else }} undo local-user policy security-enhance
+          {{ end }} default-domain admin {{ .Running.aaa.adminDomain }}
+           service-type terminal force-domain {{ .Running.aaa.terminalForceDomain }}
+          #
+          return
   # Captured first-level display-interface grammar; output is not yet modeled.
   - id: display-interface
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface"
     help: ["Display current system information", "Display interface information"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-type-100ge
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface 100GE"
     help: ["Display current system information", "Display interface information", "100GE interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-type-25ge
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface 25GE"
     help: ["Display current system information", "Display interface information", "25GE interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-type-ethernet
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface Ethernet"
     help: ["Display current system information", "Display interface information", "Ethernet interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-type-loopback
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface LoopBack"
     help: ["Display current system information", "Display interface information", "LoopBack interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-type-meth
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface MEth"
     help: ["Display current system information", "Display interface information", "MEth interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-type-null
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface NULL"
     help: ["Display current system information", "Display interface information", "NULL interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-type-vlanif
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface Vlanif"
     help: ["Display current system information", "Display interface information", "VLAN interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-brief
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface brief"
     help: ["Display current system information", "Display interface information", "Summary information about the interface status and configuration"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-counters
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface counters"
     help: ["Display current system information", "Display interface information", "Statistics information about the interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-description
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface description"
     help: ["Display current system information", "Display interface information", "Interface description"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-main
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface main"
     help: ["Display current system information", "Display interface information", "Main interface"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-slot
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface slot"
     help: ["Display current system information", "Display interface information", "Specify slot number"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-transceiver
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface transceiver"
     help: ["Display current system information", "Display interface information", "Transceiver information"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-troubleshooting
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface troubleshooting"
     help: ["Display current system information", "Display interface information", "Troubleshooting information"]
     actions: [{op: output, text: "Error: display interface output is not implemented in this emulator profile.\n"}]
   - id: display-interface-filter
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface | <filter:rest>"
     help: ["Display current system information", "Display interface information", "Matching output", "Filter expression"]
     actions: [{op: output, text: "Error: output filtering is not implemented in this emulator profile.\n"}]
   - id: display-interface-redirect
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface > <file:word>"
     help: ["Display current system information", "Display interface information", "Redirect the output to a file", "Destination file"]
     actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
   - id: display-interface-append
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display interface >> <file:word>"
     help: ["Display current system information", "Display interface information", "Redirect the output to a file in append mode", "Destination file"]
     actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
   # Grammar-only fixtures from the captured help. Their execution is not yet
   # modeled: fail explicitly, never pretend that a filter/file write succeeded.
   - id: display-info-center
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: display info-center
     help: ["Display current system information", "Display information center"]
     actions: [{op: output, text: "Error: display info-center is not implemented in this emulator profile.\n"}]
   - id: display-info-center-channel
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: display info-center channel
     help: ["Display current system information", "Display information center", "Set the name of information channel"]
     actions: [{op: output, text: "Error: info-center channel output is not implemented in this emulator profile.\n"}]
   - id: display-info-center-statistics
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: display info-center statistics
     help: ["Display current system information", "Display information center", "Information statistics data of all modules"]
     actions: [{op: output, text: "Error: info-center statistics output is not implemented in this emulator profile.\n"}]
   - id: display-info-center-filter
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display info-center | <filter:rest>"
     help: ["Display current system information", "Display information center", "Matching output", "Filter expression"]
     actions: [{op: output, text: "Error: output filtering is not implemented in this emulator profile.\n"}]
   - id: display-info-center-redirect
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display info-center > <file:word>"
     help: ["Display current system information", "Display information center", "Redirect the output to a file", "Destination file"]
     actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
   - id: display-info-center-append
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: "display info-center >> <file:word>"
     help: ["Display current system information", "Display information center", "Redirect the output to a file in append mode", "Destination file"]
     actions: [{op: output, text: "Error: output redirection is not implemented in this emulator profile.\n"}]
   # Synthetic counterpart of IOS "show slow" for the shared noisy scenario.
   - id: display-slow
-    modes: [user]
+    modes: [user, system, interface, aaa]
     syntax: display slow
     help: ["Display current system information", "Demonstrate delayed output (emulator)"]
     actions:

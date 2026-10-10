@@ -41,8 +41,45 @@ Use `enable`, `configure terminal`, `interface Ethernet1`, `description TEXT`,
 confirmation dialogue; an empty answer reboots the device.
 
 `-profile examples/gswitch/huawei.yaml` selects a candidate-config demonstration:
-`system-view`, `interface GE0/0/1`, `description TEXT`, `commit`, `return`,
+`system-view`, `sysname lab-sw1`, `interface GE0/0/1`, `description TEXT`, `commit`, `return`,
 `display current-configuration`, and interactive `save`.
+
+In system-view, `sysname ?` shows `TEXT<1-246>  Host name (1 to 246 characters)`.
+`sysname NAME` takes one word of 1–246 characters, preserving case. The candidate
+prompt immediately becomes `[*NAME]`; `commit` publishes the name and changes it
+to `[~NAME]`. `return`, or `quit` from system-view, discard uncommitted changes.
+User-view prompts and `display current-configuration` use the committed name; `save` also persists it
+in startup configuration for the emulator's next reboot.
+
+`aaa` enters `[~HOST-aaa]` from system-view. Like interface view, `quit` returns
+to system-view without discarding the candidate; `return` discards the candidate
+and returns to user-view. `commit` works in all three configuration views.
+
+The Huawei profile explicitly shares its `display` commands across user, system,
+interface and AAA views. `dis<Tab>` expands to `display `, and `dis this` executes
+the abbreviated form. `display this` is additionally declared in the three
+configuration views. In system-view it renders the entire configuration tree,
+including AAA and every configured interface. In a subview it renders only the
+selected interface or AAA section. A bare `dis` is still incomplete; it does not
+implicitly execute `display this`.
+
+`display this` reads committed running configuration, not pending candidate
+changes; `display current-configuration` includes the committed AAA section too.
+The former ends with `#` and `return` as text, without leaving the current view.
+See Huawei's [configuration file guide](https://info.support.huawei.com/enterprise/en/doc/EDOC1100419273/7cea5c40/managing-configuration-files)
+and [AAA display example](https://info.support.huawei.com/network/ptmngsys/Web/tsrev_ar/en/content/ar/25_edesk_ssh_cannot_log_in/edesk_ssh_cannot_log_in_edesk003.html).
+
+The initial AAA values reproduce the supplied lab capture, not universal NOS
+defaults. The following supported commands update candidate fields under `aaa`:
+
+- `local-user policy security-enhance` / `undo local-user policy security-enhance`
+- `default-domain admin NAME`
+- `service-type terminal force-domain NAME`
+
+These are configuration emulation only: no AAA backend, user database or domain
+validation is implemented, and SSH/console credentials remain controlled by the
+emulator's launch options. Existing `display interface`/`info-center` output
+stubs remain explicit errors even when called from a nested view.
 
 The same `-scenario examples/gswitch/noisy.yaml` works with both profiles. Its
 `after-header` checkpoint is emitted by the synthetic `show slow` command on
@@ -59,6 +96,71 @@ Profile mode rejects the legacy `-enable-telnet`, `-config-file` and
 `-command-delay` flags rather than silently applying them to another engine.
 Represent delays with actions/scenarios. Credentials are for isolated tests;
 do not expose this service to an untrusted network or use real device secrets.
+
+## Aruba Instant and noisy AP boot
+
+The `aruba.yaml` profile is an **Instant AP** subset, not ArubaOS-CX or a wireless
+controller. Prompts use a locally administered lab MAC (`02:00:00:00:00:01# `)
+and `User: `/`Password: ` login. Its command syntax follows the official
+[Instant CLI overview](https://arubanetworking.hpe.com/techdocs/CLI-Bank/Content/instant/preface/access-iap-cli.htm),
+[show version](https://arubanetworking.hpe.com/techdocs/CLI-Bank/Content/instant/showversion.htm),
+[show aps](https://arubanetworking.hpe.com/techdocs/CLI-Bank/Content/instant/showap.htm),
+[IP interfaces](https://arubanetworking.hpe.com/techdocs/CLI-Bank/Content/instant/sh-ip-interface.htm),
+[name](https://arubanetworking.hpe.com/techdocs/CLI-Bank/Content/instant/name.htm),
+[syslocation](https://arubanetworking.hpe.com/techdocs/CLI-Bank/Content/instant/syslocation.htm),
+and [commit](https://arubanetworking.hpe.com/techdocs/CLI-Bank/Content/instant/commit.htm).
+
+Supported commands:
+
+- `show version`, `show running-config`, `show aps`, `show ip interface brief`.
+- `configure terminal`, `name NAME`, `syslocation TEXT`, `end`, `exit`.
+- `commit apply` (apply and save), `commit apply no-save`, `write memory`.
+- `reload` with a `y`/`n` confirmation; `exit` in exec logs out.
+
+Configuration is session-local until commit; applied changes become visible to
+other sessions. The output tables/version and link-local IP are synthetic and
+shortened; no WLAN, cluster, radio or DHCP client runs. The lab reload dialogue
+always confirms reboot and discards unsaved changes, omitting the real device's
+conditional save question/timeout. `commit revert` and support bundles are not
+modeled. Omitting `-scenario` gives an immediately operational AP for CLI tests.
+
+Run the [NOCDEV-22469](https://st.yandex-team.ru/NOCDEV-22469) reproduction:
+
+```sh
+ya tool go run ./cmd/gswitch \
+  -host 127.0.0.1 -port 2223 -console-port 2224 \
+  -profile examples/gswitch/aruba.yaml \
+  -scenario examples/gswitch/aruba-dhcp.yaml \
+  -username admin -password secret
+```
+
+Connect immediately with `nc 127.0.0.1 2224` (raw TCP, **not Telnet/RFC2217**).
+The separate SSH CLI is on port 2223; its shell is unavailable until login is
+ready. A ready-file only reports bound listeners, not completion of AP boot.
+
+The scenario is a deterministic, **10x compressed text-derived replay**, not an
+exact binary console capture or proof that GlavNOC's detector now works:
+
+- 0–17 s: boot output and six DHCP Discover rounds, including `No lease`.
+  Missing cycles between ticket excerpts are interpolated; log timestamps retain
+  the source clock. Hardware identifiers/addresses are sanitized.
+- At 17 s: `User: ` is appended directly to `USB Modem is not presen`, matching
+  the prompt/log collision. Login is enabled but lifecycle remains `degraded`.
+- 20 ms after each username submission: kernel noise follows `Password: `,
+  without echoing, replacing or consuming secret input.
+- At 20.7 s: `Internal error 8-0` and a real console CLI reset discard pending
+  credentials, candidate, editor/history and delayed actions. TCP stays open.
+  The subsequent Conductor line overwrites the freshly emitted `User: ` line.
+- Authentication emits a degraded-state warning using redraw; 100 ms later a
+  DHCP burst interrupts the console again, including a partially typed command.
+  These phase-relative injections are deliberate, not original wall-clock timing.
+- Configuration and `write memory` fail with the errors understood by the
+  `aruos` driver; show commands remain available. There is no automatic recovery
+  or endless DHCP loop: this finite trace ends degraded. `reload` replays it.
+
+Connect before boot to observe all events; no historical console output is
+replayed to late attachments. For tests, use `Advance` instead of sleeping.
+The scenario does not contact the lab AP, DHCP server or any real network device.
 
 ## Runtime boundaries
 
@@ -120,6 +222,29 @@ Parameter types:
 - `uint`: a decimal unsigned 32-bit integer.
 - `rest`: the remaining original line, preserving internal spaces and quotes;
   it must be the final parameter.
+
+A command can declare a display-only hint and length bounds for `word` arguments:
+
+```yaml
+- id: sysname
+  modes: [system]
+  syntax: "sysname <name:word>"
+  help: ["Set host name", "Host name (1 to 246 characters)"]
+  arguments:
+    name: {hint: "TEXT<1-246>", minLength: 1, maxLength: 246}
+  actions:
+    - {op: set, path: [hostname], value: "{{ .Args.name }}"}
+```
+
+`hint` replaces `<name:word>` in `?` and Tab lists but is never inserted or parsed
+as a keyword. `minLength`/`maxLength` count Unicode code points in the parser
+(the terminal editor remains ASCII-only); zero means no additional bound.
+Invalid complete values are rejected at the argument's position **before** actions
+or candidate mutation. Partial input shorter than `minLength` can still request
+help. State-backed suggestions are filtered through the same bounds.
+Specifications are scoped by mode and grammar prefix, shared by longer command
+leaves, and may be omitted by siblings. Conflicting declarations, non-word or
+unknown argument names, invalid ranges and unsafe hints fail profile loading.
 
 `Tab` completes command keywords and declared argument values using the current
 mode's grammar:
@@ -519,7 +644,9 @@ reschedules these timelines. CLI availability and lifecycle are independent:
 `ready` can permit login while lifecycle still says `booting`.
 
 Event kinds are `raw`, `log`, `ready` (`text: "true"` or `"false"`) and
-`lifecycle` (a diagnostic state name). Sources are diagnostic labels, not a
+`lifecycle` (a state name), and `console-reset` (restart console CLI/login without
+closing its transport). `console-reset` requires route `console`, with no text,
+file or logging policy; emit accompanying messages as separate events. Sources are diagnostic labels, not a
 complete vendor logging/severity implementation. Routes:
 
 - `console`: persistent console lines, independent of monitor settings.
@@ -527,9 +654,17 @@ complete vendor logging/severity implementation. Routes:
 - `all`: every existing session.
 - `session`: the triggering session; only valid in triggers.
 
-Trigger names are `authenticated`, `command:COMMAND_ID` and
+Trigger names are `authenticated`, `login:password`, `command:COMMAND_ID` and
 `checkpoint:NAME`. They can schedule an event using `after`. A zero-delay
-checkpoint event is delivered before the next output action.
+checkpoint event is delivered before the next output action. `login:password`
+fires on transition to password entry after username submission, not on prompt
+redraw/reconnect; it never exposes the password to templates or trace.
+
+Use `{op: require-lifecycle, value: operational, text: "Not ready\n"}` before
+stateful actions to reject a command's remaining actions without disconnecting.
+This checks at that action's execution time; it is not a security policy or a
+continuous guard for later delayed actions. `.Lifecycle` is available to output
+and prompt templates. Login readiness and command/service readiness stay separate.
 
 Logging policies:
 
@@ -540,8 +675,8 @@ Logging policies:
   recorded as `log-dropped`. It is not a device-wide unbounded queue.
 
 Raw output preserves exact bytes. Log text gets terminal newline conversion
-and a trailing newline. The fixture file demonstrates the raw path; it is not
-an actual vendor boot capture.
+and a trailing newline. The IOS fixture demonstrates the raw path; the Aruba replay is derived from
+ticket text and is not an exact binary boot capture.
 
 ## Current limits
 
@@ -560,8 +695,8 @@ This is a vertical prototype, not the entire research design:
 - The IOS sample's terminal-width command is an explicit compatibility no-op.
 - Input during a delayed command is discarded except Ctrl-C; no typeahead queue.
 - The built-in login uses one configured test account; no external AAA backend.
-- No command guards for individual service readiness, configuration schema
-  semantics, interface inventory validation or ordered ACL/list mutations.
+- Beyond explicit lifecycle guards, no individual-service readiness model,
+  configuration schema, interface inventory validation or ordered ACL/list mutations.
 - A console has one owner and no historical-output buffer.
 
 ## Verification
@@ -576,7 +711,7 @@ Tests cover grammar/errors, strict profile loading, state isolation, candidate
 conflicts, persistence across reboot, exact fixtures, boot/login overlap,
 password-safe redraw, async command checkpoints, cancellation, dialogue/pager,
 fragmented input, slow consumers, reconnect and shutdown. Integration tests use
-the real Gnetcli Cisco/Huawei SSH drivers and a raw TCP console. A process test
+the real Gnetcli Cisco/Huawei/Aruba SSH drivers and a raw TCP console. A process test
 starts the opt-in CLI with a noisy scenario and validates graceful termination.
 Starlark tests cover immediate/commit rejections, unchanged revisions/state,
 read-only input/globals, script errors, limits, typed values and shared profiles.

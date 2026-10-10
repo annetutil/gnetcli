@@ -23,7 +23,7 @@ func validateScenario(s *Scenario, files fs.FS) error {
 		if t.After < 0 || t.Event.At != 0 {
 			return fmt.Errorf("trigger uses nonnegative after, not event.at")
 		}
-		if t.On != "authenticated" && !strings.HasPrefix(t.On, "command:") && !strings.HasPrefix(t.On, "checkpoint:") {
+		if t.On != "authenticated" && t.On != "login:password" && !strings.HasPrefix(t.On, "command:") && !strings.HasPrefix(t.On, "checkpoint:") {
 			return fmt.Errorf("unknown trigger %q", t.On)
 		}
 		if err := compileEvent(&t.Event, files); err != nil {

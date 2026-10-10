@@ -75,6 +75,7 @@ func (p *Profile) argumentValues(mode string, pat pattern, index int, state map[
 	if !ok {
 		return nil
 	}
+	spec := p.argumentSpec(mode, pat, index)
 	var values []string
 	for key := range object {
 		if !strings.HasPrefix(key, source.Prefix) {
@@ -85,7 +86,7 @@ func (p *Profile) argumentValues(mode string, pat pattern, index int, state map[
 		}
 		// This editor accepts ASCII single-word arguments. Do not inject control
 		// bytes, whitespace, or text that it cannot subsequently edit safely.
-		valid := key != "" && len(key) <= p.def.Terminal.MaxInput
+		valid := key != "" && len(key) <= p.def.Terminal.MaxInput && spec.acceptsLength(key)
 		for _, b := range []byte(key) {
 			if b <= ' ' || b > '~' {
 				valid = false

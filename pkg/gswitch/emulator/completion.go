@@ -38,7 +38,7 @@ func (p *Profile) suggestions(mode, line string, state map[string]any) (start in
 	candidates := p.grammar[mode]
 	for i, word := range input {
 		var err error
-		candidates, err = p.consume(candidates, i, word)
+		candidates, err = p.consume(mode, candidates, i, word)
 		if err != nil {
 			return start, prefix, nil
 		}
@@ -72,6 +72,10 @@ func (p *Profile) suggestions(mode, line string, state map[string]any) (start in
 				continue
 			}
 		}
+		spec := p.argumentSpec(mode, candidate, i)
+		if spec.MaxLength > 0 && utf8.RuneCountInString(prefix) > spec.MaxLength {
+			continue
+		}
 		if values := p.argumentValues(mode, candidate, i, state); len(values) > 0 {
 			for _, value := range values {
 				if strings.HasPrefix(strings.ToLower(value), strings.ToLower(prefix)) {
@@ -80,8 +84,11 @@ func (p *Profile) suggestions(mode, line string, state map[string]any) (start in
 			}
 			continue
 		}
-		text := "<" + t.name + ":" + t.kind + ">"
-		seen[text] = suggestion{text: text, description: p.helpDescription(mode, candidate, i)}
+		text := spec.Hint
+		if text == "" {
+			text = "<" + t.name + ":" + t.kind + ">"
+		}
+		seen["argument:"+text] = suggestion{text: text, description: p.helpDescription(mode, candidate, i)}
 	}
 	for _, entry := range seen {
 		if entry.value {

@@ -92,7 +92,7 @@ func (p *Profile) Parse(mode, line string) (Match, error) {
 	candidates := append([]pattern(nil), p.grammar[mode]...)
 	for i, w := range input {
 		var err error
-		candidates, err = p.consume(candidates, i, w)
+		candidates, err = p.consume(mode, candidates, i, w)
 		if err != nil {
 			return Match{}, err
 		}
@@ -125,7 +125,7 @@ func (p *Profile) Parse(mode, line string) (Match, error) {
 
 // consume applies the parser rules to one complete word. The last word being
 // edited is handled separately by completion, where prefixes are always useful.
-func (p *Profile) consume(candidates []pattern, i int, w inputToken) ([]pattern, error) {
+func (p *Profile) consume(mode string, candidates []pattern, i int, w inputToken) ([]pattern, error) {
 	exact := false
 	for _, c := range candidates {
 		if i < len(c.tokens) && c.tokens[i].word != "" && strings.EqualFold(c.tokens[i].word, w.text) {
@@ -160,6 +160,9 @@ func (p *Profile) consume(candidates []pattern, i int, w inputToken) ([]pattern,
 				next = append(next, c)
 			}
 		} else if !exact {
+			if !p.argumentSpec(mode, c, i).acceptsLength(w.text) {
+				continue
+			}
 			if t.kind == "uint" {
 				if _, err := strconv.ParseUint(w.text, 10, 32); err != nil {
 					continue

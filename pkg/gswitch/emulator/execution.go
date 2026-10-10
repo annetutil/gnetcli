@@ -50,6 +50,15 @@ func (d *Device) action(s *terminalSession, a Action) (bool, error) {
 		}
 	}
 	switch a.Op {
+	case "require-lifecycle":
+		if fmt.Sprint(value) != d.lifecycle {
+			text, err := render(a.Text)
+			if err != nil {
+				return false, err
+			}
+			d.emit(s, d.newline(text))
+			s.actions = nil // Reject the rest of this command without mutating state.
+		}
 	case "output":
 		text, err := render(a.Text)
 		if err != nil {

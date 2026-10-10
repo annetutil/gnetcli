@@ -83,7 +83,7 @@ func TestHuaweiSSHSingleLevelHelp(t *testing.T) {
 	send("?")
 	system := read("[~sw1]")
 	require.Contains(t, system, "  interface         Enter interface view")
-	require.NotContains(t, system, "display")
+	require.Contains(t, system, "  display           Display current system information")
 	send("interface ?")
 	require.Contains(t, read("[~sw1]interface "), "Interface name")
 	require.Equal(t, "system", d.Snapshot().Sessions[0].Mode)
