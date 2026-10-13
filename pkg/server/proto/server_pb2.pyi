@@ -201,3 +201,19 @@ class FilesResult(_message.Message):
     FILES_FIELD_NUMBER: _ClassVar[int]
     files: _containers.RepeatedCompositeFieldContainer[FileData]
     def __init__(self, files: _Optional[_Iterable[_Union[FileData, _Mapping]]] = ...) -> None: ...
+
+class CollectModelRequest(_message.Message):
+    __slots__ = ("host", "model", "host_params")
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    MODEL_FIELD_NUMBER: _ClassVar[int]
+    HOST_PARAMS_FIELD_NUMBER: _ClassVar[int]
+    host: str
+    model: str
+    host_params: HostParams
+    def __init__(self, host: _Optional[str] = ..., model: _Optional[str] = ..., host_params: _Optional[_Union[HostParams, _Mapping]] = ...) -> None: ...
+
+class CollectModelResult(_message.Message):
+    __slots__ = ("json",)
+    JSON_FIELD_NUMBER: _ClassVar[int]
+    json: str
+    def __init__(self, json: _Optional[str] = ...) -> None: ...

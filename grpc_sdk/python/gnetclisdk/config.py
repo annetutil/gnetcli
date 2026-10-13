@@ -35,6 +35,7 @@ class Config:
     unix_socket: str = ""  # Unix socket pat
     default_read_timeout: timedelta = timedelta(seconds=0)
     default_cmd_timeout: timedelta = timedelta(seconds=0)
+    models_dir: str = ""  # Directory containing external Starlark models
 
 
 def dict_factory(data):

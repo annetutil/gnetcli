@@ -122,7 +122,25 @@ message FilesResult {
   repeated FileData files = 1;
 }
 
+message CollectModelRequest {
+  string host = 1;
+  string model = 2;
+  HostParams host_params = 3;
+}
+
+message CollectModelResult {
+  // JSON text preserves integer precision, including nanosecond timestamps.
+  string json = 1;
+}
+
 service Gnetcli {
+  rpc CollectModel(CollectModelRequest) returns (CollectModelResult) {
+    option (google.api.http) = {
+      post: "/api/v1/collect_model"
+      body: "*"
+    };
+  };
+
   rpc SetupHostParams(HostParams) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/api/v1/setup_host_params"

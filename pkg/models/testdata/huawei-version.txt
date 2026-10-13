@@ -1,0 +1,3 @@
+Huawei Versatile Routing Platform Software
+HUAWEI lab-switch uptime is 1 week, 2 days, 3 hours, 4 minutes
+LAB(Master) 1 : uptime is 1 week, 2 days, 3 hours, 3 minutes

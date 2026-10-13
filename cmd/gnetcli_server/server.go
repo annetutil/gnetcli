@@ -32,6 +32,7 @@ import (
 
 	"github.com/annetutil/gnetcli/internal/listenermux"
 	gcred "github.com/annetutil/gnetcli/pkg/credentials"
+	"github.com/annetutil/gnetcli/pkg/models"
 	"github.com/annetutil/gnetcli/pkg/server"
 	pb "github.com/annetutil/gnetcli/pkg/server/proto"
 )
@@ -260,6 +261,13 @@ func main() {
 	}
 	if cfg.DefaultCmdTimeout > 0 {
 		serverOpts = append(serverOpts, server.WithDefaultCmdTimeout(cfg.DefaultCmdTimeout))
+	}
+	if cfg.ModelsDir != "" {
+		runner, err := models.New(cfg.ModelsDir)
+		if err != nil {
+			logger.Fatal("failed to load models directory", zap.Error(err))
+		}
+		serverOpts = append(serverOpts, server.WithModelRunner(runner))
 	}
 	devAuthApp := server.NewAuthApp(cfg.DevAuth, logger)
 	s, err := server.New(devAuthApp, cfg.DevConf, serverOpts...)

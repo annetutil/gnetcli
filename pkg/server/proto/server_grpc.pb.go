@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GnetcliClient interface {
+	CollectModel(ctx context.Context, in *CollectModelRequest, opts ...grpc.CallOption) (*CollectModelResult, error)
 	SetupHostParams(ctx context.Context, in *HostParams, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Exec(ctx context.Context, in *CMD, opts ...grpc.CallOption) (*CMDResult, error)
 	ExecChat(ctx context.Context, opts ...grpc.CallOption) (Gnetcli_ExecChatClient, error)
@@ -35,6 +36,15 @@ type gnetcliClient struct {
 
 func NewGnetcliClient(cc grpc.ClientConnInterface) GnetcliClient {
 	return &gnetcliClient{cc}
+}
+
+func (c *gnetcliClient) CollectModel(ctx context.Context, in *CollectModelRequest, opts ...grpc.CallOption) (*CollectModelResult, error) {
+	out := new(CollectModelResult)
+	err := c.cc.Invoke(ctx, "/gnetcli.Gnetcli/CollectModel", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *gnetcliClient) SetupHostParams(ctx context.Context, in *HostParams, opts ...grpc.CallOption) (*emptypb.Empty, error) {
@@ -157,6 +167,7 @@ func (c *gnetcliClient) Upload(ctx context.Context, in *FileUploadRequest, opts 
 // All implementations must embed UnimplementedGnetcliServer
 // for forward compatibility
 type GnetcliServer interface {
+	CollectModel(context.Context, *CollectModelRequest) (*CollectModelResult, error)
 	SetupHostParams(context.Context, *HostParams) (*emptypb.Empty, error)
 	Exec(context.Context, *CMD) (*CMDResult, error)
 	ExecChat(Gnetcli_ExecChatServer) error
@@ -172,6 +183,9 @@ type GnetcliServer interface {
 type UnimplementedGnetcliServer struct {
 }
 
+func (UnimplementedGnetcliServer) CollectModel(context.Context, *CollectModelRequest) (*CollectModelResult, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CollectModel not implemented")
+}
 func (UnimplementedGnetcliServer) SetupHostParams(context.Context, *HostParams) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetupHostParams not implemented")
 }
@@ -207,6 +221,24 @@ type UnsafeGnetcliServer interface {
 
 func RegisterGnetcliServer(s grpc.ServiceRegistrar, srv GnetcliServer) {
 	s.RegisterService(&Gnetcli_ServiceDesc, srv)
+}
+
+func _Gnetcli_CollectModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CollectModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GnetcliServer).CollectModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/gnetcli.Gnetcli/CollectModel",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GnetcliServer).CollectModel(ctx, req.(*CollectModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Gnetcli_SetupHostParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -376,6 +408,10 @@ var Gnetcli_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gnetcli.Gnetcli",
 	HandlerType: (*GnetcliServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CollectModel",
+			Handler:    _Gnetcli_CollectModel_Handler,
+		},
 		{
 			MethodName: "SetupHostParams",
 			Handler:    _Gnetcli_SetupHostParams_Handler,
