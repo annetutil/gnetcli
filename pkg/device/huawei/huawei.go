@@ -16,6 +16,7 @@ import (
 
 const (
 	loginExpression    = `.*Username:$`
+	loginEOFExpression = `(\r\n|^)Please Press ENTER\.[\r\n]*$`
 	questionExpression = `(?P<question>.*(privilege level|Continue)\s?\?\s?\[Y/N\]:?)$`
 	promptExpression   = `(\r\n|^)(?P<prompt>(<[/\w\-.:]+>|\[[~*]?[/\w\-.:]+\]))$`
 	errorExpression    = `(` +
@@ -25,11 +26,11 @@ const (
 		`|^Error:\s*(?P<msg>(No|You do not have) permission.*)` +
 		`|Error(?:\[\d+\])?:\s*(?P<msg>.+)` +
 		`)(\r\n|\n|$)+`
-	loginCallbackExpression         = `/(\r\n)Please Press ENTER\.\r\n/`
+	loginCallbackExpression          = `/(\r\n)Please Press ENTER\.\r\n/`
 	passwordChangeCallbackExpression = `/Change now\?\s*\[Y/N\]:/`
-	passwordExpression              = `(\r\n|^)Password:$`
-	passwordErrorExpression = `.*(Error: Username or password error\.\r\n|.*Authentication fail(\x00\r\n)?|Error: The password is invalid.|Error: Authentication fail)(\r\n|$)`
-	pagerExpression         = `(?P<store>(\r\n|\n))?  ---- More ----$`
+	passwordExpression               = `(\r\n|^)Password:$`
+	passwordErrorExpression          = `.*(Error: Username or password error\.\r\n|.*Authentication fail(\x00\r\n)?|Error: The password is invalid.|Error: Authentication fail)(\r\n|$)`
+	pagerExpression                  = `(?P<store>(\r\n|\n))?  ---- More ----$`
 )
 
 var autoCommands = []cmd.Cmd{
@@ -47,6 +48,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 			expr.NewSimpleExprLast200().FromPattern(passwordExpression),
 			expr.NewSimpleExprLast200().FromPattern(passwordErrorExpression),
 		),
+		genericcli.WithLoginEOFExpr(expr.NewSimpleExprLast200().FromPattern(loginEOFExpression)),
 		genericcli.WithLoginCallbacks([]cmd.ExprCallback{
 			cmd.NewExprCallback(loginCallbackExpression, "\n"),
 			cmd.NewExprCallback(passwordChangeCallbackExpression, "N\n"),

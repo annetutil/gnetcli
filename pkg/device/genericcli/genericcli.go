@@ -55,6 +55,7 @@ const (
 type GenericCLI struct {
 	prompt           expr.Expr
 	login            expr.Expr
+	loginEOF         expr.Expr
 	password         expr.Expr
 	error            expr.Expr
 	question         expr.Expr
@@ -94,6 +95,14 @@ func WithLoginExprs(login, password, passwordError expr.Expr) GenericCLIOption {
 func WithAnswers(answers []cmd.Answer) GenericCLIOption {
 	return func(h *GenericCLI) {
 		h.defaultAnswers = answers
+	}
+}
+
+// WithLoginEOFExpr adds a logout expression checked only during command execution
+// on connectors with LoginInsteadEOF. It does not change login authentication.
+func WithLoginEOFExpr(logout expr.Expr) GenericCLIOption {
+	return func(h *GenericCLI) {
+		h.loginEOF = logout
 	}
 }
 
@@ -601,8 +610,8 @@ func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCL
 		{Name: pagerExprName, Exprs: []expr.Expr{cli.pager}},
 		{Name: questionExprName, Exprs: questions},
 	}
-	if connector.HasFeature(streamer.LoginInsteadEOF) && cli.login != nil {
-		checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login}})
+	if connector.HasFeature(streamer.LoginInsteadEOF) && (cli.login != nil || cli.loginEOF != nil) {
+		checkExprs = append(checkExprs, expr.NamedExpr{Name: loginExprName, Exprs: []expr.Expr{cli.login, cli.loginEOF}})
 	}
 	exprs := expr.NewSimpleExprListNamedOrdered(checkExprs)
 	callbackPatternStart := 0
