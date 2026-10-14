@@ -162,6 +162,127 @@ Connect before boot to observe all events; no historical console output is
 replayed to late attachments. For tests, use `Advance` instead of sleeping.
 The scenario does not contact the lab AP, DHCP server or any real network device.
 
+## SSH console, PTY, and local test control
+
+Profile mode now has two SSH attachment modes:
+
+- `-ssh-mode cli` (default): an authenticated management session; unavailable
+  while device login readiness is false, and closed by device reboot.
+- `-ssh-mode console`: the persistent `console0` line through an authenticated
+  SSH terminal-server connection. It accepts connections during boot, forwards
+  console events without changing scenario routes, survives reboot/CLI restart,
+  and retains login/mode/input/history after disconnect. Only one attachment can
+  own the line, shared with `-console-port`; busy SSH callers get a diagnostic.
+
+SSH credentials use `-username`/`-password`. Optional `-console-username` and
+`-console-password` select the device account independently (empty flag values
+inherit the SSH account). SSH authentication does **not** bypass console login.
+Neither transport replays boot bytes emitted before attachment.
+
+For the Aruba scenario through SSH:
+
+```sh
+ya tool go run ./cmd/gswitch \
+  -profile examples/gswitch/aruba.yaml \
+  -scenario examples/gswitch/aruba-dhcp.yaml \
+  -host 127.0.0.1 -port 2223 -ssh-mode console \
+  -username terminal-user -password terminal-secret \
+  -console-username admin -console-password secret \
+  -control-port 8088 -control-token local-test-control-token
+```
+
+Then connect with `ssh -p 2223 terminal-user@127.0.0.1`. The control API is always
+bound to `127.0.0.1`, independently of `-host`; omit `-control-port` to disable it.
+`-ready-file` includes a `control` address when enabled. Its token must have at
+least 16 characters with no whitespace. This is a trusted **test-only** API:
+state can contain configuration data; do not expose it or use production secrets.
+
+Every request needs `Authorization: Bearer TOKEN`. Mutations require POST,
+`Content-Type: application/json`, one object, known fields, and at most 64 KiB.
+Browser `Origin` requests are rejected; CORS is not enabled. HTTP connections
+have bounded read/header/write/idle timeouts.
+
+| Endpoint | Request | Result |
+| --- | --- | --- |
+| `GET /v1/state` | No body | Lifecycle/readiness, running/startup/candidate, sessions and terminal size |
+| `GET /v1/trace` | No body | Last 256 semantic events; no raw/password input |
+| `POST /v1/events` | `{"kind":"log","route":"console","policy":"raw","text":"noise"}` | Inject one immediate event; files, nonzero times, and session routes are rejected |
+| `POST /v1/lifecycle` | `{"state":"operational"}` | Change command/service readiness state |
+| `POST /v1/event-output` | `{"enabled":false}` | Suppress asynchronous raw/log event output, not CLI output, readiness or reset events |
+| `POST /v1/reboot` | `{}` | Reboot and replay existing boot/scenario timelines |
+
+```sh
+curl -H 'Authorization: Bearer local-test-control-token' \
+  http://127.0.0.1:8088/v1/state
+curl -H 'Authorization: Bearer local-test-control-token' \
+  -H 'Content-Type: application/json' \
+  -d '{"kind":"log","route":"console","policy":"raw","text":"DHCP test noise"}' \
+  http://127.0.0.1:8088/v1/events
+```
+
+JSON state uses lower-camel-case fields; `now`/trace `at` are logical nanoseconds.
+HTTP tokens and terminal password buffers are not included. Tests can instead
+use `ControlHandler`, `SetEventOutput`, `Inject`, `Snapshot` and `Trace` directly.
+`ServeControl` rejects non-loopback listeners. No HTTP clock acceleration,
+repeat/branch operators or scenario scheduling changes are introduced here.
+
+PTY size and `window-change` update each attached session. `SSHSessionHandler`
+is the PTY-aware alternative to the existing `SSHHandler`; configure only one.
+`Session.Resize` accepts 0 (keep dimension) through 4096 character cells. A
+console retains geometry through reconnect/reboot. Positive page lengths are
+capped by terminal rows minus one pager row; explicit zero still disables paging.
+Help descriptions use the live width; pure Profile rendering uses profile width.
+This follows [RFC 4254 PTY/window messages](https://www.rfc-editor.org/rfc/rfc4254.html#section-6.7).
+Terminal mode flags/pixel dimensions, wide/combining glyphs and a full terminal
+screen/scrollback model are not implemented; ANSI CSI styling is ignored for
+pager cell counting. Resize notifications are bounded/coalesced snapshots.
+
+## Declarative configuration sections
+
+All included profiles share one configuration definition for full and scoped
+output. It is not inferred from arbitrary state keys:
+
+```yaml
+configuration:
+  id: root
+  children:
+    - id: system
+      lines: ["sysname {{ .Config.hostname }}"]
+      footer: "#"
+    - id: interfaces
+      path: [interfaces]
+      each: true
+      header: "interface {{ .Key }}"
+      lines: ['{{ if index .Value "description" }} description {{ .Value.description }}{{ end }}']
+      footer: "#"
+```
+
+`path` selects keys relative to the parent value; `each` iterates a map in sorted
+order. Header/lines/footer are templates receiving `.Config` (whole snapshot),
+`.Value` (selected node), `.Key` (current map key) and `.Keys` (ancestor selections).
+Empty rendered lines are omitted, nonempty ones are LF-terminated. Children
+render between lines and footer. IDs are globally unique; at most 256 sections,
+32 levels/path components, 256 lines per section, and 1 MiB aggregate output.
+
+```yaml
+actions:
+  - op: render-config
+    name: interfaces
+    config: running
+    context: {interfaces: "{{ .Context.ifname }}"}
+    prefix: "#\n"
+    suffix: "return\n"
+```
+
+`name` selects a subtree (omitting it selects the root). `context` maps `each`
+section IDs to key templates, retaining the existing mode context independently.
+Sources are `running` (default), `effective` (candidate if open, otherwise running)
+and `startup`. Prefix/suffix only wrap output; they never execute commands.
+`Profile.RenderConfiguration(name, selections, snapshot)` exposes the pure renderer.
+Missing paths are skipped; an explicitly selected new map key renders an empty
+node/header before it has a committed object. Non-map `each` values are errors.
+Existing fixtures/actions remain supported for profiles without a section tree.
+
 ## Runtime boundaries
 
 `pkg/gswitch/emulator` has no dependency on SSH, Telnet or Gnetcli client drivers.
@@ -215,11 +336,17 @@ Grammar keywords are case-insensitive. `abbreviations: true` enables unique
 keyword prefixes; exact keywords take precedence. Ambiguity is checked at each
 token, including against commands which would need more arguments. Modes have
 explicit command sets: there is no implicit parent-mode command inheritance.
+A command's optional `abbreviations: false` overrides the profile policy for
+execution while still allowing Tab to insert the full canonical command. The
+Aruba profile uses this for `end` and `exit`; an explicit true can enable a command
+when profile abbreviations are disabled.
 
 Parameter types:
 
 - `word`: one whitespace-delimited argument, preserving case.
 - `uint`: a decimal unsigned 32-bit integer.
+- `ip`, `ipv4`, `ipv6`: an address of the specified family; zones/DNS names are not accepted.
+- `mac`: a six-byte MAC address accepted by Go `net.ParseMAC`, including colon/dot notation.
 - `rest`: the remaining original line, preserving internal spaces and quotes;
   it must be the final parameter.
 
@@ -236,7 +363,7 @@ A command can declare a display-only hint and length bounds for `word` arguments
     - {op: set, path: [hostname], value: "{{ .Args.name }}"}
 ```
 
-`hint` replaces `<name:word>` in `?` and Tab lists but is never inserted or parsed
+`hint` replaces the default argument label (such as `<name:word>`) in `?` and Tab lists but is never inserted or parsed
 as a keyword. `minLength`/`maxLength` count Unicode code points in the parser
 (the terminal editor remains ASCII-only); zero means no additional bound.
 Invalid complete values are rejected at the argument's position **before** actions
@@ -245,6 +372,20 @@ help. State-backed suggestions are filtered through the same bounds.
 Specifications are scoped by mode and grammar prefix, shared by longer command
 leaves, and may be omitted by siblings. Conflicting declarations, non-word or
 unknown argument names, invalid ranges and unsafe hints fail profile loading.
+
+Word arguments can additionally declare `enum: [up, down]`: parsing requires an
+exact case-sensitive value, while help/Tab offer those canonical values with
+case-insensitive prefix filtering. Enum values are at most 64 unique printable
+ASCII words of 1–256 bytes; an enum cannot share a prefix with a state completion
+source. `uint` arguments support optional `minValue`/`maxValue` (inclusive,
+unsigned 32-bit); length/enum constraints remain word-only. Hints also work for
+typed IP/MAC/numeric arguments; matching always uses the actual grammar type.
+
+```yaml
+syntax: "priority <value:uint>"
+arguments:
+  value: {hint: "INTEGER<1-100>", minValue: 1, maxValue: 100}
+```
 
 `Tab` completes command keywords and declared argument values using the current
 mode's grammar:
@@ -261,7 +402,7 @@ mode's grammar:
 - Argument hints such as `<name:word>` and `<cr>` may be displayed but are never
   inserted. Free-form arguments without a completion source, including
   descriptions, are not rewritten.
-- Tab edits only at the end of the input buffer and never executes a command:
+- Tab edits the word at the cursor, preserving subsequent words, and never executes a command:
   press Enter to run it. Login/password/dialogue, pager and running-command
   interactions do not invoke completion.
 - Completion honors character/line/no-echo settings and survives log redraw or
@@ -636,6 +777,21 @@ budgets do not bound every builtin allocation or the duration of one native
 builtin call. Keep expensive validation out of profiles and use process-level
 resource isolation when running untrusted profiles.
 
+## Cursor editing
+
+The ASCII editor supports Left/Right, Home/End, Delete, Backspace, Ctrl-U and
+CSI/SS3 cursor forms. Insert/delete works at the cursor; Enter submits the whole
+buffer, not only its prefix. Tab and `?` use the grammar position before the
+cursor. History restores the draft cursor as well as text; redraw logs and
+console reconnect retain it. Unsupported/modified ANSI sequences are consumed,
+not inserted. Cursor navigation/editing is disabled during passwords/dialogues,
+paging and command execution. Password characters remain append-only and secret.
+
+Wrapping-aware redraw clears bounded rows and restores the editing cursor. The
+editor is not a full screen emulator: arbitrary raw event cursor controls and
+lines scrolling beyond the viewport are not tracked perfectly. PTY-less sessions
+preserve the previous single-line behavior.
+
 ## Boot, scenarios and asynchronous output
 
 Profile `boot` and scenario `timeline` contain timed events relative to device
@@ -685,13 +841,12 @@ This is a vertical prototype, not the entire research design:
 - Only the included command subsets; no automatic import of vendor CLI trees.
 - No shell or RouterOS grammar, Starlark command handlers, YANG/CEL or profile inheritance.
 - No RFC2217, Telnet in profile mode, bootloader commands, BREAK or serial timing.
-- No external HTTP/gRPC control API, persistent configuration files or transcript recorder.
-- ASCII editor with CR/LF/CRLF, Backspace/DEL, Ctrl-U/C/D, Tab, `?` and Up/Down
-  history. Other CSI/SS3 key sequences are discarded; no arbitrary cursor movement,
-  Ctrl-Z or UTF-8 editing.
-- Pager counts newline-delimited lines, not terminal cells/wrapped lines.
-- SSH accepts PTY setup for interactive clients but does not implement terminal
-  dimensions/modes, resize, exec, subsystems, forwarding or keyboard-interactive auth.
+- No gRPC control API, persistent configuration files or raw transcript recorder; the HTTP API and semantic trace are test-only.
+- ASCII editor with CR/LF/CRLF, cursor insertion/deletion, Home/End, Ctrl-U/C/D,
+  Tab, `?` and Up/Down history. No Ctrl-Z, UTF-8 input, wide-glyph rendering or full viewport/scrollback model.
+- Pager counts soft wraps/code points, not wide/combining terminal cells.
+- SSH implements PTY character dimensions and resize, but not terminal mode flags,
+  pixels, exec, subsystems, forwarding or keyboard-interactive auth.
 - The IOS sample's terminal-width command is an explicit compatibility no-op.
 - Input during a delayed command is discarded except Ctrl-C; no typeahead queue.
 - The built-in login uses one configured test account; no external AAA backend.

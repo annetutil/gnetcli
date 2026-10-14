@@ -8,7 +8,7 @@ import (
 	"unicode/utf8"
 )
 
-// Completion describes end-of-line token completion, never command execution.
+// Completion describes pure token completion, never command execution.
 // Line is the edited buffer. Candidates contains sorted keywords and display-only
 // argument/<cr> hints. Declared state-backed argument values are also insertable.
 type Completion struct {
@@ -76,7 +76,11 @@ func (p *Profile) suggestions(mode, line string, state map[string]any) (start in
 		if spec.MaxLength > 0 && utf8.RuneCountInString(prefix) > spec.MaxLength {
 			continue
 		}
-		if values := p.argumentValues(mode, candidate, i, state); len(values) > 0 {
+		values := spec.Enum
+		if len(values) == 0 {
+			values = p.argumentValues(mode, candidate, i, state)
+		}
+		if len(values) > 0 {
 			for _, value := range values {
 				if strings.HasPrefix(strings.ToLower(value), strings.ToLower(prefix)) {
 					seen["value:"+value] = suggestion{text: value, value: true, description: p.helpDescription(mode, candidate, i)}
@@ -168,21 +172,36 @@ func (p *Profile) CompleteWithState(mode, line string, state map[string]any) Com
 }
 
 func (d *Device) complete(s *terminalSession) {
-	line := string(s.input)
-	result := d.profile.CompleteWithState(s.mode().name, line, d.config(s))
-	if len(result.Line) > d.profile.def.Terminal.MaxInput {
-		d.emit(s, "\a")
-		return
-	}
-	if result.Line != line {
-		s.input = []byte(result.Line)
+	before := string(s.input[:s.cursor])
+	result := d.profile.CompleteWithState(s.mode().name, before, d.config(s))
+	if result.Line != before {
+		end := s.cursor
+		for end < len(s.input) && s.input[end] != ' ' && s.input[end] != '\t' {
+			end++
+		}
+		prefix := result.Line
+		if end < len(s.input) && strings.HasSuffix(prefix, " ") {
+			prefix = strings.TrimSuffix(prefix, " ")
+		}
+		line := prefix + string(s.input[end:])
+		cursor := len(prefix)
+		if cursor < len(line) && line[cursor] == ' ' && len(result.Candidates) == 1 {
+			cursor++
+		}
+		if len(line) > d.profile.def.Terminal.MaxInput {
+			d.emit(s, "\a")
+			return
+		}
+		old := string(s.input)
+		atEnd := s.cursor == len(s.input)
+		s.input = []byte(line)
+		s.cursor = cursor
 		if s.echo == "character" {
-			if strings.HasPrefix(result.Line, line) {
-				d.emit(s, result.Line[len(line):])
+			if atEnd && strings.HasPrefix(line, old) {
+				d.emit(s, line[len(old):])
+				d.trackEditor(s)
 			} else {
-				// Canonicalizing upper-case input requires replacing visible text.
-				d.emit(s, "\r\x1b[2K")
-				d.prompt(s)
+				d.redrawEditor(s)
 			}
 		}
 		if len(result.Candidates) == 1 {
@@ -195,6 +214,7 @@ func (d *Device) complete(s *terminalSession) {
 	}
 	// Show ambiguous choices (and display-only argument hints) without changing
 	// modes or executing actions. Redraw uses the updated buffer and echo policy.
+	d.editorOutputEnd(s)
 	newline := d.profile.def.Terminal.Newline
 	d.emit(s, newline+strings.Join(result.Candidates, newline)+newline)
 	d.prompt(s)

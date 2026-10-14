@@ -16,6 +16,13 @@ func (d *Device) Serve(ctx context.Context, stream io.ReadWriteCloser, options A
 	if err != nil {
 		return err
 	}
+	return s.Serve(ctx, stream)
+}
+
+// Serve pumps a previously attached session. It owns this attachment and stream
+// until return; callers must not concurrently read its Output/Read or call Serve.
+func (s *Session) Serve(ctx context.Context, stream io.ReadWriteCloser) error {
+	defer stream.Close()
 	defer s.Close()
 	stop := context.AfterFunc(ctx, func() { stream.Close(); s.Close() })
 	defer stop()

@@ -59,12 +59,44 @@ func (d *Device) action(s *terminalSession, a Action) (bool, error) {
 			d.emit(s, d.newline(text))
 			s.actions = nil // Reject the rest of this command without mutating state.
 		}
+	case "render-config":
+		cfg := d.running
+		if a.Config == "effective" {
+			cfg = d.config(s)
+		}
+		if a.Config == "startup" {
+			cfg = d.startup
+		}
+		selections := map[string]string{}
+		for key, v := range a.Context {
+			text, err := render(v)
+			if err != nil {
+				return false, err
+			}
+			selections[key] = text
+		}
+		text, err := d.profile.RenderConfiguration(a.Name, selections, cfg)
+		if err != nil {
+			return false, err
+		}
+		prefix, err := render(a.Prefix)
+		if err != nil {
+			return false, err
+		}
+		suffix, err := render(a.Suffix)
+		if err != nil {
+			return false, err
+		}
+		if len(prefix)+len(text)+len(suffix) > 1<<20 {
+			return false, fmt.Errorf("configuration output too large")
+		}
+		return d.page(s, d.newline(prefix+text+suffix), d.pageLength(s)), nil
 	case "output":
 		text, err := render(a.Text)
 		if err != nil {
 			return false, err
 		}
-		return d.page(s, d.newline(text), s.pageLines), nil
+		return d.page(s, d.newline(text), d.pageLength(s)), nil
 	case "raw":
 		d.emit(s, a.Text)
 	case "pause":

@@ -33,7 +33,20 @@ type AuthRequest struct {
 type AuthCallback func(AuthRequest) error
 
 // SSHServerOptions configures the mock SSH switch listener.
+// TerminalSize is a PTY size in character cells. Zero dimensions are unspecified.
+type TerminalSize struct{ Columns, Rows int }
+
+// SSHSession exposes PTY metadata and coalesced resize notifications to a custom CLI.
+type SSHSession struct {
+	Username string
+	Terminal string
+	Size     TerminalSize
+	Resizes  <-chan TerminalSize
+}
+
 type SSHServerOptions struct {
+	// SSHSessionHandler is the PTY-aware alternative to SSHHandler. Set only one.
+	SSHSessionHandler func(context.Context, io.ReadWriteCloser, SSHSession) error
 	// SSHHandler overrides the legacy CLI after a shell request. Username is the
 	// authenticated SSH identity. The handler owns no authentication or listener.
 	SSHHandler func(context.Context, io.ReadWriteCloser, string) error
@@ -121,6 +134,9 @@ func buildSSHServerConfig(opts SSHServerOptions) (*ssh.ServerConfig, error) {
 
 // ServeSSH accepts SSH connections on ln until ln is closed or ctx is cancelled.
 func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error {
+	if opts.SSHHandler != nil && opts.SSHSessionHandler != nil {
+		return fmt.Errorf("set only one SSH handler")
+	}
 	log := opts.logger()
 	cfg, err := buildSSHServerConfig(opts)
 	if err != nil {
@@ -133,6 +149,7 @@ func ServeSSH(ctx context.Context, ln net.Listener, opts SSHServerOptions) error
 	}
 	conns.commandDelay = opts.CommandDelay
 	conns.sshHandler = opts.SSHHandler
+	conns.sshSessionHandler = opts.SSHSessionHandler
 	stop := context.AfterFunc(ctx, func() { _ = ln.Close() })
 	defer stop()
 

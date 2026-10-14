@@ -171,7 +171,7 @@ func TestHistoryEscapeSequencesAndRedraw(t *testing.T) {
 	require.Equal(t, historyRedraw("show running"), input(t, s, "\x1bOA"))
 	require.Equal(t, historyRedraw("connect"), input(t, s, "\x1bOB"))
 	require.Equal(t, historyRedraw("show running"), input(t, s, "\x1b[1A"))
-	require.Empty(t, input(t, s, "\x1b[1;5B\x1b[D\x1b["+strings.Repeat("1", 100)+"A"))
+	require.Empty(t, input(t, s, "\x1b[1;5B\x1b[1;5D\x1b["+strings.Repeat("1", 100)+"A"))
 	require.NoError(t, d.Inject(emulator.Event{Kind: "log", Route: "all", Text: "noise", Policy: "redraw"}))
 	require.Equal(t, "\r\x1b[2Knoise\r\nsw#show running", drain(s))
 	require.Equal(t, historyRedraw("connect"), input(t, s, historyDown))

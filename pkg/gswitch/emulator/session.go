@@ -10,6 +10,8 @@ type modeFrame struct {
 	context map[string]string
 }
 type terminalSession struct {
+	cursor, renderRows, renderRow  int
+	columns, rows                  int
 	id                             uint64
 	console, username, interaction string
 	stack                          []modeFrame
@@ -38,7 +40,8 @@ type terminalSession struct {
 func (s *terminalSession) mode() modeFrame { return s.stack[len(s.stack)-1] }
 func (s *terminalSession) reset(p *Profile) {
 	id, console, attachment, generation := s.id, s.console, s.attachment, s.generation
-	*s = terminalSession{id: id, console: console, attachment: attachment, generation: generation + 1, interaction: "editing", stack: []modeFrame{{p.def.InitialMode, map[string]string{}}}, echo: p.def.Terminal.Echo, pageLines: p.def.Terminal.PageLines, args: map[string]string{}}
+	columns, rows := s.columns, s.rows
+	*s = terminalSession{columns: columns, rows: rows, id: id, console: console, attachment: attachment, generation: generation + 1, interaction: "editing", stack: []modeFrame{{p.def.InitialMode, map[string]string{}}}, echo: p.def.Terminal.Echo, pageLines: p.def.Terminal.PageLines, args: map[string]string{}}
 }
 
 // Session is one attachment. Read supports one reader; Input and Close may be
@@ -57,6 +60,9 @@ func (d *Device) Attach(o AttachOptions) (*Session, error) {
 	defer d.mu.Unlock()
 	if d.closed {
 		return nil, ErrClosed
+	}
+	if o.Columns < 0 || o.Rows < 0 || o.Columns > 4096 || o.Rows > 4096 {
+		return nil, fmt.Errorf("terminal dimensions must be 0..4096")
 	}
 	if o.Console == "" && !d.ready {
 		return nil, ErrNotReady
@@ -84,6 +90,12 @@ func (d *Device) Attach(o AttachOptions) (*Session, error) {
 		} else {
 			s.username = o.Username
 		}
+	}
+	if o.Columns > 0 {
+		s.columns = o.Columns
+	}
+	if o.Rows > 0 {
+		s.rows = o.Rows
 	}
 	a := &Session{device: d, terminal: s, output: make(chan []byte, d.options.OutputBuffer), done: make(chan struct{})}
 	s.attachment = a
@@ -210,3 +222,32 @@ func (d *Device) failure(s *terminalSession, err error) {
 
 // Output exposes owned output chunks as an alternative to Read. Do not mix the two.
 func (s *Session) Output() <-chan []byte { return s.output }
+
+// Resize changes terminal dimensions. Zero preserves a dimension (RFC 4254).
+func (s *Session) Resize(columns, rows int) error {
+	d := s.device
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if columns < 0 || rows < 0 || columns > 4096 || rows > 4096 {
+		return fmt.Errorf("terminal dimensions must be 0..4096")
+	}
+	if s.terminal.attachment != s {
+		return io.EOF
+	}
+	if columns == 0 && rows == 0 {
+		return nil
+	}
+	if s.terminal.interaction == "editing" && s.terminal.echo == "character" {
+		d.clearEditor(s.terminal)
+	}
+	if columns > 0 {
+		s.terminal.columns = columns
+	}
+	if rows > 0 {
+		s.terminal.rows = rows
+	}
+	if s.terminal.interaction == "editing" && s.terminal.echo == "character" {
+		d.prompt(s.terminal)
+	}
+	return nil
+}

@@ -2,7 +2,6 @@ package emulator
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -10,6 +9,7 @@ import (
 type token struct{ word, label, name, kind string }
 type pattern struct {
 	id, signature string
+	abbreviations bool
 	tokens        []token
 }
 type inputToken struct {
@@ -47,7 +47,7 @@ func compilePattern(id, syntax string) (pattern, error) {
 			if !ok || name == "" || names[name] {
 				return p, fmt.Errorf("invalid/duplicate parameter %q", part)
 			}
-			if kind != "word" && kind != "rest" && kind != "uint" {
+			if kind != "word" && kind != "rest" && kind != "uint" && kind != "ip" && kind != "ipv4" && kind != "ipv6" && kind != "mac" {
 				return p, fmt.Errorf("unsupported parameter type %q", kind)
 			}
 			if kind == "rest" && i != len(parts)-1 {
@@ -132,12 +132,12 @@ func (p *Profile) consume(mode string, candidates []pattern, i int, w inputToken
 			exact = true
 		}
 	}
-	if !exact && p.def.Abbreviations {
+	if !exact {
 		prefixes := map[string]bool{}
 		for _, c := range candidates {
 			if i < len(c.tokens) {
 				t := c.tokens[i]
-				if t.word != "" && strings.HasPrefix(t.word, strings.ToLower(w.text)) {
+				if c.abbreviations && t.word != "" && strings.HasPrefix(t.word, strings.ToLower(w.text)) {
 					prefixes[t.word] = true
 				}
 			}
@@ -156,17 +156,12 @@ func (p *Profile) consume(mode string, candidates []pattern, i int, w inputToken
 		}
 		t := c.tokens[i]
 		if t.word != "" {
-			if strings.EqualFold(t.word, w.text) || (!exact && p.def.Abbreviations && strings.HasPrefix(t.word, strings.ToLower(w.text))) {
+			if strings.EqualFold(t.word, w.text) || (!exact && c.abbreviations && strings.HasPrefix(t.word, strings.ToLower(w.text))) {
 				next = append(next, c)
 			}
 		} else if !exact {
-			if !p.argumentSpec(mode, c, i).acceptsLength(w.text) {
+			if !p.argumentSpec(mode, c, i).acceptsValue(t.kind, w.text) {
 				continue
-			}
-			if t.kind == "uint" {
-				if _, err := strconv.ParseUint(w.text, 10, 32); err != nil {
-					continue
-				}
 			}
 			next = append(next, c)
 		}

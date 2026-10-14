@@ -8,6 +8,12 @@ initialState:
   location: lab
   ipv4: 169.254.100.10
   netmask: 255.255.0.0
+configuration:
+  id: root
+  lines:
+    - "version 8.10.0.0"
+    - "name {{ .Config.hostname }}"
+    - "syslocation {{ .Config.location }}"
 terminal:
   logPolicy: raw
   help: {indent: 2, echoQuestion: true}
@@ -37,12 +43,7 @@ commands:
     modes: [exec]
     syntax: show running-config
     help: ["Show information", "Running configuration"]
-    actions:
-      - op: output
-        text: |
-          version 8.10.0.0
-          name {{ .Running.hostname }}
-          syslocation {{ .Running.location }}
+    actions: [{op: render-config, name: root}]
   - id: show-aps
     modes: [exec]
     syntax: show aps
@@ -89,11 +90,13 @@ commands:
       - *configuration-ready
       - {op: set, path: [location], value: "{{ .Args.location }}"}
   - id: end
+    abbreviations: false
     modes: [config]
     syntax: end
     help: ["Return to privileged mode"]
     actions: [{op: mode, mode: exec}]
   - id: exit-config
+    abbreviations: false
     modes: [config]
     syntax: exit
     help: ["Exit configuration mode"]
@@ -131,6 +134,7 @@ commands:
     # Lab subset: always confirm reboot; unsaved running changes are discarded.
     actions: [{op: dialog, dialog: reload}]
   - id: logout
+    abbreviations: false
     modes: [exec]
     syntax: exit
     help: ["Log out"]

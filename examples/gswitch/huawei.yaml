@@ -13,6 +13,26 @@ initialState:
     terminalForceDomain: default0
   interfaces:
     GE0/0/1: {description: initial, adminUp: true}
+configuration:
+  id: root
+  children:
+    - id: system
+      lines: ["sysname {{ .Config.hostname }}"]
+      footer: "#"
+    - id: aaa
+      path: [aaa]
+      header: aaa
+      lines:
+        - "{{ if .Value.localUserSecurityEnhance }} local-user policy security-enhance{{ else }} undo local-user policy security-enhance{{ end }}"
+        - " default-domain admin {{ .Value.adminDomain }}"
+        - " service-type terminal force-domain {{ .Value.terminalForceDomain }}"
+      footer: "#"
+    - id: interfaces
+      path: [interfaces]
+      each: true
+      header: "interface {{ .Key }}"
+      lines: ['{{ if index .Value "description" }} description {{ .Value.description }}{{ end }}']
+      footer: "#"
 terminal:
   help:
     rootHeader: "Current view commands:"
@@ -247,74 +267,23 @@ commands:
     modes: [user, system, interface, aaa]
     syntax: display current-configuration
     help: ["Display current system information", "Display current configuration"]
-    actions:
-      - op: output
-        text: |
-          sysname {{ .Running.hostname }}
-          #
-          aaa
-          {{ if .Running.aaa.localUserSecurityEnhance }} local-user policy security-enhance
-          {{ else }} undo local-user policy security-enhance
-          {{ end }} default-domain admin {{ .Running.aaa.adminDomain }}
-           service-type terminal force-domain {{ .Running.aaa.terminalForceDomain }}
-          #
-          {{ range $name, $intf := .Running.interfaces -}}
-          interface {{ $name }}
-          {{ if index $intf "description" }} description {{ $intf.description }}
-          {{ end }}#
-          {{ end -}}
+    actions: [{op: render-config, name: root}]
   - id: display-this-system
     modes: [system]
     syntax: display this
     help: ["Display current system information", "Display current view configuration"]
-    actions:
-      - op: output
-        text: |
-          #
-          sysname {{ .Running.hostname }}
-          #
-          aaa
-          {{ if .Running.aaa.localUserSecurityEnhance }} local-user policy security-enhance
-          {{ else }} undo local-user policy security-enhance
-          {{ end }} default-domain admin {{ .Running.aaa.adminDomain }}
-           service-type terminal force-domain {{ .Running.aaa.terminalForceDomain }}
-          #
-          {{ range $name, $intf := .Running.interfaces -}}
-          interface {{ $name }}
-          {{ if index $intf "description" }} description {{ $intf.description }}
-          {{ end }}#
-          {{ end -}}
-          return
+    actions: [{op: render-config, name: root, prefix: "#\n", suffix: "return\n"}]
   - id: display-this-interface
     modes: [interface]
     syntax: display this
     help: ["Display current system information", "Display current view configuration"]
     actions:
-      - op: output
-        text: |
-          #
-          interface {{ .Context.ifname }}
-          {{ with index .Running.interfaces .Context.ifname -}}
-          {{ if index . "description" }} description {{ .description }}
-          {{ end -}}
-          {{ end -}}
-          #
-          return
+      - {op: render-config, name: interfaces, context: {interfaces: "{{ .Context.ifname }}"}, prefix: "#\n", suffix: "return\n"}
   - id: display-this-aaa
     modes: [aaa]
     syntax: display this
     help: ["Display current system information", "Display current view configuration"]
-    actions:
-      - op: output
-        text: |
-          #
-          aaa
-          {{ if .Running.aaa.localUserSecurityEnhance }} local-user policy security-enhance
-          {{ else }} undo local-user policy security-enhance
-          {{ end }} default-domain admin {{ .Running.aaa.adminDomain }}
-           service-type terminal force-domain {{ .Running.aaa.terminalForceDomain }}
-          #
-          return
+    actions: [{op: render-config, name: aaa, prefix: "#\n", suffix: "return\n"}]
   # Captured first-level display-interface grammar; output is not yet modeled.
   - id: display-interface
     modes: [user, system, interface, aaa]

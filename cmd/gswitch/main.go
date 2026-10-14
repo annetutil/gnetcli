@@ -43,10 +43,24 @@ func run() error {
 	commandDelay := flag.Duration("command-delay", 0, "Delay each CLI command (including session setup) for timeout tests")
 	profileFile := flag.String("profile", "", "Declarative emulator YAML profile (opt-in)")
 	scenarioFile := flag.String("scenario", "", "Scenario YAML for -profile")
+	sshMode := flag.String("ssh-mode", "cli", "Profile SSH endpoint: cli or console")
+	consoleUsername := flag.String("console-username", "", "Device console username; defaults to SSH username")
+	consolePassword := flag.String("console-password", "", "Device console password; defaults to SSH password")
+	controlPort := flag.Int("control-port", -1, "Local control API on 127.0.0.1; -1 disables, 0 selects a free port")
+	controlToken := flag.String("control-token", "", "Bearer token for control API (at least 16 characters)")
 	consolePort := flag.Int("console-port", -1, "Raw TCP console for -profile; -1 disables, 0 selects a free port")
 	flag.Parse()
-	if !*enableSSH && !*enableTelnet && *consolePort < 0 {
-		return errors.New("at least one server (SSH, Telnet or console) must be enabled")
+	if *sshMode != "cli" && *sshMode != "console" {
+		return errors.New("-ssh-mode must be cli or console")
+	}
+	if *profileFile == "" && (*sshMode != "cli" || *consoleUsername != "" || *consolePassword != "" || *controlPort >= 0 || *controlToken != "") {
+		return errors.New("SSH console and control options require -profile")
+	}
+	if *controlPort >= 0 && len(*controlToken) < 16 {
+		return errors.New("-control-port requires -control-token with at least 16 characters")
+	}
+	if !*enableSSH && !*enableTelnet && *consolePort < 0 && *controlPort < 0 {
+		return errors.New("at least one server (SSH, Telnet, console or control) must be enabled")
 	}
 	if *commandDelay < 0 {
 		return errors.New("command-delay cannot be negative")
@@ -124,17 +138,22 @@ func run() error {
 				return fmt.Errorf("load scenario: %w", err)
 			}
 		}
-		emulated, err = emulator.New(profile, emulator.Options{Username: *username, Password: *password, Scenario: scenario})
+		emulated, err = emulator.New(profile, emulator.Options{Username: fallback(*consoleUsername, *username), Password: fallback(*consolePassword, *password), Scenario: scenario})
 		if err != nil {
 			return err
 		}
 		defer emulated.Close()
-		opts.SSHHandler = func(ctx context.Context, channel io.ReadWriteCloser, user string) error {
-			return emulated.Serve(ctx, channel, emulator.AttachOptions{Username: user, Authenticated: true})
+		if *controlPort >= 0 {
+			if _, err := emulated.ControlHandler(*controlToken); err != nil {
+				return err
+			}
+		}
+		opts.SSHSessionHandler = func(ctx context.Context, channel io.ReadWriteCloser, info gswitch.SSHSession) error {
+			return serveEmulatedSSH(ctx, emulated, channel, info, *sshMode == "console")
 		}
 	}
 	wg, wCtx := errgroup.WithContext(ctx)
-	var sshListener, telnetListener, consoleListener net.Listener
+	var sshListener, telnetListener, consoleListener, controlListener net.Listener
 	addresses := make(map[string]string)
 	if *enableSSH {
 		var err error
@@ -165,8 +184,20 @@ func run() error {
 		defer consoleListener.Close()
 		addresses["console"] = consoleListener.Addr().String()
 	}
+	if *controlPort >= 0 {
+		var err error
+		controlListener, err = net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(*controlPort)))
+		if err != nil {
+			return fmt.Errorf("listen control: %w", err)
+		}
+		defer controlListener.Close()
+		addresses["control"] = controlListener.Addr().String()
+	}
 	if emulated != nil {
 		wg.Go(func() error { return emulated.Run(wCtx) })
+	}
+	if controlListener != nil {
+		wg.Go(func() error { return emulated.ServeControl(wCtx, controlListener, *controlToken) })
 	}
 	if consoleListener != nil {
 		wg.Go(func() error { return emulated.ServeConsole(wCtx, consoleListener, "console0") })

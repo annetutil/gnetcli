@@ -10,6 +10,17 @@ initialState:
     Ethernet1:
       description: initial
       adminUp: true
+configuration:
+  id: root
+  children:
+    - id: system
+      lines: ["hostname {{ .Config.hostname }}"]
+    - id: interfaces
+      path: [interfaces]
+      each: true
+      header: "interface {{ .Key }}"
+      lines: ['{{ if index .Value "description" }} description {{ .Value.description }}{{ end }}']
+      footer: "!"
 terminal:
   pageLines: 24
   pager: "--More--"
@@ -101,7 +112,7 @@ commands:
     modes: [exec]
     syntax: show running-config
     actions:
-      - {op: output, file: fixtures/running.gotmpl}
+      - {op: render-config, name: root}
   - id: save
     modes: [exec]
     syntax: write memory

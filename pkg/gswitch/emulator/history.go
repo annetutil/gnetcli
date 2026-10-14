@@ -1,6 +1,9 @@
 package emulator
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 const (
 	defaultHistorySize = 100
@@ -10,9 +13,10 @@ const (
 // commandHistory belongs to a logical CLI session, not the device or transport.
 // Only submitted command lines enter it, never login/password/dialogue input.
 type commandHistory struct {
-	entries []string
-	cursor  int // len(entries) is the current, not-yet-submitted draft
-	draft   string
+	entries     []string
+	cursor      int // len(entries) is the current, not-yet-submitted draft
+	draftCursor int
+	draft       string
 }
 
 func (h *commandHistory) resetNavigation() {
@@ -48,22 +52,27 @@ func (h *commandHistory) move(direction int, current string) (string, bool) {
 }
 
 func (d *Device) recallHistory(s *terminalSession, direction int) {
+	if s.history.cursor == len(s.history.entries) {
+		s.history.draftCursor = s.cursor
+	}
 	line, changed := s.history.move(direction, string(s.input))
 	if !changed {
 		d.emit(s, "\a")
 		return
 	}
 	s.input = []byte(line)
+	s.cursor = len(s.input)
+	if s.history.cursor == len(s.history.entries) {
+		s.cursor = min(s.history.draftCursor, len(s.input))
+	}
 	if s.echo == "character" {
-		d.emit(s, "\r\x1b[2K")
-		d.prompt(s)
+		d.redrawEditor(s)
 	}
 }
 
-// consumeEscape accepts normal CSI (ESC [ A/B) and application-cursor SS3
-// (ESC O A/B) Up/Down keys. State survives fragmented Input calls. Other
-// CSI/SS3 sequences, including modified cursor keys, are consumed without becoming
-// command text. History is inaccessible while logging in or answering a dialog.
+// consumeEscape accepts CSI/SS3 history/cursor navigation and Home/End/Delete.
+// State survives fragmented Input; unsupported/modified sequences are discarded.
+// Navigation is inaccessible during login, dialogues, paging and execution.
 func (d *Device) consumeEscape(s *terminalSession, b byte) bool {
 	if b == 27 {
 		s.ansi, s.ansiParams = 1, ""
@@ -85,14 +94,48 @@ func (d *Device) consumeEscape(s *terminalSession, b byte) bool {
 		return true
 	}
 	if b >= 0x40 && b <= 0x7e {
-		plain := s.ansiParams == "" || s.ansiParams == "1"
+		params := s.ansiParams
 		s.ansi, s.ansiParams = 0, ""
-		if plain && s.interaction == "editing" {
+		if s.interaction == "editing" {
+			plain := params == "" || params == "1"
 			switch b {
 			case 'A':
-				d.recallHistory(s, -1)
+				if plain {
+					d.recallHistory(s, -1)
+				}
 			case 'B':
-				d.recallHistory(s, 1)
+				if plain {
+					d.recallHistory(s, 1)
+				}
+			case 'H':
+				if plain {
+					d.moveCursor(s, 0)
+				}
+			case 'F':
+				if plain {
+					d.moveCursor(s, len(s.input))
+				}
+			case 'C', 'D':
+				count := 1
+				var err error
+				if params != "" {
+					count, err = strconv.Atoi(params)
+				}
+				if err == nil && count > 0 && count <= 4096 {
+					if b == 'D' {
+						count = -count
+					}
+					d.moveCursor(s, s.cursor+count)
+				}
+			case '~':
+				switch params {
+				case "1", "7":
+					d.moveCursor(s, 0)
+				case "4", "8":
+					d.moveCursor(s, len(s.input))
+				case "3":
+					d.deleteByte(s)
+				}
 			}
 		}
 	} else if b >= 0x20 && b <= 0x3f && len(s.ansiParams) < 16 {

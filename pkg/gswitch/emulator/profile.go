@@ -15,19 +15,20 @@ import (
 
 // Definition is the versioned source format. LoadProfile validates and compiles it.
 type Definition struct {
-	Validation    *Validation       `yaml:"validation"`
-	APIVersion    string            `yaml:"apiVersion"`
-	Name          string            `yaml:"name"`
-	InitialMode   string            `yaml:"initialMode"`
-	InitialState  map[string]any    `yaml:"initialState"`
-	Abbreviations bool              `yaml:"abbreviations"`
-	Modes         map[string]Mode   `yaml:"modes"`
-	Commands      []Command         `yaml:"commands"`
-	Dialogs       map[string]Dialog `yaml:"dialogs"`
-	Terminal      Terminal          `yaml:"terminal"`
-	Login         Login             `yaml:"login"`
-	Boot          []Event           `yaml:"boot"`
-	Errors        map[string]string `yaml:"errors"`
+	Configuration *ConfigurationSection `yaml:"configuration"`
+	Validation    *Validation           `yaml:"validation"`
+	APIVersion    string                `yaml:"apiVersion"`
+	Name          string                `yaml:"name"`
+	InitialMode   string                `yaml:"initialMode"`
+	InitialState  map[string]any        `yaml:"initialState"`
+	Abbreviations bool                  `yaml:"abbreviations"`
+	Modes         map[string]Mode       `yaml:"modes"`
+	Commands      []Command             `yaml:"commands"`
+	Dialogs       map[string]Dialog     `yaml:"dialogs"`
+	Terminal      Terminal              `yaml:"terminal"`
+	Login         Login                 `yaml:"login"`
+	Boot          []Event               `yaml:"boot"`
+	Errors        map[string]string     `yaml:"errors"`
 }
 
 type Mode struct {
@@ -53,13 +54,14 @@ type Login struct {
 }
 
 type Command struct {
-	Arguments   map[string]ArgumentSpec       `yaml:"arguments"`
-	Completions map[string]ArgumentCompletion `yaml:"completions"`
-	Help        []string                      `yaml:"help"`
-	ID          string                        `yaml:"id"`
-	Modes       []string                      `yaml:"modes"`
-	Syntax      string                        `yaml:"syntax"`
-	Actions     []Action                      `yaml:"actions"`
+	Abbreviations *bool                         `yaml:"abbreviations"`
+	Arguments     map[string]ArgumentSpec       `yaml:"arguments"`
+	Completions   map[string]ArgumentCompletion `yaml:"completions"`
+	Help          []string                      `yaml:"help"`
+	ID            string                        `yaml:"id"`
+	Modes         []string                      `yaml:"modes"`
+	Syntax        string                        `yaml:"syntax"`
+	Actions       []Action                      `yaml:"actions"`
 }
 
 // Action is deliberately a closed set of operations, not arbitrary Go or shell code.
@@ -71,6 +73,9 @@ type Action struct {
 	Path    []string          `yaml:"path"`
 	Value   any               `yaml:"value"`
 	Text    string            `yaml:"text"`
+	Config  string            `yaml:"config"`
+	Prefix  string            `yaml:"prefix"`
+	Suffix  string            `yaml:"suffix"`
 	File    string            `yaml:"file"`
 	After   time.Duration     `yaml:"after"`
 	Dialog  string            `yaml:"dialog"`
@@ -114,14 +119,15 @@ type Scenario struct {
 
 // Profile is immutable after compilation and may be shared by independent devices.
 type Profile struct {
-	arguments           map[string]map[string]ArgumentSpec
-	argumentCompletions map[string]map[string]ArgumentCompletion
-	helpDescriptions    map[string]map[string]string
-	validator           *validator
-	def                 Definition
-	commands            map[string]Command
-	grammar             map[string][]pattern
-	templates           map[string]*template.Template
+	configurationSections map[string]*ConfigurationSection
+	arguments             map[string]map[string]ArgumentSpec
+	argumentCompletions   map[string]map[string]ArgumentCompletion
+	helpDescriptions      map[string]map[string]string
+	validator             *validator
+	def                   Definition
+	commands              map[string]Command
+	grammar               map[string][]pattern
+	templates             map[string]*template.Template
 }
 
 func decode(r io.Reader, dst any) error {
@@ -252,6 +258,9 @@ func LoadProfile(r io.Reader, files fs.FS) (*Profile, error) {
 		}
 		d.Dialogs[name] = dialog
 	}
+	if err := p.compileConfiguration(d.Configuration); err != nil {
+		return nil, err
+	}
 	for _, cmd := range d.Commands {
 		if cmd.ID == "" || len(cmd.Modes) == 0 {
 			return nil, fmt.Errorf("command requires id and modes")
@@ -262,6 +271,10 @@ func LoadProfile(r io.Reader, files fs.FS) (*Profile, error) {
 		pat, err := compilePattern(cmd.ID, cmd.Syntax)
 		if err != nil {
 			return nil, err
+		}
+		pat.abbreviations = p.def.Abbreviations
+		if cmd.Abbreviations != nil {
+			pat.abbreviations = *cmd.Abbreviations
 		}
 		if cmd.Help != nil && len(cmd.Help) != len(pat.tokens) {
 			return nil, fmt.Errorf("command %s: help must have one entry per syntax token", cmd.ID)
@@ -290,6 +303,15 @@ func LoadProfile(r io.Reader, files fs.FS) (*Profile, error) {
 			p.grammar[mode] = append(p.grammar[mode], pat)
 		}
 		p.commands[cmd.ID] = cmd
+	}
+	for mode, specs := range p.arguments {
+		for path, spec := range specs {
+			if len(spec.Enum) > 0 {
+				if _, exists := p.argumentCompletions[mode][path]; exists {
+					return nil, fmt.Errorf("enum and state completions cannot share a prefix")
+				}
+			}
+		}
 	}
 	for i := range d.Boot {
 		if err := compileEvent(&d.Boot[i], files); err != nil {
@@ -353,6 +375,22 @@ func (p *Profile) compileActions(actions []Action, files fs.FS) error {
 			if _, ok := p.def.Dialogs[a.Dialog]; !ok {
 				return fmt.Errorf("unknown dialog %q", a.Dialog)
 			}
+		case "render-config":
+			name := a.Name
+			if name == "" && p.def.Configuration != nil {
+				name = p.def.Configuration.ID
+			}
+			if p.configurationSections[name] == nil {
+				return fmt.Errorf("render-config names unknown section %q", name)
+			}
+			if a.Config != "" && a.Config != "running" && a.Config != "effective" && a.Config != "startup" {
+				return fmt.Errorf("invalid render-config source")
+			}
+			for id := range a.Context {
+				if section := p.configurationSections[id]; section == nil || !section.Each {
+					return fmt.Errorf("render-config selection requires an each section")
+				}
+			}
 		case "require-lifecycle":
 			if state, ok := a.Value.(string); !ok || state == "" || a.Text == "" {
 				return fmt.Errorf("require-lifecycle needs a nonempty string value and rejection text")
@@ -379,7 +417,7 @@ func (p *Profile) compileActions(actions []Action, files fs.FS) error {
 				return err
 			}
 		}
-		texts := append([]string{}, a.Path...)
+		texts := append([]string{a.Prefix, a.Suffix}, a.Path...)
 		if a.Op != "raw" {
 			texts = append(texts, a.Text)
 		}

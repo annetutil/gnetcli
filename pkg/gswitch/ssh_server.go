@@ -15,6 +15,7 @@ import (
 )
 
 type connections struct {
+	sshSessionHandler   func(context.Context, io.ReadWriteCloser, SSHSession) error
 	sshHandler          func(context.Context, io.ReadWriteCloser, string) error
 	config              *RunningConfig
 	commandDelay        time.Duration
@@ -65,7 +66,7 @@ func (c *connections) handleSSHConnection(ctx context.Context, tcpConn net.Conn,
 		case "session":
 			c.handleSessionChannel(ctx, newChannel, sshConn.User(), logger)
 		case "direct-tcpip":
-			if c.sshHandler != nil {
+			if c.sshHandler != nil || c.sshSessionHandler != nil {
 				newChannel.Reject(ssh.Prohibited, "forwarding disabled for custom CLI")
 				continue
 			}
@@ -85,7 +86,7 @@ func (c *connections) handleSessionChannel(ctx context.Context, newChannel ssh.N
 		return
 	}
 
-	if c.sshHandler != nil {
+	if c.sshHandler != nil || c.sshSessionHandler != nil {
 		go c.handleCustomShell(ctx, channel, requests, username, logger)
 		return
 	}
@@ -244,9 +245,15 @@ func sendTelnetNegotiation(conn net.Conn, logger *zap.Logger) error {
 // handleCustomShell rejects exec/subsystems rather than starting an interactive
 // CLI before the client has even requested a shell. Legacy behavior is unchanged.
 func (c *connections) handleCustomShell(ctx context.Context, channel ssh.Channel, requests <-chan *ssh.Request, username string, logger *zap.Logger) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	defer channel.Close()
+	resizes := make(chan TerminalSize, 1)
+	info := SSHSession{Username: username, Resizes: resizes}
 	done := make(chan error, 1)
 	started := false
+	havePTY := false
+	var lastSize TerminalSize
 	for {
 		select {
 		case <-ctx.Done():
@@ -268,17 +275,56 @@ func (c *connections) handleCustomShell(ctx context.Context, channel ssh.Channel
 					Columns, Rows, Width, Height uint32
 					Modes                        string
 				}
-				accepted = !started && ssh.Unmarshal(req.Payload, &p) == nil
+				accepted = !started && ssh.Unmarshal(req.Payload, &p) == nil && p.Columns <= 4096 && p.Rows <= 4096
+				if accepted {
+					info.Terminal = p.Term
+					info.Size = TerminalSize{int(p.Columns), int(p.Rows)}
+					havePTY = true
+					lastSize = info.Size
+				}
+			case "window-change":
+				var p struct{ Columns, Rows, Width, Height uint32 }
+				accepted = started && havePTY && ssh.Unmarshal(req.Payload, &p) == nil && p.Columns <= 4096 && p.Rows <= 4096
+				if accepted {
+					size := lastSize
+					if p.Columns > 0 {
+						size.Columns = int(p.Columns)
+					}
+					if p.Rows > 0 {
+						size.Rows = int(p.Rows)
+					}
+					lastSize = size
+					select {
+					case resizes <- size:
+					default:
+						select {
+						case <-resizes:
+						default:
+						}
+						select {
+						case resizes <- size:
+						default:
+						}
+					}
+				}
 			case "shell":
 				accepted = !started && len(req.Payload) == 0
 				if accepted {
 					started = true
 					req.Reply(true, nil)
-					go func() { done <- c.sshHandler(ctx, channel, username) }()
+					go func() {
+						if c.sshSessionHandler != nil {
+							done <- c.sshSessionHandler(ctx, channel, info)
+						} else {
+							done <- c.sshHandler(ctx, channel, username)
+						}
+					}()
 					continue
 				}
 			}
-			req.Reply(accepted, nil)
+			if req.WantReply && req.Type != "window-change" {
+				req.Reply(accepted, nil)
+			}
 		}
 	}
 }

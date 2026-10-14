@@ -43,7 +43,11 @@ func (d *Device) prompt(s *terminalSession) {
 	d.emit(s, p)
 	if !d.secret(s) && s.echo == "character" {
 		d.emit(s, string(s.input))
+		if s.interaction == "editing" {
+			d.positionEditorCursor(s, len(s.input))
+		}
 	}
+	d.trackEditor(s)
 }
 
 func (d *Device) log(s *terminalSession, e Event) {
@@ -64,7 +68,12 @@ func (d *Device) log(s *terminalSession, e Event) {
 		text += d.profile.def.Terminal.Newline
 	}
 	if policy == "redraw" && s.interaction != "executing" && s.interaction != "boot" {
-		d.emit(s, "\r\x1b[2K"+text)
+		if s.interaction == "editing" {
+			d.clearEditor(s)
+			d.emit(s, text)
+		} else {
+			d.emit(s, "\r\x1b[2K"+text)
+		}
 		d.prompt(s)
 	} else {
 		d.emit(s, text)
@@ -85,10 +94,14 @@ func (d *Device) inputByte(s *terminalSession, b byte) {
 		return
 	}
 	if b == 3 { // Ctrl-C cancels only this interaction, not the connection/device.
+		if s.interaction == "editing" {
+			d.moveCursor(s, len(s.input))
+		}
 		s.generation++
 		s.actions = nil
 		s.pageRest = ""
 		s.input = nil
+		s.cursor = 0
 		s.history.resetNavigation()
 		s.answer = ""
 		if s.interaction == "username" || s.interaction == "password" {
@@ -115,7 +128,7 @@ func (d *Device) inputByte(s *terminalSession, b byte) {
 				s.skipLF = true
 			}
 			d.emit(s, "\r\x1b[2K")
-			count := s.pageLines
+			count := d.pageLength(s)
 			if b != ' ' {
 				count = 1
 			}
@@ -139,28 +152,35 @@ func (d *Device) inputByte(s *terminalSession, b byte) {
 		return
 	}
 	if b == 8 || b == 127 {
-		if len(s.input) > 0 {
-			s.input = s.input[:len(s.input)-1]
-			if !d.secret(s) && s.echo == "character" {
-				d.emit(s, "\b \b")
+		d.backspace(s)
+		return
+	}
+	if b == 21 {
+		old := len(s.input)
+		atEnd := s.cursor == old
+		s.input = nil
+		s.cursor = 0
+		if !d.secret(s) && s.echo == "character" {
+			if atEnd && s.columns == 0 {
+				d.emit(s, strings.Repeat("\b \b", old))
+				d.trackEditor(s)
+			} else {
+				d.redrawEditor(s)
 			}
 		}
 		return
 	}
-	if b == 21 { // Ctrl-U
-		if !d.secret(s) && s.echo == "character" {
-			d.emit(s, strings.Repeat("\b \b", len(s.input)))
-		}
-		s.input = nil
-		return
-	}
 	if b == '\r' || b == '\n' {
 		s.skipLF = b == '\r'
+		if s.interaction == "editing" {
+			d.moveCursor(s, len(s.input))
+		}
 		line := string(s.input)
 		if !d.secret(s) && s.echo == "line" {
 			d.emit(s, line)
 		}
 		s.input = nil
+		s.cursor = 0
 		d.emit(s, d.profile.def.Terminal.Newline)
 		switch s.interaction {
 		case "username":
@@ -195,7 +215,7 @@ func (d *Device) inputByte(s *terminalSession, b byte) {
 		return
 	}
 	// The first editor is deliberately ASCII. Unsupported control/ANSI bytes are
-	// not interpreted as commands. Full cursor/UTF-8 editing belongs in a frontend.
+	// not interpreted as commands. UTF-8 input and a full terminal screen model are not supported.
 	if b < 32 || b > 126 {
 		return
 	}
@@ -203,10 +223,7 @@ func (d *Device) inputByte(s *terminalSession, b byte) {
 		d.emit(s, "\a")
 		return
 	}
-	s.input = append(s.input, b)
-	if !d.secret(s) && s.echo == "character" {
-		d.emit(s, string(b))
-	}
+	d.insertByte(s, b)
 }
 
 func (d *Device) command(s *terminalSession, line string) {
@@ -275,16 +292,7 @@ func (d *Device) page(s *terminalSession, text string, count int) bool {
 		s.pageRest = ""
 		return false
 	}
-	end := 0
-	for i := 0; i < count; i++ {
-		n := strings.IndexByte(text[end:], '\n')
-		if n < 0 {
-			d.emit(s, text)
-			s.pageRest = ""
-			return false
-		}
-		end += n + 1
-	}
+	end := pageBoundary(text, count, s.columns)
 	d.emit(s, text[:end])
 	s.pageRest = text[end:]
 	if s.pageRest == "" {

@@ -29,7 +29,8 @@ type Options struct {
 
 type AttachOptions struct {
 	// Console names a persistent line. Empty means a new management session.
-	Console string
+	Console       string
+	Columns, Rows int
 	// Authenticated is set only by a transport which has authenticated Username.
 	// Console access always uses its own login, independent of transport auth.
 	Authenticated bool
@@ -37,29 +38,33 @@ type AttachOptions struct {
 }
 
 type Snapshot struct {
-	Now        time.Duration
-	Lifecycle  string
-	LoginReady bool
-	Running    map[string]any
-	Startup    map[string]any
-	Sessions   []SessionSnapshot
+	Now                time.Duration     `json:"now"`
+	Lifecycle          string            `json:"lifecycle"`
+	LoginReady         bool              `json:"loginReady"`
+	EventOutputEnabled bool              `json:"eventOutputEnabled"`
+	Running            map[string]any    `json:"running"`
+	Startup            map[string]any    `json:"startup"`
+	Sessions           []SessionSnapshot `json:"sessions"`
 }
 
 type SessionSnapshot struct {
-	ID          uint64
-	Console     string
-	Attached    bool
-	Username    string
-	Mode        string
-	Interaction string
-	Candidate   map[string]any
+	ID          uint64         `json:"id"`
+	Console     string         `json:"console"`
+	Attached    bool           `json:"attached"`
+	Username    string         `json:"username"`
+	Mode        string         `json:"mode"`
+	Interaction string         `json:"interaction"`
+	Candidate   map[string]any `json:"candidate"`
+	Columns     int            `json:"columns"`
+	Rows        int            `json:"rows"`
 }
 
 // Trace describes semantic events only: passwords and raw input are never stored.
 type Trace struct {
-	At           time.Duration
-	Session      uint64
-	Kind, Detail string
+	At      time.Duration `json:"at"`
+	Session uint64        `json:"session"`
+	Kind    string        `json:"kind"`
+	Detail  string        `json:"detail"`
 }
 
 // Device serializes all state transitions under one lock. No transition does
@@ -72,6 +77,7 @@ type Device struct {
 	revision                     uint64
 	now                          time.Duration
 	lifecycle                    string
+	eventOutputEnabled           bool
 	ready, closed, realtime      bool
 	epoch, sequence, nextSession uint64
 	queue                        eventQueue
@@ -153,7 +159,7 @@ func New(profile *Profile, options Options) (*Device, error) {
 			}
 		}
 	}
-	d := &Device{profile: profile, options: options, running: cloneMap(profile.def.InitialState), startup: cloneMap(profile.def.InitialState), sessions: map[uint64]*terminalSession{}, consoles: map[string]*terminalSession{}}
+	d := &Device{eventOutputEnabled: true, profile: profile, options: options, running: cloneMap(profile.def.InitialState), startup: cloneMap(profile.def.InitialState), sessions: map[uint64]*terminalSession{}, consoles: map[string]*terminalSession{}}
 	d.startBoot()
 	d.advanceTo(0)
 	return d, nil
@@ -205,9 +211,9 @@ func (d *Device) Trace() []Trace {
 func (d *Device) Snapshot() Snapshot {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	out := Snapshot{Now: d.now, Lifecycle: d.lifecycle, LoginReady: d.ready, Running: cloneMap(d.running), Startup: cloneMap(d.startup)}
+	out := Snapshot{Now: d.now, Lifecycle: d.lifecycle, LoginReady: d.ready, EventOutputEnabled: d.eventOutputEnabled, Running: cloneMap(d.running), Startup: cloneMap(d.startup)}
 	for _, s := range d.orderedSessions() {
-		out.Sessions = append(out.Sessions, SessionSnapshot{ID: s.id, Console: s.console, Attached: s.attachment != nil, Username: s.username, Mode: s.mode().name, Interaction: s.interaction, Candidate: cloneMap(s.candidate)})
+		out.Sessions = append(out.Sessions, SessionSnapshot{ID: s.id, Console: s.console, Attached: s.attachment != nil, Username: s.username, Mode: s.mode().name, Interaction: s.interaction, Columns: s.columns, Rows: s.rows, Candidate: cloneMap(s.candidate)})
 	}
 	return out
 }
@@ -346,6 +352,9 @@ func (d *Device) event(e Event, target *terminalSession) {
 			}
 		}
 	case "raw", "log":
+		if !d.eventOutputEnabled {
+			return
+		}
 		for _, s := range d.orderedSessions() {
 			if e.Route == "session" && s != target {
 				continue
@@ -444,4 +453,21 @@ func (d *Device) config(s *terminalSession) map[string]any {
 }
 func (d *Device) data(s *terminalSession) map[string]any {
 	return map[string]any{"Lifecycle": d.lifecycle, "Config": d.config(s), "Running": d.running, "Startup": d.startup, "Args": s.args, "Context": s.mode().context, "Username": s.username, "Dirty": s.candidate != nil && !reflect.DeepEqual(s.candidate, d.running), "Input": s.answer}
+}
+
+// SetEventOutput controls asynchronous raw/log events, not command output or readiness.
+func (d *Device) SetEventOutput(enabled bool) error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.closed {
+		return ErrClosed
+	}
+	d.eventOutputEnabled = enabled
+	if !enabled {
+		for _, s := range d.orderedSessions() {
+			s.deferred = nil
+		}
+	}
+	d.record(nil, "event-output", fmt.Sprint(enabled))
+	return nil
 }

@@ -136,8 +136,17 @@ func (p *Profile) RenderHelp(mode, line string) string {
 
 // RenderHelpWithState formats help against a live/session configuration snapshot.
 func (p *Profile) RenderHelpWithState(mode, line string, state map[string]any) string {
+	return p.renderHelp(mode, line, state, 0)
+}
+
+func (p *Profile) renderHelp(mode, line string, state map[string]any, columns int) string {
 	entries := p.HelpEntriesWithState(mode, line, state)
 	format := p.def.Terminal.Help
+	if format != nil && columns > 0 {
+		copy := *format
+		copy.LineWidth = columns
+		format = &copy
+	}
 	var out strings.Builder
 	if format == nil {
 		for _, entry := range entries {
@@ -187,10 +196,11 @@ func (p *Profile) RenderHelpWithState(mode, line string, state map[string]any) s
 
 func (d *Device) showHelp(s *terminalSession) {
 	format := d.profile.def.Terminal.Help
+	d.editorOutputEnd(s)
 	if format != nil && format.EchoQuestion && s.echo == "character" {
 		d.emit(s, "?")
 	}
-	text := d.profile.RenderHelpWithState(s.mode().name, string(s.input), d.config(s))
+	text := d.profile.renderHelp(s.mode().name, string(s.input[:s.cursor]), d.config(s), s.columns)
 	if text == "" {
 		// Preserve the previous empty-help output for profiles without metadata.
 		text = "\n"
