@@ -1,7 +1,9 @@
 package huawei
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/annetutil/gnetcli/pkg/cmd"
 	"github.com/annetutil/gnetcli/pkg/credentials"
@@ -9,7 +11,10 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/expr"
 	"github.com/annetutil/gnetcli/pkg/streamer"
+	"github.com/annetutil/gnetcli/pkg/streamer/ssh"
 	m "github.com/annetutil/gnetcli/pkg/testutils/mock"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestConsole(t *testing.T) {
@@ -251,4 +256,91 @@ func newConsoleDevice(connector streamer.Connector, opts ...genericcli.GenericDe
 		genericcli.WithManualAuth(),
 	)
 	return genericcli.MakeGenericDevice(cli, connector, opts...)
+}
+
+type consoleEOFConnector struct {
+	streamer.Connector
+	console bool
+}
+
+func (c *consoleEOFConnector) HasFeature(feature streamer.Const) bool {
+	if feature == streamer.LoginInsteadEOF {
+		return c.console
+	}
+	if feature == streamer.AutoLogin && c.console {
+		return false
+	}
+	return c.Connector.HasFeature(feature)
+}
+
+func TestConsoleLogoutEOF(t *testing.T) {
+	const readyScreen = "Info: The max number of VTY users is 8, and the number of current VTY users on line is 2.\x1b[2J\r\nUser interface con0 is available\r\n\r\n\r\nPlease Press ENTER.\r\n\r\n"
+	for _, tc := range []struct {
+		name    string
+		console bool
+		output  []string
+		eof     string
+		timeout bool
+		result  string
+	}{
+		{name: "username", console: true, output: []string{"Username:"}, eof: "Username:"},
+		{name: "ready screen", console: true, output: []string{readyScreen}, eof: "Please Press ENTER."},
+		{name: "split ready screen", console: true, output: []string{"\r\nPlease Press ", "ENTER.\r\n\r\n"}, eof: "Please Press ENTER."},
+		{name: "return to user view", console: true, output: []string{"<some-device>"}},
+		{name: "text is not a logout screen", console: true, output: []string{"description Please Press ENTER.\r\n<some-device>"}, result: "description Please Press ENTER."},
+		{name: "SSH waits for a real EOF", output: []string{"Please Press ENTER.\r\n"}, timeout: true},
+		{name: "SSH does not detect console EOF", output: []string{"Please Press ENTER.\r\n<some-device>"}, result: "Please Press ENTER."},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var dialog []m.Action
+			if tc.console {
+				// The same screen must still start authentication before the first command.
+				dialog = append(dialog,
+					m.Send("\r\nPlease Press ENTER.\r\n"), m.Expect("\n"),
+					m.Send("Username:"), m.Expect("admin\n"),
+					m.Send("\r\nPassword:"), m.Expect("password\n"),
+				)
+			}
+			dialog = append(dialog, everyDayHuaweiHello...)
+			dialog = append(dialog, m.Expect("q\n"), m.SendEcho("q\r\n"))
+			for _, output := range tc.output {
+				dialog = append(dialog, m.Send(output))
+			}
+			// Keep the transport open until ExecuteCtx returns. Otherwise a real
+			// transport EOF could hide failure to recognize the logout screen.
+			dialog = append(dialog, m.Expect("test-finished\n"), m.Send("test-finished-ok\n"))
+			server, err := m.NewMockSSHServer(dialog)
+			require.NoError(t, err)
+			var group errgroup.Group
+			group.Go(func() error { return server.Run(context.Background()) })
+			host, port := server.GetAddress()
+			creds := credentials.NewSimpleCredentials(credentials.WithUsername("admin"), credentials.WithPasswords([]credentials.Secret{"password"}))
+			connector := &consoleEOFConnector{Connector: ssh.NewStreamer(host, creds, ssh.WithPort(port)), console: tc.console}
+			dev := NewDevice(connector)
+			defer dev.Close()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			require.NoError(t, dev.Connect(ctx))
+			res, execErr := dev.ExecuteCtx(ctx, cmd.NewCmd("q", cmd.WithReadTimeout(300*time.Millisecond), cmd.WithCmdTimeout(3*time.Second)))
+			writeErr := connector.Write([]byte("test-finished\n"))
+			_, ackErr := connector.ReadTo(ctx, expr.NewSimpleExpr().FromPattern("test-finished-ok\n"))
+			dev.Close()
+			require.NoError(t, writeErr)
+			require.NoError(t, ackErr)
+			require.NoError(t, group.Wait())
+			if tc.eof != "" {
+				var eof *streamer.EOFException
+				require.ErrorAs(t, execErr, &eof)
+				require.Contains(t, string(eof.LastRead), tc.eof)
+				require.Nil(t, res)
+			} else if tc.timeout {
+				var timeout *streamer.ReadTimeoutException
+				require.ErrorAs(t, execErr, &timeout)
+			} else {
+				require.NoError(t, execErr)
+				require.Equal(t, tc.result, string(res.Output()))
+			}
+		})
+	}
 }
