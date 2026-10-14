@@ -520,7 +520,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 		case passwordExprName:
 			if passwordIdx >= len(passwords) {
 				if len(passwords) == 0 {
-					return fmt.Errorf("no passwords supplied")
+					return gerror.NewAuthException("no passwords supplied")
 				}
 				return gerror.NewAuthException("cli auth user")
 			}

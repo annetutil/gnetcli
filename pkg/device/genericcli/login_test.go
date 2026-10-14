@@ -153,7 +153,8 @@ func TestManualLoginEmptyPasswordList(t *testing.T) {
 	)
 
 	err := runManualLogin(t, dialog, creds)
-	require.EqualError(t, err, "no passwords supplied")
+	require.ErrorIs(t, err, &gerror.AuthException{})
+	require.EqualError(t, err, "auth error no passwords supplied")
 }
 
 func TestManualLoginNoPassword(t *testing.T) {
