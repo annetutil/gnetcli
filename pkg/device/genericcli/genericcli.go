@@ -402,7 +402,7 @@ func (m *GenericDevice) ExecuteCtx(ctx context.Context, command cmd.Cmd) (cmd.Cm
 			return nil, err
 		}
 	}
-	return GenericExecute(command, m.connector, m.cli, m.logger)
+	return GenericExecute(ctx, command, m.connector, m.cli, m.logger)
 }
 
 func (m *GenericDevice) Download(paths []string) (map[string]streamer.File, error) {
@@ -563,8 +563,7 @@ func genericLogin(ctx context.Context, connector streamer.Connector, cli Generic
 	}
 }
 
-func GenericExecute(command cmd.Cmd, connector streamer.Connector, cli GenericCLI, logger *zap.Logger) (cmd.CmdRes, error) {
-	ctx := context.Background()
+func GenericExecute(ctx context.Context, command cmd.Cmd, connector streamer.Connector, cli GenericCLI, logger *zap.Logger) (cmd.CmdRes, error) {
 	if cmdTimeout := command.GetCmdTimeout(); cmdTimeout > 0 {
 		newCtx, cancel := context.WithTimeout(ctx, cmdTimeout)
 		ctx = newCtx
