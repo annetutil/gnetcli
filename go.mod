@@ -1,6 +1,6 @@
 module github.com/annetutil/gnetcli
 
-go 1.25.0
+go 1.23
 
 require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
