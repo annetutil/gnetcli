@@ -381,11 +381,12 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 	if m.cli.initWait > 0 {
 		time.Sleep(m.cli.initWait)
 	}
-	_, err = m.ExecuteBulk(m.cli.autoCommands)
-	if err != nil {
-		return fmt.Errorf("auto commands error: %w", err)
+	for _, command := range m.cli.autoCommands {
+		if _, err := m.ExecuteCtx(ctx, command); err != nil {
+			return fmt.Errorf("auto commands error: %w", err)
+		}
 	}
-	return err
+	return nil
 }
 
 func (m *GenericDevice) Execute(command cmd.Cmd) (cmd.CmdRes, error) {
@@ -393,11 +394,12 @@ func (m *GenericDevice) Execute(command cmd.Cmd) (cmd.CmdRes, error) {
 }
 
 func (m *GenericDevice) ExecuteCtx(ctx context.Context, command cmd.Cmd) (cmd.CmdRes, error) {
-	ctx, cancel := context.WithTimeout(ctx, m.cli.connectTimeout)
-	defer cancel()
 	m.logger.Debug("exec", zap.ByteString("command", command.Value()))
 	if !m.cliConnected {
-		err := m.connectCLI(ctx)
+		// The CLI login deadline must not limit command execution.
+		connectCtx, cancel := context.WithTimeout(ctx, m.cli.connectTimeout)
+		err := m.connectCLI(connectCtx)
+		cancel()
 		if err != nil {
 			return nil, err
 		}
