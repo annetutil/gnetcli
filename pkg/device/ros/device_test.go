@@ -10,6 +10,9 @@ func TestPrompt(t *testing.T) {
 	cases := [][]byte{
 		[]byte("\r\r\r\r[admin@mk-rb3011-test] >                                                       \r[admin@mk-rb3011-test] > "), // first prompt
 		[]byte("[admin@mk-rb3011-test] > "),
+		[]byte("[admin@mk-rb3011-test] >   "),
+		[]byte("[admin@mk-rb3011-test] /ip service> "),
+		[]byte("[admin@mk-rb3011-test] <SAFE> "),
 	}
 	testutils.ExprTester(t, cases, promptExpression)
 }
@@ -39,6 +42,8 @@ func TestQuestion(t *testing.T) {
 func TestNotPrompt(t *testing.T) {
 	errorCases := [][]byte{
 		[]byte("sometext [admin@mk-rb3011-test] > "),
+		[]byte("\r\r[admin@router] > /ip service exp"),
+		[]byte("\r\r[admin@router] > ping 8.8.8.8"),
 	}
 	testutils.ExprTesterFalse(t, errorCases, promptExpression)
 }

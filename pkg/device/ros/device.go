@@ -18,7 +18,7 @@ import (
 const (
 	// line may be like this "\r\n\r\r\r\r[admin@mk-rb3011-test] >   (~1000 space)   \r[admin@mk-rb3011-test] > "
 	hiddenPrompt       = `(?P<hidden>\[\S+@\S+\]\s{1,2}(\/[\/\w\s-]+)?(<SAFE)?>\s+)?`
-	visiblePrompt      = `\[(?P<login>\S+)@(?P<hostname>\S+)\]\s{1,2}(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> $`
+	visiblePrompt      = `\[(?P<login>\S+)@(?P<hostname>[^\]]+)\]\s+(?P<cfg_path>\/[\/\w\s-]+)?(<(?P<safe_mode>SAFE))?> *$`
 	promptExpression   = `(?P<store>(\r\n|\n|\r|^))` + visiblePrompt
 	errorExpression    = `(\r|^)(bad command name.*\(line \d+ column \d+\).*($|\r)|syntax error.*\(line \d+ column \d+\).*$|\[(?P<question>Safe mode released by another user)\]|expected end of command \(line \d+ column \d+\)|expected command name \(line \d+ column \d+\)|failure: duplicate address|failure: item with this name already exists)`
 	questionExpression = `((?P<question>.+\?)\s*\[y/N\]: \r\n$|(?P<question>\x1b\[c)|\rnumbers: )`
@@ -42,7 +42,7 @@ func dataCallback(cbType genericcli.ResultCBType, data []byte) ([]byte, error) {
 
 func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOption) genericcli.GenericDevice {
 	cli := genericcli.MakeGenericCLI(
-		expr.NewSimpleExprLast(1500).FromPattern(promptExpression),
+		expr.NewSimpleExprLast(65536).FromPattern(promptExpression),
 		expr.NewSimpleExprLast(2500).FromPattern(errorExpression),
 		genericcli.WithQuestion(
 			expr.NewSimpleExprLast200().FromPattern(questionExpression),
