@@ -83,6 +83,7 @@ func main() {
 	debug := flag.Bool("debug", false, "Set debug log level")
 	test := flag.Bool("test", false, "Run tests on config")
 	jsonOut := flag.Bool("json", false, "Output in JSON")
+	quietOut := flag.Bool("q", false, "Quiet output print only response")
 	deviceFiles := flag.String("dev-conf", "", "Path to yaml with device types")
 	flag.Parse()
 	var passwordSet, passwordFileSet bool
@@ -172,7 +173,7 @@ func main() {
 		}
 		resOut = jsonResOut
 	} else {
-		textResOut, err := formatText(commands, res)
+		textResOut, err := formatText(commands, res, *quietOut)
 		if err != nil {
 			panic(err)
 		}
@@ -217,11 +218,13 @@ type cmdResJSON struct {
 
 type cmdResJSONs []cmdResJSON
 
-func formatText(commands []string, inputs []cmd.CmdRes) (string, error) {
+func formatText(commands []string, inputs []cmd.CmdRes, quietOut bool) (string, error) {
 	var res []string
 	for i, input := range inputs {
 		if input == nil {
 			res = append(res, fmt.Sprintf("cmd=%s nil result\n", commands[i]))
+		} else if quietOut {
+			res = append(res, string(input.Output()))
 		} else {
 			res = append(res, fmt.Sprintf("cmd=%s output=%s status=%d error=%s\n", commands[i], input.Output(), input.Status(), input.Error()))
 		}
