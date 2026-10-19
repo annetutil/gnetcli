@@ -125,3 +125,9 @@ func checkError(t *testing.T, s string) {
 func cback(n int) string {
 	return fmt.Sprintf("\x1b[%dD", n)
 }
+
+func TestParseCursorUpAndDown(t *testing.T) {
+	res, err := Parse([]byte("hello\x1b[1Aworld\x1b[1Btest"))
+	assert.NoError(t, err)
+	assert.Equal(t, "helloworldtest", string(res))
+}
