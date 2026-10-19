@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 	"unicode/utf8"
+
+	"golang.org/x/term"
 
 	"github.com/annetutil/gnetcli/pkg/testutils"
 
@@ -44,6 +48,25 @@ func parseQuestions(input []string) []cmd.CmdOption {
 	return res
 }
 
+func readStdin() []string {
+	b, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return []string{}
+	}
+	return []string{string(b)}
+}
+
+func readInteractive() []string {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		eofHint := "Ctrl-D"
+		if runtime.GOOS == "windows" {
+			eofHint = "Ctrl-Z"
+		}
+		fmt.Fprintf(os.Stderr, "Enter commands, then press %s when finished:\n", eofHint)
+	}
+	return readStdin()
+}
+
 func main() {
 	var question questionFlags
 	dt := devconf.GetEmbeddedDeviceTypeList()
@@ -60,6 +83,7 @@ func main() {
 	debug := flag.Bool("debug", false, "Set debug log level")
 	test := flag.Bool("test", false, "Run tests on config")
 	jsonOut := flag.Bool("json", false, "Output in JSON")
+	quietOut := flag.Bool("q", false, "Quiet output print only response")
 	deviceFiles := flag.String("dev-conf", "", "Path to yaml with device types")
 	flag.Parse()
 	var passwordSet, passwordFileSet bool
@@ -108,10 +132,15 @@ func main() {
 	if len(*hostname) == 0 {
 		panic("empty hostname")
 	}
-	if len(*command) == 0 {
-		panic("empty command")
+	var commands []string
+	switch *command {
+	case "":
+		commands = readInteractive()
+	case "-":
+		commands = readStdin()
+	default:
+		commands = strings.Split(*command, "\n")
 	}
-	commands := strings.Split(*command, "\n")
 	creds, err := buildCreds(*login, *password, *hostname, *sshConfigPassphrase, *useSSHConfig, logger)
 	if err != nil {
 		panic(err)
@@ -119,6 +148,9 @@ func main() {
 	sshOpts := []ssh.StreamerOption{ssh.WithLogger(logger)}
 	if port != nil {
 		sshOpts = append(sshOpts, ssh.WithPort(*port))
+	}
+	if devType != nil && *devType == "netconf" {
+		sshOpts = append(sshOpts, ssh.WithSSHNetconf())
 	}
 	connector := ssh.NewStreamer(*hostname, creds, sshOpts...)
 	devFn, ok := deviceMaps[*devType]
@@ -141,7 +173,7 @@ func main() {
 		}
 		resOut = jsonResOut
 	} else {
-		textResOut, err := formatText(commands, res)
+		textResOut, err := formatText(commands, res, *quietOut)
 		if err != nil {
 			panic(err)
 		}
@@ -186,11 +218,13 @@ type cmdResJSON struct {
 
 type cmdResJSONs []cmdResJSON
 
-func formatText(commands []string, inputs []cmd.CmdRes) (string, error) {
+func formatText(commands []string, inputs []cmd.CmdRes, quietOut bool) (string, error) {
 	var res []string
 	for i, input := range inputs {
 		if input == nil {
 			res = append(res, fmt.Sprintf("cmd=%s nil result\n", commands[i]))
+		} else if quietOut {
+			res = append(res, string(input.Output()))
 		} else {
 			res = append(res, fmt.Sprintf("cmd=%s output=%s status=%d error=%s\n", commands[i], input.Output(), input.Status(), input.Error()))
 		}
