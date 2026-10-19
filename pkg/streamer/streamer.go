@@ -376,19 +376,6 @@ func GenericReadX(ctx context.Context, inBuffer []byte, readCh chan []byte, read
 				}
 			}
 			if !ok {
-				if cfg.regExpr != nil {
-					if mRes, matched := cfg.regExpr.Match(buffer); matched {
-						var underlyingRes ReadRes
-						if mRes.Underlying != nil {
-							underlyingRes = NewReadResImpl(buffer[:mRes.Underlying.Start], buffer[mRes.Underlying.End:], mRes.Underlying.GroupDict, buffer[mRes.Underlying.Start:mRes.End], mRes.Underlying.PatternNo)
-						}
-						res := NewReadResImplWithUnder(buffer[:mRes.Start], buffer[mRes.End:], mRes.GroupDict, buffer[mRes.Start:mRes.End], mRes.PatternNo, underlyingRes)
-						after := buffer[mRes.End:]
-						StopTimer(readIterTimeout)
-						StopTimer(maxDurationTimeout)
-						return NewReadXRes(Expr, buffer, res, after), after, buffer[len(inBuffer):], nil
-					}
-				}
 				return NewReadXRes(EOF, buffer, nil, []byte{}), []byte{}, buffer[len(inBuffer):], nil
 			}
 		case <-maxDurationTimeout.C:
