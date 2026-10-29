@@ -33,7 +33,7 @@ func NewDevice(connector streamer.Connector, opts ...genericcli.GenericDeviceOpt
 		genericcli.WithPager(
 			expr.NewSimpleExprLast200().FromPattern(pagerExpression)),
 		genericcli.WithEchoExprFn(func(c cmd.Cmd) expr.Expr {
-			return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s\r\r\n`, regexp.QuoteMeta(string(c.Value()))))
+			return expr.NewSimpleExpr().FromPattern(fmt.Sprintf(`%s\r{1,2}\n`, regexp.QuoteMeta(string(c.Value()))))
 		}),
 		genericcli.WithAutoCommands(autoCommands),
 		genericcli.WithTerminalParams(400, 0),

@@ -60,6 +60,20 @@ func TestValidCommands(t *testing.T) {
 				}...,
 			),
 		},
+		{
+			name:    "Test single carriage return in command echo",
+			command: "show clock",
+			result:  "",
+			dialog: append(
+				defaultDialog,
+				[]m.Action{
+					m.Expect("show clock\n"),
+					m.SendEcho("show clock\r\n"),
+					m.Send(prompt),
+					m.Close(),
+				}...,
+			),
+		},
 	}
 
 	for i := range testCases {
