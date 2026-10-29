@@ -16,7 +16,7 @@ import (
 
 const (
 	questionExpression = `\n(?P<question>.*Continue\? \[Y/N\]:)$`
-	promptExpression   = `(\r\r?\n|^|\x00)(?P<prompt>((\(M\))?[<\[][\w\-/]+[>\]]|\[[~*]?[/\w\-.:]+\]))$`
+	promptExpression   = `(\r\r?\n|^|\x00)(?P<prompt>((\(M\))?[<\[][\w\-/#.]+[>\]]|\[[~*]?[/\w\-.:]+\]))$`
 	errorExpression    = `(` +
 		`(\^\r\n)?( % )?Error:(?P<error>.+) at '\^' position\.` +
 		`|\r\n % (Unrecognized command|Too many parameters|Incomplete command|Wrong parameter) found at '\^' position\.` +
