@@ -73,6 +73,55 @@ func connectionErrorStreamInterceptor(srv interface{}, ss grpc.ServerStream, inf
 	return connectionErrorInterceptor(err)
 }
 
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// classifyExecReason maps the underlying error to a stable top-level code
+// (connect_error / generic_error, kept for existing string-based classification)
+// plus a fine-grained reason (auth/handshake/refused/timeout for the connect
+// phase; session-eof/prompt-mismatch/unanswered-question/timeout for exec)
+// surfaced via ErrorInfo.Reason.
+func classifyExecReason(e string) (ExecErrorType, string) {
+	if containsAny(e, "failed to connect to host") {
+		switch {
+		case containsAny(e, "unable to authenticate", "no supported methods", "permission denied", "auth fail", "authentication failed"):
+			return ErrorTypeConnect, "auth_error"
+		case containsAny(e, "no common algorithm", "handshake failed", "host key", "knownhosts"):
+			return ErrorTypeConnect, "handshake_error"
+		case containsAny(e, "connection refused"):
+			return ErrorTypeConnect, "refused"
+		case containsAny(e, "connection reset"):
+			return ErrorTypeConnect, "reset"
+		case containsAny(e, "no route to host", "network is unreachable"):
+			return ErrorTypeConnect, "no_route"
+		case containsAny(e, "i/o timeout", "context deadline", "timeout"):
+			return ErrorTypeConnect, "connect_timeout"
+		default:
+			return ErrorTypeConnect, "connect_error"
+		}
+	}
+	switch {
+	case containsAny(e, "echo read", "echo error"):
+		return ErrorTypeGeneric, "echo_error"
+	case containsAny(e, "EOF"):
+		return ErrorTypeGeneric, "session_eof"
+	case containsAny(e, "ThrowQuestion", "question"):
+		return ErrorTypeGeneric, "unanswered_question"
+	case containsAny(e, "expr", "prompt"):
+		return ErrorTypeGeneric, "prompt_mismatch"
+	case containsAny(e, "i/o timeout", "context deadline", "timeout"):
+		return ErrorTypeGeneric, "exec_timeout"
+	default:
+		return ErrorTypeGeneric, "exec_error"
+	}
+}
+
 func connectionErrorInterceptor(inErr error) error {
 	if inErr == nil {
 		return nil
@@ -82,13 +131,7 @@ func connectionErrorInterceptor(inErr error) error {
 		return inErr
 	}
 
-	msg := ErrorTypeGeneric
-	reason := string(ErrorTypeGeneric)
-
-	if strings.Contains(inErr.Error(), "failed to connect to host") {
-		msg = ErrorTypeConnect
-		reason = string(ErrorTypeConnection)
-	}
+	msg, reason := classifyExecReason(inErr.Error())
 
 	st := status.New(codes.Internal, string(msg))
 	rv, _ := st.WithDetails(
