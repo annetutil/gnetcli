@@ -1,6 +1,8 @@
 ### New device
 This is an example how to make a config for a new vendor. See full documentation [here](architecture.md).
 
+For AI-assisted driver development and review, see [Install the vendor-support skill](agent_skill.md).
+
 Here we are playing with qfx in docker: 
 
 ```shell
