@@ -1,0 +1,38 @@
+{
+  "skill_name": "gnetcli-new-vendor",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need a built-in Go driver for AcmeOS 2 in Gnetcli. The prompt is '[admin@edge] > ', echo may arrive across multiple reads, and output may contain '[alice@example.net\\n'. A sanitized SSH dialog and an unknown-command error are available. Describe the files, implementation, and tests without editing files or connecting to devices.",
+      "expected_output": "A Go driver and devtype registration plan with exact output/status/error and fragmentation checks.",
+      "expectations": [
+        "Limits changes to Gnetcli and does not add a new transport unnecessarily.",
+        "Uses current GenericCLI APIs and pkg/testutils/mock; plans a devconf mapping for the built-in devtype.",
+        "Checks that hostname matching cannot consume CR/LF, preserves output, and handles partial echo; does not suggest any_echo as a fix.",
+        "Distinguishes device status from Go errors, and Go tests from real-device validation."
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Review a new AcmeOS profile for Gnetcli. The PR adds a GenericCLI constructor and a devtype mapping, but no tests. Its prompt regex allows [^)]+ in the submode, and error handling is borrowed from a similar OS without examples. Draft a PR comment without publishing it or editing files.",
+      "expected_output": "A review of output preservation, actual errors from the new OS, and missing behavioral coverage without unsupported claims about hardware validation.",
+      "expectations": [
+        "Checks CR/LF consumption and output containing an unclosed parenthesis before a configuration prompt.",
+        "Proposes a reproduction through the public Device in a separate temporary copy with exact output/error/status assertions.",
+        "Distinguishes a new regression from an inherited gap and does not treat green CI as proof of coverage.",
+        "Does not publish the comment or infer that the author skipped hardware validation merely because details are missing."
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I need a Gnetcli YAML prototype for AcmeOS using standard prompt/error/pager expressions. An older example uses autocmd and internal/mock. Validate the configuration offline and describe its limitations, without adding a built-in Go driver or connecting to devices.",
+      "expected_output": "External DevConf YAML using current features, offline validation, and a clear distinction between regex variants and mock-dialog tests.",
+      "expectations": [
+        "Chooses external YAML as requested and does not add a built-in package or devconf mapping unnecessarily.",
+        "Checks features against DevConf.Make; uses autocmds instead of the old autocmd and ordinary YAML quotes.",
+        "Proposes go run -mod=readonly ./cmd/cli -dev-conf /path/to/vendor.yaml -test without network access.",
+        "Does not treat positive YAML variants as a replacement for negative and behavioral tests; identifies pkg/testutils/mock as the current helper path."
+      ]
+    }
+  ]
+}

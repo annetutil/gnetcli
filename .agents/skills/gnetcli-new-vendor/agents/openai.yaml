@@ -1,0 +1,4 @@
+interface:
+  display_name: "Gnetcli Vendor Support"
+  short_description: "CLI drivers, registration, and vendor tests for Gnetcli"
+  default_prompt: "Use $gnetcli-new-vendor to add or review a network device CLI profile in Gnetcli."
