@@ -107,17 +107,17 @@ func (p *Profile) ValidateConfiguration(config map[string]any) error {
 	value.Freeze()
 	result, err := starlark.Call(validationThread(p.validator.maxSteps), p.validator.fn, starlark.Tuple{value}, nil)
 	if err != nil {
-		return fmt.Errorf("Starlark validation failed: %w", err)
+		return fmt.Errorf("starlark validation failed: %w", err)
 	}
 	if result == starlark.None {
 		return nil
 	}
 	message, ok := starlark.AsString(result)
 	if !ok || strings.TrimSpace(message) == "" {
-		return fmt.Errorf("Starlark validate(config) must return None or a non-empty string, got %s", result.Type())
+		return fmt.Errorf("starlark validate(config) must return None or a non-empty string, got %s", result.Type())
 	}
 	if len(message) > 4096 {
-		return fmt.Errorf("Starlark validation message exceeds 4096 bytes")
+		return fmt.Errorf("starlark validation message exceeds 4096 bytes")
 	}
 	return &ValidationError{Message: message}
 }
