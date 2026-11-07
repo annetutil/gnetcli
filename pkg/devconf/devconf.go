@@ -18,6 +18,7 @@ import (
 	"github.com/annetutil/gnetcli/pkg/device/cisco"
 	"github.com/annetutil/gnetcli/pkg/device/eltex"
 	"github.com/annetutil/gnetcli/pkg/device/fortios"
+	"github.com/annetutil/gnetcli/pkg/device/fsos"
 	"github.com/annetutil/gnetcli/pkg/device/genericcli"
 	"github.com/annetutil/gnetcli/pkg/device/h3c"
 	"github.com/annetutil/gnetcli/pkg/device/huawei"
@@ -245,6 +246,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 		"aruos":     GenericCLIWrapper(aruos.NewDevice, logger),
 		"eltex":     GenericCLIWrapper(eltex.NewDevice, logger),
 		"asa":       GenericCLIWrapper(asa.NewDevice, logger),
+		"fsos":      GenericCLIWrapper(fsos.NewDevice, logger),
 		"fortios":   GenericCLIWrapper(fortios.NewDevice, logger),
 		"fortigate": GenericCLIWrapper(fortios.NewDevice, logger),
 		"sitonica":  GenericCLIWrapper(h3c.NewDevice, logger),
