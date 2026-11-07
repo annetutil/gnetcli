@@ -1,0 +1,149 @@
+apiVersion: cli-emulator/v1
+name: aruba-instant-lab
+initialMode: exec
+abbreviations: true
+# Synthetic Instant AP, not an Aruba switch/controller or a full WLAN model.
+initialState:
+  hostname: "02:00:00:00:00:01"
+  location: lab
+  ipv4: 169.254.100.10
+  netmask: 255.255.0.0
+configuration:
+  id: root
+  lines:
+    - "version 8.10.0.0"
+    - "name {{ .Config.hostname }}"
+    - "syslocation {{ .Config.location }}"
+terminal:
+  logPolicy: raw
+  help: {indent: 2, echoQuestion: true}
+login:
+  usernamePrompt: "User: "
+  passwordPrompt: "Password: "
+  failure: "Login incorrect, reason code 6"
+modes:
+  exec: {prompt: "{{ .Running.hostname }}# "}
+  config: {prompt: "{{ .Running.hostname }} (config) # "}
+errors:
+  invalid: "{{ .Caret }}\n% Parse error\n"
+  incomplete: "% Incomplete command.\n"
+  ambiguous: "% Parse error: ambiguous command\n"
+commands:
+  - id: show-version
+    modes: [exec]
+    syntax: show version
+    help: ["Show information", "Software version"]
+    actions:
+      - op: output
+        text: |
+          Aruba Operating System Software.
+          ArubaOS (MODEL: 305), Version 8.10.0.0
+          Synthetic gswitch Instant AP; no real radio or DHCP client.
+  - id: show-running
+    modes: [exec]
+    syntax: show running-config
+    help: ["Show information", "Running configuration"]
+    actions: [{op: render-config, name: root}]
+  - id: show-aps
+    modes: [exec]
+    syntax: show aps
+    help: ["Show information", "Access points"]
+    actions:
+      - op: output
+        text: |
+          1 Access Point
+          --------------
+          Name                 IP Address       Mode   Clients Type
+          {{ .Running.hostname }} {{ .Running.ipv4 }} access 0       305
+  - id: show-ip-interface-brief
+    modes: [exec]
+    syntax: show ip interface brief
+    help: ["Show information", "IP information", "IP interfaces", "Interface summary"]
+    actions:
+      - op: output
+        text: |
+          Interface IP Address / IP Netmask          Admin Protocol
+          br0       {{ .Running.ipv4 }} / {{ .Running.netmask }} up    up
+  - id: configure
+    modes: [exec]
+    syntax: configure terminal
+    help: ["Enter configuration mode", "Configure from terminal"]
+    actions:
+      - &configuration-ready
+        op: require-lifecycle
+        value: operational
+        text: "Configuration is not allowed when CLI is running in a degraded state.\n"
+      - {op: begin}
+      - {op: push, mode: config}
+  - id: name
+    modes: [config]
+    syntax: "name <name:word>"
+    help: ["Set AP or virtual controller name", "Name"]
+    actions:
+      - *configuration-ready
+      - {op: set, path: [hostname], value: "{{ .Args.name }}"}
+  - id: syslocation
+    modes: [config]
+    syntax: "syslocation <location:rest>"
+    help: ["Set system location", "Location"]
+    actions:
+      - *configuration-ready
+      - {op: set, path: [location], value: "{{ .Args.location }}"}
+  - id: end
+    abbreviations: false
+    modes: [config]
+    syntax: end
+    help: ["Return to privileged mode"]
+    actions: [{op: mode, mode: exec}]
+  - id: exit-config
+    abbreviations: false
+    modes: [config]
+    syntax: exit
+    help: ["Exit configuration mode"]
+    actions: [{op: pop}]
+  - id: commit-apply
+    modes: [exec]
+    syntax: commit apply
+    help: ["Commit changes", "Apply configuration"]
+    actions:
+      - *configuration-ready
+      - {op: commit}
+      - {op: save}
+      - {op: abort}
+  - id: commit-no-save
+    modes: [exec]
+    syntax: commit apply no-save
+    help: ["Commit changes", "Apply configuration", "Do not save to startup configuration"]
+    actions:
+      - *configuration-ready
+      - {op: commit}
+      - {op: abort}
+  - id: write-memory
+    modes: [exec]
+    syntax: write memory
+    help: ["Write configuration", "Save running configuration"]
+    actions:
+      - op: require-lifecycle
+        value: operational
+        text: "Write memory is not allowed when CLI is running in a degraded state.\n"
+      - {op: save}
+  - id: reload
+    modes: [exec]
+    syntax: reload
+    help: ["Reboot the emulated AP"]
+    # Lab subset: always confirm reboot; unsaved running changes are discarded.
+    actions: [{op: dialog, dialog: reload}]
+  - id: logout
+    abbreviations: false
+    modes: [exec]
+    syntax: exit
+    help: ["Log out"]
+    actions: [{op: logout}]
+dialogs:
+  reload:
+    prompt: "Do you really want to reset the system(y/n): "
+    answers:
+      - input: "y"
+        actions: [{op: output, text: "System will now restart!\n"}, {op: reboot}]
+      - input: "n"
+        actions: []

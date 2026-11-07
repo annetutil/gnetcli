@@ -1,0 +1,2 @@
+Bootloader: starting synthetic NOS
+Kernel: loading services

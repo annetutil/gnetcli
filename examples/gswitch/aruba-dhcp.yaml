@@ -1,0 +1,203 @@
+apiVersion: cli-emulator/v1
+# NOCDEV-22469: 10x compressed boot; record timestamps retain the original clock.
+# Missing DHCP cycles between pasted excerpts are synthetic; MAC/IP are sanitized.
+# Readiness is closed at time zero, including on reload.
+timeline:
+  - {at: 0s, kind: ready, text: "false"}
+  - {at: 0s, kind: lifecycle, text: booting}
+  - at: 50ms
+    kind: log
+    route: console
+    source: boot
+    text: |
+      Mesh is DISABLED on this device.
+      extended ssid is activated on the platform ...
+      copying bootuplog ...
+      allow PAPI
+      set device anul0 mtu to 2000
+      notify asap_mod 3g no present...
+      Enabling IPv6 for devices... IP mode is v4-only...
+      apdot1x authentication is not enabled
+      Starting DHCP
+      Getting an IP address...
+  - at: 3400ms
+    kind: log
+    route: console
+    source: dhcp
+    text: "Jan  1 00:00:34 udhcpc[4338]: udhcpc (v0.9.9-pre) started"
+  - at: 3500ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:00:35 udhcpc[4338]: send_discover: pkt num 0, secs 0
+      Jan  1 00:00:35 udhcpc[4338]: Sending discover...
+  - at: 3700ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:00:37 udhcpc[4338]: send_discover: pkt num 1, secs 512
+      Jan  1 00:00:37 udhcpc[4338]: Sending discover...
+  - at: 3900ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:00:39 udhcpc[4338]: send_discover: pkt num 2, secs 1024
+      Jan  1 00:00:39 udhcpc[4338]: Sending discover...
+  - {at: 4100ms, kind: log, route: console, source: dhcp, text: "Jan  1 00:00:41 udhcpc[4338]: No lease, forking to background."}
+  - at: 6100ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:01 udhcpc[4575]: send_discover: pkt num 0, secs 6656
+      Jan  1 00:01:01 udhcpc[4575]: Sending discover...
+  - at: 6300ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:03 udhcpc[4575]: send_discover: pkt num 1, secs 7168
+      Jan  1 00:01:03 udhcpc[4575]: Sending discover...
+  - at: 6500ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:05 udhcpc[4575]: send_discover: pkt num 2, secs 7680
+      Jan  1 00:01:05 udhcpc[4575]: Sending discover...
+  - at: 8700ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:27 udhcpc[4575]: send_discover: pkt num 0, secs 13312
+      Jan  1 00:01:27 udhcpc[4575]: Sending discover...
+  - at: 8900ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:29 udhcpc[4575]: send_discover: pkt num 1, secs 13824
+      Jan  1 00:01:29 udhcpc[4575]: Sending discover...
+  - at: 9100ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:31 udhcpc[4575]: send_discover: pkt num 2, secs 14336
+      Jan  1 00:01:31 udhcpc[4575]: Sending discover...
+  - at: 11300ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:53 udhcpc[4575]: send_discover: pkt num 0, secs 19968
+      Jan  1 00:01:53 udhcpc[4575]: Sending discover...
+  - at: 11500ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:55 udhcpc[4575]: send_discover: pkt num 1, secs 20480
+      Jan  1 00:01:55 udhcpc[4575]: Sending discover...
+  - at: 11700ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:01:57 udhcpc[4575]: send_discover: pkt num 2, secs 20992
+      Jan  1 00:01:57 udhcpc[4575]: Sending discover...
+  - at: 13900ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:02:19 udhcpc[4575]: send_discover: pkt num 0, secs 26624
+      Jan  1 00:02:19 udhcpc[4575]: Sending discover...
+  - at: 14100ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:02:21 udhcpc[4575]: send_discover: pkt num 1, secs 27136
+      Jan  1 00:02:21 udhcpc[4575]: Sending discover...
+  - at: 14300ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:02:23 udhcpc[4575]: send_discover: pkt num 2, secs 27648
+      Jan  1 00:02:23 udhcpc[4575]: Sending discover...
+  - at: 16500ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:02:45 udhcpc[4575]: send_discover: pkt num 0, secs 33280
+      Jan  1 00:02:45 udhcpc[4575]: Sending discover...
+  - at: 16700ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:02:47 udhcpc[4575]: send_discover: pkt num 1, secs 33792
+      Jan  1 00:02:47 udhcpc[4575]: Sending discover...
+  - at: 16900ms
+    kind: log
+    route: console
+    source: dhcp
+    text: |
+      Jan  1 00:02:49 udhcpc[4575]: send_discover: pkt num 2, secs 34304
+      Jan  1 00:02:49 udhcpc[4575]: Sending discover...
+  - at: 16950ms
+    kind: log
+    route: console
+    source: boot
+    text: |
+      169.254.100.10 255.255.0.0
+      2001:db8::10/64 Scope:Global
+      Compressing all files in the /etc/httpd directory...
+      Done.
+      Starting Webserver
+      bind: Transport endpoint is not connected
+      bind: Transport endpoint is not connected
+      bind: Transport endpoint is not connected
+      Put ntpdate to the nannylist.
+      AP Reboot reason:  Power-reset
+      shutting down watchdog process (nanny will restart it)...
+
+          <<<<<       Welcome to the Access Point     >>>>>
+
+      Completed SW FIPS KAT test
+  - {at: 17s, kind: raw, route: console, source: kernel, text: "USB Modem is not presen"}
+  - {at: 17s, kind: lifecycle, text: degraded}
+  - {at: 17s, kind: ready, text: "true"}
+  - {at: 20700ms, kind: raw, route: console, source: cli, text: "\r\nInternal error 8-0, please contact support\r\n"}
+  - {at: 20700ms, kind: console-reset, route: console, source: cli}
+  - {at: 20710ms, kind: log, route: console, source: kernel, text: "[  207.483265] (15:49:45) !!! Init ---> Conductor"}
+# Phase-relative noise also reproduces the collisions for a late console login.
+# These are kernel/console messages: no CLI-monitor switch can suppress them.
+triggers:
+  - on: login:password
+    after: 20ms
+    event: {kind: log, route: session, source: kernel, policy: raw, text: "ble_ready NOT present @init ...."}
+  - on: authenticated
+    event:
+      kind: log
+      route: session
+      source: cli
+      policy: redraw
+      text: "Warning: CLI module is running in a degraded state.  Configuration, write memory, and support command are disabled; please debug with caution."
+  - on: authenticated
+    after: 100ms
+    event:
+      kind: log
+      route: console
+      source: dhcp
+      policy: raw
+      text: |
+        Jan  1 00:03:35 udhcpc[4575]: send_discover: pkt num 0, secs 46080
+        Jan  1 00:03:35 udhcpc[4575]: Sending discover...

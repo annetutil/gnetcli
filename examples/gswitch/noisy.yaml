@@ -1,0 +1,16 @@
+apiVersion: cli-emulator/v1
+triggers:
+  - on: authenticated
+    after: 20ms
+    event:
+      kind: log
+      source: kernel
+      route: console
+      text: "SYSTEM: background initialization after login"
+  - on: checkpoint:after-header
+    event:
+      kind: log
+      source: syslog
+      route: session
+      policy: raw
+      text: "SYSLOG: event between command output chunks"
