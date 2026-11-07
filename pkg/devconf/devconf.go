@@ -234,6 +234,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 	deviceMaps := map[string]func(streamer.Connector) device.Device{
 		"juniper":   GenericCLIWrapper(juniper.NewDevice, logger),
 		"huawei":    GenericCLIWrapper(huawei.NewDevice, logger),
+		"smartax":   GenericCLIWrapper(huawei.NewSmartAXDevice, logger),
 		"h3c":       GenericCLIWrapper(h3c.NewDevice, logger),
 		"arista":    GenericCLIWrapper(arista.NewDevice, logger),
 		"cisco":     GenericCLIWrapper(cisco.NewDevice, logger),
