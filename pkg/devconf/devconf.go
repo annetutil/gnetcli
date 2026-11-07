@@ -241,6 +241,7 @@ func InitDefaultDeviceMapping(logger *zap.Logger) map[string]func(streamer.Conne
 		"bcomos":    GenericCLIWrapper(bcomos.NewDevice, logger),
 		"pc":        pc.NewDevice,
 		"ros":       GenericCLIWrapper(ros.NewDevice, logger),
+		"ros_slow":  GenericCLIWrapper(ros.NewSlowDevice, logger),
 		"netconf":   netconf.BindDeviceOpts(netconf.NewDevice, netconf.WithLogger(logger)),
 		"aruos":     GenericCLIWrapper(aruos.NewDevice, logger),
 		"eltex":     GenericCLIWrapper(eltex.NewDevice, logger),
