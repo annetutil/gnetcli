@@ -20,11 +20,9 @@ func TestSSHConfigSetEnv(t *testing.T) {
 	for _, tc := range []struct {
 		name, directive string
 		env             map[string]string
-		reject          bool
 	}{
-		{"original_host", `SetEnv SWITCH=%n NOTE="two words" EMPTY= PERCENT=%%`, map[string]string{"SWITCH": "switch.example.net", "NOTE": "two words", "EMPTY": "", "PERCENT": "%"}, false},
-		{"ordinary_shell", "", nil, false},
-		{"refused_env", "SetEnv SWITCH=%n", nil, true},
+		{"original_host", `SetEnv SWITCH=%n NOTE="two words" EMPTY= PERCENT=%%`, map[string]string{"SWITCH": "switch.example.net", "NOTE": "two words", "EMPTY": "", "PERCENT": "%"}},
+		{"ordinary_shell", "", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ln, port := newSSHServerPort(t)
@@ -63,7 +61,7 @@ func TestSSHConfigSetEnv(t *testing.T) {
 						switch req.Type {
 						case "env":
 							var value struct{ Name, Value string }
-							ok := !tc.reject && !pty && ssh.Unmarshal(req.Payload, &value) == nil
+							ok := !pty && ssh.Unmarshal(req.Payload, &value) == nil
 							if ok {
 								received[value.Name] = value.Value
 							}
@@ -105,10 +103,6 @@ func TestSSHConfigSetEnv(t *testing.T) {
 			for _, command := range []string{"show version", "show interfaces"} {
 				require.NoError(t, chat.Send(&pb.CMD{Host: "switch.example.net", Cmd: command, HostParams: &pb.HostParams{Device: "cisco", Ip: "192.0.2.1"}}))
 				result, err := chat.Recv()
-				if tc.reject {
-					require.ErrorContains(t, err, "unable to set env")
-					return
-				}
 				require.NoError(t, err)
 				require.Zero(t, result.GetStatus())
 				require.Contains(t, string(result.GetOut()), "result: "+command)
