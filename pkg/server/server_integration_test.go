@@ -20,8 +20,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"gopkg.in/yaml.v3"
 
 	"github.com/annetutil/gnetcli/pkg/credentials"
@@ -173,6 +175,58 @@ Host mock-sw
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "unable to authenticate")
+	// The connect-phase failure must be classified at RPC level so SDK callers
+	// can branch on ErrorInfo.Reason instead of parsing the message.
+	require.Equal(t, "error_auth", errorInfoReason(t, err))
+}
+
+// errorInfoReason extracts ErrorInfo.Reason from a gRPC status error, failing
+// the test if the error is not a status carrying an ErrorInfo detail.
+func errorInfoReason(t *testing.T, err error) string {
+	t.Helper()
+	st, ok := status.FromError(err)
+	require.True(t, ok, "expected a gRPC status error, got %v", err)
+	for _, d := range st.Details() {
+		if info, ok := d.(*errdetails.ErrorInfo); ok {
+			return info.GetReason()
+		}
+	}
+	t.Fatalf("no ErrorInfo detail on error: %v", err)
+	return ""
+}
+
+// TestExecConnectRefusedErrorReason drives a full RPC against a port with no
+// listener and asserts the connect failure is classified via ErrorInfo.Reason.
+func TestExecConnectRefusedErrorReason(t *testing.T) {
+	if testing.Short() {
+		t.Skip("integration test")
+	}
+
+	// Grab a free port, then close its listener so the connect is refused.
+	ln, deadPort := newSSHServerPort(t)
+	require.NoError(t, ln.Close())
+
+	cfg := serverConfigFromYAML(t, `
+dev_auth:
+  ssh_config: true
+`)
+	sshConfig := fmt.Sprintf(`
+Host mock-sw
+  HostName 127.0.0.1
+  Port %d
+  User someone
+`, deadPort)
+
+	client := newGnetcliTestClient(t, cfg, sshConfig, zap.NewNop())
+	_, err := client.Exec(context.Background(), &pb.CMD{
+		Host: "mock-sw",
+		Cmd:  "show version",
+		HostParams: &pb.HostParams{
+			Device: "cisco",
+		},
+	})
+	require.Error(t, err)
+	require.Equal(t, "error_refused", errorInfoReason(t, err))
 }
 
 func TestDevAuthSSHConfigProxyJumpWithAgent(t *testing.T) {
