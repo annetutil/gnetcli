@@ -71,7 +71,7 @@ func readSetEnvConfig(source, host, base string, depth int) ([]string, error) {
 			} else if strings.EqualFold(kv.Key, setEnvIncludeKey) {
 				patterns, err := splitSetEnv(setEnvDirective(kv))
 				if err != nil {
-					return nil, fmt.Errorf("Include: %w", err)
+					return nil, fmt.Errorf("include: %w", err)
 				}
 				seen := make(map[string]bool)
 				for _, pattern := range patterns {
@@ -83,7 +83,7 @@ func readSetEnvConfig(source, host, base string, depth int) ([]string, error) {
 					}
 					paths, err := filepath.Glob(pattern)
 					if err != nil {
-						return nil, fmt.Errorf("Include: %w", err)
+						return nil, fmt.Errorf("include: %w", err)
 					}
 					for _, path := range paths {
 						if seen[path] {
