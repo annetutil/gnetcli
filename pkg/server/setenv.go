@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/annetutil/gnetcli/internal/tssh"
 )
 
 // getSetEnv uses the first matching directive, as OpenSSH does. The supported
@@ -20,6 +22,7 @@ func (m authApp) getSetEnv(host string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("SetEnv for %q: %w", host, err)
 	}
+	params := tssh.NewSshParam("", "", "", nil, tssh.WithOriginalHost(host))
 	result := make(map[string]string, len(words))
 	for _, word := range words {
 		name, value, ok := strings.Cut(word, "=")
@@ -29,26 +32,11 @@ func (m authApp) getSetEnv(host string) (map[string]string, error) {
 		if _, exists := result[name]; exists {
 			continue
 		}
-		var expanded strings.Builder
-		for i := 0; i < len(value); i++ {
-			if value[i] != '%' {
-				expanded.WriteByte(value[i])
-				continue
-			}
-			i++
-			if i == len(value) {
-				return nil, fmt.Errorf("SetEnv: trailing %%")
-			}
-			switch value[i] {
-			case 'n':
-				expanded.WriteString(host)
-			case '%':
-				expanded.WriteByte('%')
-			default:
-				return nil, fmt.Errorf("SetEnv: unsupported token %%%c (supported: %%n, %%%%)", value[i])
-			}
+		expanded, err := tssh.ExpandTokens(value, params, "%n")
+		if err != nil {
+			return nil, fmt.Errorf("SetEnv for %q: %w", host, err)
 		}
-		result[name] = expanded.String()
+		result[name] = expanded
 	}
 	return result, nil
 }

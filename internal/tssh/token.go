@@ -55,19 +55,32 @@ var getHostname = func() string {
 }
 
 type SshParam struct {
-	host  string
-	port  string
-	user  string
-	proxy []string
+	originalHost string
+	host         string
+	port         string
+	user         string
+	proxy        []string
 }
 
-func NewSshParam(host, port, user string, proxy []string) *SshParam {
-	return &SshParam{
+// SshParamOption supplies optional context for token expansion.
+type SshParamOption func(*SshParam)
+
+// WithOriginalHost records the destination before HostName resolution for %n.
+func WithOriginalHost(host string) SshParamOption {
+	return func(param *SshParam) { param.originalHost = host }
+}
+
+func NewSshParam(host, port, user string, proxy []string, opts ...SshParamOption) *SshParam {
+	param := &SshParam{
 		host:  host,
 		port:  port,
 		user:  user,
 		proxy: proxy,
 	}
+	for _, opt := range opts {
+		opt(param)
+	}
+	return param
 }
 
 func ExpandTokens(str string, param *SshParam, tokens string) (string, error) {
@@ -106,8 +119,13 @@ func ExpandTokens(str string, param *SshParam, tokens string) (string, error) {
 			}
 			buf.WriteString(param.user)
 		case 'n':
-			return "", fmt.Errorf("token [%%%c] in [%s] is not supported yet", c, str)
-			// buf.WriteString(args.Destination)
+			if param.originalHost == "" {
+				return "", fmt.Errorf("original hostname is not available for %%n")
+			}
+			if !isHostValid(param.originalHost) {
+				return "", fmt.Errorf("original hostname contains invalid characters")
+			}
+			buf.WriteString(param.originalHost)
 		case 'l':
 			buf.WriteString(getHostname())
 		case 'L':
