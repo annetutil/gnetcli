@@ -24,7 +24,10 @@ import (
 const (
 	promptExpression = `(\r\n|\n|\r|^)[\w\-.:/]+[>#]\s*$`
 	errorExpression  = `(\r|\n|^)(% Unknown command\.|% Invalid input detected at '\^' marker\.|% Ambiguous command:.*|% Incomplete command\.|% Unrecognized host or address.*|% Access denied)`
-	pagerExpression  = `\r?\n? *--More-- *$`
+	// The newline that precedes "--More--" is captured in the "store" group so
+	// genericcli re-appends it to the output: otherwise the pager match consumes
+	// the line break and the last line of a page gets glued to the next page.
+	pagerExpression = `(?P<store>\r\n|\n|\r)? *--More-- *$`
 )
 
 func echoExpr(c cmd.Cmd) expr.Expr {
