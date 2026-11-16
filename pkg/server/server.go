@@ -70,6 +70,7 @@ type hostParams struct {
 	ip           netip.Addr
 	proxyJump    string
 	controlPath  string
+	environment  map[string]string
 	host         string
 	streamerType pb.StreamerType
 }
@@ -215,6 +216,9 @@ func (m *Server) createStreamerTelnet(cfg StreamerConfig, add func(op gtrace.Ope
 
 func (m *Server) createStreamerSSH(cfg StreamerConfig, add func(op gtrace.Operation, data []byte)) (streamer.Connector, error) {
 	streamerOpts := []ssh.StreamerOption{ssh.WithLogger(cfg.logger)}
+	for name, value := range cfg.params.environment {
+		streamerOpts = append(streamerOpts, ssh.WithEnv(name, value))
+	}
 	if add != nil {
 		streamerOpts = append(streamerOpts, ssh.WithTrace(add))
 	}
@@ -581,6 +585,7 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 			res.device = cmdParams.Device
 		}
 	}
+	res.environment = defaultHostParams.environment
 	// proxyJump only supported in defaultHostParams
 	if defaultHostParams.proxyJump != "" {
 		res.proxyJump = defaultHostParams.proxyJump

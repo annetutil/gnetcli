@@ -823,11 +823,9 @@ func (m *Streamer) newSessionTemplate() (*sshSessionTemplate, error) {
 	for name, value := range m.env {
 		err := session.Setenv(name, value)
 		if err != nil {
-			stdoutBuf := make([]byte, defaultReadSize)
-			stderrBuf := make([]byte, defaultReadSize)
-			stdoutRead, _ := stdout.Read(stdoutBuf)
-			stderrRead, _ := stderr.Read(stderrBuf)
-			return nil, fmt.Errorf("unable to set env %s: %s %s %w", name, string(stdoutBuf[0:stdoutRead]), string(stderrBuf[0:stderrRead]), err)
+			// No program has started yet, so reading output here can block forever.
+			_ = session.Close()
+			return nil, fmt.Errorf("unable to set env %s: %w", name, err)
 		}
 	}
 	return &sshSessionTemplate{

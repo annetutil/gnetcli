@@ -71,18 +71,27 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 	}
 
 	cfg := m.resolveProxyConfig(host, ip)
+	var environment map[string]string
+	if params.GetStreamerType() != pb.StreamerType_StreamerType_telnet {
+		environment, err = m.getSetEnv(host)
+		if err != nil {
+			return hostParams{}, err
+		}
+	}
 
 	creds, err := m.Get(host)
 	if err != nil {
 		return hostParams{}, fmt.Errorf("get credentials for %q: %w", host, err)
 	}
 
-	return NewHostParams(
+	result := NewHostParams(
 		creds, params.GetDevice(),
 		cfg.ip, port,
 		cfg.proxyJump, cfg.controlPath, cfg.connectHost,
 		params.GetStreamerType(),
-	), nil
+	)
+	result.environment = environment
+	return result, nil
 }
 
 func (m authApp) Get(host string) (credentials.Credentials, error) {
