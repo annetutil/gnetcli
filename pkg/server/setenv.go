@@ -11,10 +11,13 @@ import (
 // getSetEnv uses the first matching directive, as OpenSSH does. The supported
 // tokens are %n (the original client hostname) and %% (a literal percent).
 func (m authApp) getSetEnv(host string) (map[string]string, error) {
-	if !m.config.SshConfig {
+	if !m.config.SshConfig || m.sshConfig == nil {
 		return nil, nil
 	}
-	directives := m.getSSHConfigAll(host, "SetEnv")
+	directives, err := m.sshConfig.GetSetEnv(host)
+	if err != nil {
+		return nil, fmt.Errorf("SetEnv for %q: %w", host, err)
+	}
 	if len(directives) == 0 {
 		return nil, nil
 	}
@@ -62,6 +65,8 @@ func splitSetEnv(value string) ([]string, error) {
 		} else if ch == '"' || ch == '\'' {
 			quote = ch
 			started = true
+		} else if ch == '#' {
+			break
 		} else if ch == ' ' || ch == '\t' {
 			if started {
 				words = append(words, word.String())

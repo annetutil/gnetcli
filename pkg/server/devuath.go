@@ -54,6 +54,19 @@ func (m authApp) resolveProxyConfig(host string, ip netip.Addr) proxyConfig {
 }
 
 func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, error) {
+	result, err := m.getConnectionParams(host, params)
+	if err != nil {
+		return hostParams{}, err
+	}
+	if result.streamerType != pb.StreamerType_StreamerType_telnet {
+		result.environment, err = m.getSetEnv(host)
+	}
+	return result, err
+}
+
+// getConnectionParams defers transport-specific settings until the server has
+// merged per-request and previously stored HostParams.
+func (m authApp) getConnectionParams(host string, params *pb.HostParams) (hostParams, error) {
 	ip, port, err := makeHostConnectionParams(params)
 	if err != nil {
 		return hostParams{}, fmt.Errorf("host connection params: %w", err)
@@ -71,13 +84,6 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 	}
 
 	cfg := m.resolveProxyConfig(host, ip)
-	var environment map[string]string
-	if params.GetStreamerType() != pb.StreamerType_StreamerType_telnet {
-		environment, err = m.getSetEnv(host)
-		if err != nil {
-			return hostParams{}, err
-		}
-	}
 
 	creds, err := m.Get(host)
 	if err != nil {
@@ -90,7 +96,6 @@ func (m authApp) GetHostParams(host string, params *pb.HostParams) (hostParams, 
 		cfg.proxyJump, cfg.controlPath, cfg.connectHost,
 		params.GetStreamerType(),
 	)
-	result.environment = environment
 	return result, nil
 }
 
@@ -143,7 +148,7 @@ func NewAuthAppWithSSHConfig(config authAppConfig, logger *zap.Logger, sshConfig
 	if err != nil {
 		return authApp{}, err
 	}
-	return authApp{config: config, log: logger, sshConfig: parsedSSHConfigReader{config: parsedConfig}}, nil
+	return authApp{config: config, log: logger, sshConfig: parsedSSHConfigReader{config: parsedConfig, source: sshConfigText}}, nil
 }
 
 func (m authApp) getSSHConfig(host, key string) string {

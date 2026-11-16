@@ -45,3 +45,19 @@ Host *
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"SWITCH": "switch.example.net", "NOTE": "two words", "OTHER": "more words", "EMPTY": "", "EQ": "a=b", "PERCENT": "%n", "QUOTE": `a"b`}, params.environment)
 }
+
+func TestSetEnvQuotedHash(t *testing.T) {
+	for _, tc := range []struct{ name, assignment, want string }{
+		{"spaces", `NOTE="a # b"`, "a # b"},
+		{"single_quotes", `NOTE='a#b'`, "a#b"},
+		{"escaped_quote", `NOTE="a\"#b"`, `a"#b`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app, err := NewAuthAppWithSSHConfig(authAppConfig{SshConfig: true}, zap.NewNop(), "Host *\n SetEnv "+tc.assignment+" SWITCH=%n # real comment\n")
+			require.NoError(t, err)
+			params, err := app.GetHostParams("switch.example.net", nil)
+			require.NoError(t, err)
+			require.Equal(t, map[string]string{"NOTE": tc.want, "SWITCH": "switch.example.net"}, params.environment)
+		})
+	}
+}

@@ -523,7 +523,7 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 	if err != nil {
 		return hostParams{}, err
 	}
-	defaultHostParams, err := m.devAuthApp.GetHostParams(hostname, cmdParams)
+	defaultHostParams, err := m.devAuthApp.getConnectionParams(hostname, cmdParams)
 	if err != nil {
 		return hostParams{}, err
 	}
@@ -585,7 +585,12 @@ func (m *Server) getHostParams(hostname string, cmdParams *pb.HostParams) (hostP
 			res.device = cmdParams.Device
 		}
 	}
-	res.environment = defaultHostParams.environment
+	if res.streamerType != pb.StreamerType_StreamerType_telnet {
+		res.environment, err = m.devAuthApp.getSetEnv(hostname)
+		if err != nil {
+			return hostParams{}, err
+		}
+	}
 	// proxyJump only supported in defaultHostParams
 	if defaultHostParams.proxyJump != "" {
 		res.proxyJump = defaultHostParams.proxyJump
