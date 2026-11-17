@@ -6,10 +6,14 @@ import "github.com/kevinburke/ssh_config"
 type sshConfigReader interface {
 	Get(host, key string) string
 	GetAll(host, key string) []string
+	GetSetEnv(host string) ([]string, error)
 }
 
 // realSSHConfigReader reads from actual SSH config file.
-type realSSHConfigReader struct{}
+type realSSHConfigReader struct {
+	userConfigPath   string
+	systemConfigPath string
+}
 
 func (r realSSHConfigReader) Get(host, key string) string {
 	return ssh_config.Get(host, key)
@@ -20,6 +24,7 @@ func (r realSSHConfigReader) GetAll(host, key string) []string {
 }
 
 type parsedSSHConfigReader struct {
+	source string
 	config *ssh_config.Config
 }
 

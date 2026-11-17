@@ -626,3 +626,20 @@ func TestStreamerTypeSelection(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(telnetRes.GetOut()), "Cisco IOS Software")
 }
+
+func TestStoredTelnetParamsIgnoreSSHSetEnv(t *testing.T) {
+	ln, port := newTelnetServerPort(t)
+	ctx := t.Context()
+	go func() {
+		_ = gswitch.ServeTelnet(ctx, ln, gswitch.SSHServerOptions{Logger: zap.NewNop(), Username: "tester", Password: "test-password"})
+	}()
+	cfg := serverConfigFromYAML(t, "dev_auth:\n  ssh_config: true\n  login: tester\n  password: test-password\n")
+	client := newGnetcliTestClient(t, cfg, "Host stored-telnet\n User tester\n SetEnv SWITCH=%h\n", zap.NewNop())
+	_, err := client.SetupHostParams(ctx, &pb.HostParams{Host: "stored-telnet", Ip: "127.0.0.1", Port: port, Device: "cisco", StreamerType: pb.StreamerType_StreamerType_telnet})
+	require.NoError(t, err)
+	result, err := client.Exec(ctx, &pb.CMD{Host: "stored-telnet", Cmd: "show version"})
+	require.NoError(t, err)
+	require.Contains(t, string(result.GetOut()), "Cisco IOS Software")
+	_, err = client.Exec(ctx, &pb.CMD{Host: "stored-telnet", Cmd: "show version", HostParams: &pb.HostParams{StreamerType: pb.StreamerType_StreamerType_ssh}})
+	require.ErrorContains(t, err, "SetEnv")
+}
