@@ -65,7 +65,7 @@ func splitSetEnv(value string) ([]string, error) {
 		} else if ch == '"' || ch == '\'' {
 			quote = ch
 			started = true
-		} else if ch == '#' {
+		} else if ch == '#' && !started {
 			break
 		} else if ch == ' ' || ch == '\t' {
 			if started {

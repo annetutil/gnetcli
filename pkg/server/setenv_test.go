@@ -46,8 +46,10 @@ Host *
 	require.Equal(t, map[string]string{"SWITCH": "switch.example.net", "NOTE": "two words", "OTHER": "more words", "EMPTY": "", "EQ": "a=b", "PERCENT": "%n", "QUOTE": `a"b`}, params.environment)
 }
 
-func TestSetEnvQuotedHash(t *testing.T) {
+func TestSetEnvHash(t *testing.T) {
 	for _, tc := range []struct{ name, assignment, want string }{
+		{"unquoted", `NOTE=a#b`, "a#b"},
+		{"leading_hash", `NOTE=#b`, "#b"},
 		{"spaces", `NOTE="a # b"`, "a # b"},
 		{"single_quotes", `NOTE='a#b'`, "a#b"},
 		{"escaped_quote", `NOTE="a\"#b"`, `a"#b`},
