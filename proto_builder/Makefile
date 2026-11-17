@@ -8,7 +8,7 @@ PROTOC_VERSION = 3.17.3
 GO_VERSION = 1.25.1
 
 # https://github.com/protocolbuffers/protobuf-go/releases
-PROTOC_GEN_GO_VERSION = 1.26.0
+PROTOC_GEN_GO_VERSION = 1.36.11
 
 # https://github.com/grpc/grpc-go/releases
 PROTOC_GEN_GO_GRPC_VERSION = 1.1.0

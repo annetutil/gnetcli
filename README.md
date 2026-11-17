@@ -17,6 +17,8 @@ The project consist of go-library, GRPC server and CLI tool. It is typically use
 
 Documentation available [here](https://annetutil.github.io/gnetcli/).
 
+For structured device data, see [Starlark models: writing, running and testing models](models/README.md).
+
 ## Quick Start
 ### Go-library
 
