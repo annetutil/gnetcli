@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import os.path
 import uuid
@@ -169,6 +170,24 @@ class Gnetcli:
         stub = server_pb2_grpc.GnetcliStub(self._channel)
         response = await grpc_call_wrapper(stub.Exec, pbcmd)
         return response
+
+    async def collect_model(
+        self,
+        hostname: str,
+        model: str,
+        host_params: Optional[HostParams] = None,
+    ) -> Dict[str, Any]:
+        """Run a server-installed Starlark model, preserving integer precision."""
+        request = server_pb2.CollectModelRequest(
+            host=hostname,
+            model=model,
+            host_params=host_params.make_pb() if host_params else None,
+        )
+        if self._channel is None:
+            self._channel = self._grpc_channel_fn(self._server, options=self._options)
+        stub = server_pb2_grpc.GnetcliStub(self._channel)
+        response = await grpc_call_wrapper(stub.CollectModel, request)
+        return json.loads(response.json)
 
     async def add_device(
         self,

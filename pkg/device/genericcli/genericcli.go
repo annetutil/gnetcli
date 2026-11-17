@@ -379,7 +379,13 @@ func (m *GenericDevice) connectCLI(ctx context.Context) (err error) {
 	}
 	// TODO: fix case with question or manual login
 	if m.cli.initWait > 0 {
-		time.Sleep(m.cli.initWait)
+		timer := time.NewTimer(m.cli.initWait)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+		}
 	}
 	for _, command := range m.cli.autoCommands {
 		if _, err := m.ExecuteCtx(ctx, command); err != nil {
@@ -394,6 +400,9 @@ func (m *GenericDevice) Execute(command cmd.Cmd) (cmd.CmdRes, error) {
 }
 
 func (m *GenericDevice) ExecuteCtx(ctx context.Context, command cmd.Cmd) (cmd.CmdRes, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	m.logger.Debug("exec", zap.ByteString("command", command.Value()))
 	if !m.cliConnected {
 		// The CLI login deadline must not limit command execution.
@@ -571,6 +580,9 @@ func GenericExecute(ctx context.Context, command cmd.Cmd, connector streamer.Con
 		ctx = newCtx
 		defer cancel()
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if readTimeout := command.GetReadTimeout(); readTimeout > 0 {
 		prevTimeout := connector.SetReadTimeout(readTimeout)
 		defer connector.SetReadTimeout(prevTimeout)
@@ -629,8 +641,14 @@ func GenericExecute(ctx context.Context, command cmd.Cmd, connector streamer.Con
 	var lastPromptBeforeEchoError error
 	repeatedQuestionCount := 0
 	for { // pager loop
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		match, err := connector.ReadTo(ctx, exprs)
 		if err != nil {
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
 			var perr *streamer.ReadTimeoutException
 			if errors.As(err, &perr) {
 				// in some cases device messing up with output

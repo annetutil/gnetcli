@@ -10,6 +10,7 @@ nav:
     - Basic usage: basic_usage.md
     - New device: new_device.md
     - Vendor support skill: agent_skill.md
+    - Starlark models: models.md
     - CLI basic usage: basic_usage_cli.md
     - GRPC: grpc.md
     - GRPC-server basic usage: basic_usage_server.md
