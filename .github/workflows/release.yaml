@@ -26,6 +26,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
+          goversion: "1.25.8"
           project_path: ./cmd/gnetcli_server/
           binary_name: gnetcli_server
       - uses: wangyoucao577/go-release-action@v1
@@ -33,6 +34,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
+          goversion: "1.25.8"
           project_path: ./cmd/cli/
           binary_name: cli
 
