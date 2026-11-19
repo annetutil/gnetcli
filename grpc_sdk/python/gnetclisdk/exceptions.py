@@ -1,4 +1,4 @@
-from typing import Optional, Sequence, Tuple, Type, Union
+from typing import Dict, Optional, Sequence, Tuple, Type, Union
 from google.rpc import error_details_pb2, status_pb2
 import grpc.aio
 
@@ -105,6 +105,28 @@ class PermissionDenied(GnetcliException):
     pass
 
 
+# Maps the server's ErrorInfo.reason (set by gnetcli for execution- and
+# connect-phase failures) to an SDK exception type. This is the preferred,
+# type-stable classification; parse_grpc_error falls back to matching the
+# status detail string only when no reason is present.
+REASON_TO_EXCEPTION: Dict[str, Type[GnetcliException]] = {
+    # execution phase (a session was established, the command failed)
+    "error_eof": EOFError,
+    "error_question": ExecError,
+    "error_echo": ExecError,
+    "error_exec_timeout": ExecError,
+    "error_exec": ExecError,
+    "error_unknown": ExecError,
+    # connect phase (the session could not be established)
+    "error_auth": DeviceAuthError,
+    "error_handshake": DeviceConnectError,
+    "error_refused": DeviceConnectError,
+    "error_connect_timeout": DeviceConnectError,
+    "error_unreachable": DeviceConnectError,
+    "error_connect": DeviceConnectError,
+}
+
+
 def parse_grpc_error(grpc_error: grpc.aio.AioRpcError) -> Tuple[Type[GnetcliException], str]:
     rich_statuses = []
     for key, value in grpc_error.trailing_metadata():
@@ -140,10 +162,14 @@ def parse_grpc_error(grpc_error: grpc.aio.AioRpcError) -> Tuple[Type[GnetcliExce
     if code == grpc.StatusCode.OUT_OF_RANGE:
         return UnknownDevice, detail
     if code == grpc.StatusCode.INTERNAL:
-        if reason == "error_eof":  # new way: pass errors using error_details
-            verbose = str(metadata)
-            return EOFError, verbose
-        elif detail == "auth_device_error":
+        # Preferred: classify by ErrorInfo.reason (new way: pass errors using
+        # error_details). Covers error_eof plus the finer exec/connect reasons.
+        if reason:
+            exc = REASON_TO_EXCEPTION.get(reason)
+            if exc is not None:
+                return exc, str(metadata)
+        # Backwards-compatible fallback: classify by the status detail string.
+        if detail == "auth_device_error":
             verbose = ""
             return DeviceAuthError, verbose
         elif detail in {"connection_error", "busy_error"}:
