@@ -125,6 +125,11 @@ Some commands require interactive confirmation (e.g., "Reboot the system? [yes,n
 2. If a matching answer is found, it is sent to the device.
 3. If no answer is found, a `QuestionException` is raised.
 
+When a command supplies question patterns, those are the only question patterns tried during normal reads.
+The device question expression is used only after a read timeout to diagnose an unanswered
+question at the end of the received output. No answer is sent in this case. Without command
+question patterns, a matching device question still causes an immediate `QuestionException`.
+
 Questions can also appear during the login/connect phase (before the first prompt), where they are handled by `defaultAnswers` set via `WithAnswers()`.
 
 **Examples:**
