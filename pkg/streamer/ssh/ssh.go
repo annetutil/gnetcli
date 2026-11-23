@@ -262,14 +262,16 @@ func chanReader(ctx context.Context, reader io.Reader, stdoutBuffer chan []byte,
 	for {
 		readBuffer := make([]byte, defaultReadSize)
 		readLen, err := reader.Read(readBuffer)
+		if readLen > 0 {
+			logger.Debug("read", zap.ByteString("data", readBuffer[:readLen]))
+			tmpBuffer <- readBuffer[:readLen]
+		}
 		if err != nil {
 			// flush
 			close(tmpBuffer)
 			_ = wg.Wait()
 			return err
 		}
-		logger.Debug("read", zap.ByteString("data", readBuffer[:readLen]))
-		tmpBuffer <- readBuffer[:readLen]
 	}
 }
 

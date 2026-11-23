@@ -296,6 +296,20 @@ func TestRos(t *testing.T) {
 				byeMsg,
 			},
 		},
+		{
+			name:    "bracketed output resembling prompt preserved",
+			command: "/echo",
+			result:  "[alice@example.net\n",
+			dialog: [][]m.Action{
+				helloMsg,
+				{
+					m.Expect("/echo"),
+					m.Expect("\r\n"),
+					m.Send("/echo\r\n[alice@example.net\r\n[admin@router] >"),
+				},
+				byeMsg,
+			},
+		},
 	}
 
 	for i := range testCases {
