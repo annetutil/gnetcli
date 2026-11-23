@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"time"
 
 	"go.uber.org/zap"
@@ -609,11 +610,10 @@ func GenericExecute(ctx context.Context, command cmd.Cmd, connector streamer.Con
 	}
 
 	var buffer bytes.Buffer
-	cmdQuestions := command.GetQuestionExprs()
-
-	questions := []expr.Expr{cli.question}
-	if len(cmdQuestions) > 0 {
-		questions = append(cmdQuestions, questions...)
+	questions := command.GetQuestionExprs()
+	hasCommandQuestions := slices.ContainsFunc(questions, func(question expr.Expr) bool { return question != nil })
+	if !hasCommandQuestions {
+		questions = []expr.Expr{cli.question}
 	}
 
 	exprsAdd, exprsAddMap := command.GetExprCallback()
@@ -655,6 +655,16 @@ func GenericExecute(ctx context.Context, command cmd.Cmd, connector streamer.Con
 				outputErr := checkError(cli.error, perr.LastRead)
 				if outputErr != nil {
 					return nil, outputErr
+				}
+				// Don't let the default matcher consume a partial command question.
+				// Use it only to diagnose an unanswered question at the end of a read timeout.
+				if hasCommandQuestions && cli.question != nil && perr.Cause == nil {
+					if question, ok := cli.question.Match(perr.LastRead); ok && question.End == len(perr.LastRead) {
+						// Timeout cleanup may have collected bytes that complete a normal match.
+						if _, ok := exprs.Match(perr.LastRead); !ok {
+							return nil, device.ThrowQuestionException(perr.LastRead[question.Start:question.End])
+						}
+					}
 				}
 			}
 			// This case means we got prompt without echo previously.
