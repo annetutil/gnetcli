@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"go.uber.org/zap"
-	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -45,13 +44,6 @@ var errWrongReadTimeout = errors.New("wrong read timeout")
 var errWrongCmdTimeout = errors.New("wrong cmd timeout")
 var errDevDuplicate = errors.New("duplicated device type")
 
-type ExecErrorType string
-
-const (
-	ErrorTypeEOF     ExecErrorType = "error_eof"
-	ErrorTypeUnknown ExecErrorType = "error_unknown"
-)
-
 type Server struct {
 	modelRunner *models.Runner
 	pb.UnimplementedGnetcliServer
@@ -75,22 +67,6 @@ type hostParams struct {
 	environment  map[string]string
 	host         string
 	streamerType pb.StreamerType
-}
-
-func makeGRPCDeviceExecError(err error) error {
-	reason := ErrorTypeUnknown
-	if errors.Is(err, &streamer.EOFException{}) {
-		reason = ErrorTypeEOF
-	}
-	msg := err.Error()
-	st := status.New(codes.Internal, msg)
-	rv, _ := st.WithDetails(
-		&errdetails.ErrorInfo{
-			Reason:   string(reason),
-			Metadata: map[string]string{"err": err.Error()},
-		},
-	)
-	return rv.Err()
 }
 
 func NewHostParams(creds credentials.Credentials, device string, ip netip.Addr, port int, proxyJump, controlPath, host string, streamerType pb.StreamerType) hostParams {
@@ -326,7 +302,7 @@ func (m *Server) ExecChat(stream pb.Gnetcli_ExecChatServer) error {
 	logger.Info("connect")
 	err = devInited.Connect(ctx)
 	if err != nil {
-		return status.Error(codes.Internal, err.Error())
+		return makeGRPCConnectError(err)
 	}
 	defer devInited.Close()
 
